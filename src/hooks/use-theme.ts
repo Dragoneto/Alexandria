@@ -8,7 +8,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export function useTheme() {
   const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
 
-  return Colors[theme];
+  // `useColorScheme()` pode devolver null no nativo, apesar do .d.ts do React Native
+  // declarar o contrário. Normalizamos em vez de indexar `Colors` com valor inválido.
+  return Colors[scheme === 'dark' ? 'dark' : 'light'];
 }
