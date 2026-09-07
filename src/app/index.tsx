@@ -1,128 +1,111 @@
-import { useState } from 'react';
-import {
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  View,
-  Text,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const GOLD = '#f4b860';
-const CYAN = '#5ce0d2';
-const BG = '#0a0e13';
-const CARD_BG = 'rgba(14, 21, 28, 0.82)';
-const BORDER = 'rgba(204, 214, 246, 0.08)';
-const WHITE = '#ffffff';
-const TEXT_PRIMARY = '#d7e2ef';
-const TEXT_SECONDARY = '#b9c5d7';
-const TEXT_MUTED = '#94a3b8';
+import { ActionButton } from '@/components/action-button';
+import {
+  Accent,
+  DSFonts,
+  Ink,
+  Mint,
+  Radius,
+  ScreenInset,
+  Shadow,
+  Space,
+  TextColor,
+  withAlpha,
+} from '@/constants/design-system';
 
-export default function HomeScreen() {
+const HIGHLIGHTS = [
+  {
+    icon: { ios: 'books.vertical.fill', android: 'library_books', web: 'library_books' },
+    tint: Accent.laurel,
+    title: 'Sua estante',
+    description: 'Organize o que já leu, o que está lendo e o que ficou para depois.',
+  },
+  {
+    icon: { ios: 'person.2.fill', android: 'groups', web: 'groups' },
+    tint: Accent.lilac,
+    title: 'Comunidade',
+    description: 'Resenhas, listas e atividades recentes de outros leitores.',
+  },
+  {
+    icon: { ios: 'sparkle.magnifyingglass', android: 'travel_explore', web: 'travel_explore' },
+    tint: Accent.sapphire,
+    title: 'Descobertas',
+    description: 'Lançamentos e clássicos filtrados por gênero, autor ou título.',
+  },
+] as const;
+
+export default function WelcomeScreen() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [error, setError] = useState('');
-
-  const handleSearch = () => {
-    const normalized = searchTerm.trim();
-    if (!normalized) {
-      setError('Digite o título de um livro para continuar.');
-      return;
-    }
-    setError('');
-    router.push(`/explore?q=${encodeURIComponent(normalized)}` as any);
-  };
 
   return (
     <View style={styles.root}>
+      {/* Halo de marca — decorativo, atrás do conteúdo */}
+      <View pointerEvents="none" style={styles.halo} />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         <SafeAreaView style={styles.safe}>
-
-          {/* ── HERO ── */}
-          <View style={styles.hero}>
-            <Text style={styles.kicker}>Alexandria</Text>
-            <Text style={styles.heading}>
-              Sua biblioteca pessoal{'\n'}começa aqui.
-            </Text>
-            <Text style={styles.subtitle}>
-              Descubra, organize e lembre dos livros que importam — tudo em um lugar só.
-            </Text>
+          {/* ── MARCA ── */}
+          <View style={styles.brand}>
+            <View style={styles.logoPlate}>
+              <Image
+                source={require('@/assets/images/logo_app.png')}
+                style={styles.logo}
+                contentFit="contain"
+                accessibilityLabel="Logo do Alexandria"
+              />
+            </View>
+            <Text style={styles.wordmark}>ALEXANDRIA</Text>
           </View>
 
-          {/* ── SEARCH ── */}
-          <View style={styles.searchCard}>
-            <Text style={styles.searchLabel}>Buscar no catálogo</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex.: Machado de Assis"
-              placeholderTextColor={TEXT_MUTED}
-              value={searchTerm}
-              onChangeText={(v) => {
-                setSearchTerm(v);
-                if (error) setError('');
-              }}
-              onSubmitEditing={handleSearch}
-              returnKeyType="search"
-            />
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={handleSearch}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.searchButtonText}>Explorar</Text>
-            </TouchableOpacity>
-            {!!error && <Text style={styles.errorText}>{error}</Text>}
-          </View>
+          {/* ── DISPLAY ── */}
+          <Text style={styles.display}>
+            Descubra, organize{'\n'}e compartilhe{'\n'}suas leituras
+          </Text>
 
-          {/* ── FEATURES ── */}
-          <View style={styles.featuresSection}>
-            <Text style={styles.sectionKicker}>O que você encontra</Text>
+          <Text style={styles.body}>
+            O Alexandria é sua biblioteca virtual e comunidade literária. Guarde o que leu, planeje
+            o que vem a seguir e acompanhe as descobertas de outros leitores.
+          </Text>
 
-            {[
-              { num: '01', title: 'Busca', desc: 'Pesquise obras pelo catálogo e veja título, autor, capa e descrição.' },
-              { num: '02', title: 'Biblioteca', desc: 'Salve livros e mantenha sua estante organizada em um só lugar.' },
-              { num: '03', title: 'Avaliação', desc: 'Registre notas e resenhas sobre cada obra que você ler.' },
-            ].map((f) => (
-              <View key={f.num} style={styles.featureRow}>
-                <Text style={styles.featureNum}>{f.num}</Text>
-                <View style={styles.featureContent}>
-                  <Text style={styles.featureTitle}>{f.title}</Text>
-                  <Text style={styles.featureDesc}>{f.desc}</Text>
+          {/* ── DESTAQUES ── */}
+          <View style={styles.highlights}>
+            {HIGHLIGHTS.map((item) => (
+              <View key={item.title} style={styles.card}>
+                <View
+                  style={[
+                    styles.cardBadge,
+                    {
+                      backgroundColor: withAlpha(item.tint, 0.14),
+                      borderColor: withAlpha(item.tint, 0.4),
+                    },
+                  ]}>
+                  <SymbolView name={item.icon} size={30} weight="semibold" tintColor={item.tint} />
+                </View>
+                <View style={styles.cardContent}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardDescription}>{item.description}</Text>
                 </View>
               </View>
             ))}
           </View>
 
-          {/* ── CTA ── */}
-          <View style={styles.ctaSection}>
-            <Text style={styles.ctaText}>
-              Estamos preparando tudo.{'\n'}
-              Enquanto isso, explore o catálogo.
-            </Text>
-            <TouchableOpacity
-              style={styles.ctaButton}
-              onPress={() => router.push('/explore' as any)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.ctaButtonText}>Ver catálogo</Text>
-            </TouchableOpacity>
+          {/* ── AÇÃO ── */}
+          <View style={styles.actions}>
+            <ActionButton label="Começar agora" onPress={() => router.push('/cadastro')} />
+            <ActionButton
+              label="Já tenho conta"
+              variant="ghost"
+              onPress={() => router.push('/login')}
+            />
           </View>
-
-          {/* ── FOOTER TAGS ── */}
-          <View style={styles.tagsRow}>
-            {['Busca de livros', 'Biblioteca pessoal', 'Notas e resenhas'].map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-
         </SafeAreaView>
       </ScrollView>
     </View>
@@ -132,7 +115,17 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: Ink.ink900,
+  },
+  halo: {
+    position: 'absolute',
+    top: -140,
+    alignSelf: 'center',
+    width: 380,
+    height: 380,
+    borderRadius: Radius.pill,
+    backgroundColor: Mint.mint400,
+    opacity: 0.07,
   },
   scroll: {
     flex: 1,
@@ -142,170 +135,114 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-
-  // Hero
-  hero: {
-    paddingTop: 48,
-    paddingBottom: 32,
-    gap: 14,
-  },
-  kicker: {
-    color: GOLD,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  heading: {
-    color: WHITE,
-    fontSize: 32,
-    fontWeight: '900',
-    lineHeight: 38,
-  },
-  subtitle: {
-    color: TEXT_SECONDARY,
-    fontSize: 15,
-    lineHeight: 23,
-    maxWidth: 340,
-  },
-
-  // Search card
-  searchCard: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(92, 224, 210, 0.16)',
-    backgroundColor: 'rgba(9, 13, 18, 0.72)',
-    gap: 12,
-    marginBottom: 32,
-  },
-  searchLabel: {
-    color: TEXT_MUTED,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: 'rgba(204, 214, 246, 0.15)',
-    borderRadius: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: WHITE,
-    fontSize: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  searchButton: {
-    paddingVertical: 13,
-    borderRadius: 6,
-    backgroundColor: CYAN,
+    paddingHorizontal: ScreenInset,
+    paddingBottom: Space.twelve,
     alignItems: 'center',
   },
-  searchButtonText: {
-    color: '#0a0e13',
-    fontWeight: '800',
-    fontSize: 14,
+
+  // Marca
+  brand: {
+    alignItems: 'center',
+    marginTop: Space.twelve,
+    gap: Space.four,
   },
-  errorText: {
-    color: '#ff6b6b',
+  logoPlate: {
+    width: 168,
+    height: 168,
+    borderRadius: Radius.pill,
+    backgroundColor: Ink.ink700,
+    borderWidth: 1,
+    borderColor: Ink.ink500,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.e2,
+  },
+  logo: {
+    width: 104,
+    height: 132,
+  },
+  wordmark: {
+    fontFamily: DSFonts.ui,
     fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 4,
+    color: TextColor.primary,
   },
 
-  // Features
-  featuresSection: {
-    gap: 12,
-    marginBottom: 32,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-    paddingTop: 28,
+  // Display · serifa 34/38
+  display: {
+    marginTop: Space.eight,
+    fontFamily: DSFonts.display,
+    fontSize: 34,
+    lineHeight: 38,
+    color: TextColor.primary,
+    textAlign: 'center',
   },
-  sectionKicker: {
-    color: GOLD,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 6,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    gap: 16,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(204, 214, 246, 0.1)',
-    backgroundColor: CARD_BG,
-    alignItems: 'flex-start',
-  },
-  featureNum: {
-    color: CYAN,
-    fontSize: 12,
-    fontWeight: '900',
-    width: 24,
-    paddingTop: 2,
-  },
-  featureContent: {
-    flex: 1,
-    gap: 4,
-  },
-  featureTitle: {
-    color: WHITE,
+
+  // Corpo · sans 15/24 · 400
+  body: {
+    marginTop: Space.four,
+    fontFamily: DSFonts.ui,
     fontSize: 15,
-    fontWeight: '700',
+    lineHeight: 24,
+    fontWeight: '400',
+    color: TextColor.secondary,
+    textAlign: 'center',
+    maxWidth: 320,
   },
-  featureDesc: {
-    color: TEXT_MUTED,
+
+  // Destaques
+  highlights: {
+    alignSelf: 'stretch',
+    marginTop: Space.eight,
+    gap: Space.three,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.four,
+    padding: Space.four,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
+    borderWidth: 1,
+    borderColor: Ink.ink500,
+    ...Shadow.e1,
+  },
+  // Selo do ícone — véu e borda derivados do próprio acento do cartão
+  cardBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: Radius.sheet,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardContent: {
+    flex: 1,
+    gap: Space.one,
+  },
+  // Rótulo forte · sans 16/22 · 700
+  cardTitle: {
+    fontFamily: DSFonts.ui,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
+    color: TextColor.primary,
+  },
+  // Corpo pequeno · sans 13/20 · 500
+  cardDescription: {
+    fontFamily: DSFonts.ui,
     fontSize: 13,
     lineHeight: 20,
+    fontWeight: '500',
+    color: TextColor.secondary,
   },
 
-  // CTA
-  ctaSection: {
-    gap: 16,
-    marginBottom: 28,
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
-    paddingTop: 28,
-  },
-  ctaText: {
-    color: TEXT_SECONDARY,
-    fontSize: 15,
-    lineHeight: 23,
-  },
-  ctaButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: 12,
-    paddingHorizontal: 28,
-    borderRadius: 6,
-    backgroundColor: CYAN,
-  },
-  ctaButtonText: {
-    color: '#0a0e13',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-
-  // Tags
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingTop: 8,
-  },
-  tag: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(204, 214, 246, 0.1)',
-    backgroundColor: 'rgba(17, 24, 32, 0.68)',
-  },
-  tagText: {
-    color: TEXT_SECONDARY,
-    fontSize: 12,
-    fontWeight: '700',
+  // Ação
+  actions: {
+    alignSelf: 'stretch',
+    marginTop: Space.eight,
+    gap: Space.three,
+    alignItems: 'center',
   },
 });

@@ -1,18 +1,25 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { AppErrorBoundary } from '@/components/app-error-boundary';
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {
+  // Chamada dupla (fast refresh) rejeita — ignorar.
+});
 
-export default function TabLayout() {
+/** Usado pelo expo-router no lugar da tela genérica "Something went wrong". */
+export const ErrorBoundary = AppErrorBoundary;
+
+export default function RootLayout() {
   const colorScheme = useColorScheme();
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <AppTabs />
+      {/* Sem barra de abas: a apresentação é a única tela de entrada. */}
+      <Stack screenOptions={{ headerShown: false }} />
     </ThemeProvider>
   );
 }
