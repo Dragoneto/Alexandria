@@ -18,7 +18,6 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      {/* Sem barra de abas: a apresentação é a única tela de entrada. */}
       <Stack screenOptions={{ headerShown: false }} />
     </ThemeProvider>
   );

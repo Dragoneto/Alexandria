@@ -1,6 +1,24 @@
-import AppTabs from '@/components/app-tabs';
+import { Tabs } from 'expo-router';
+import { useColorScheme } from 'react-native';
 
-/** Área logada: aqui volta a barra de abas com Home e Explore. */
+import { Colors } from '@/constants/theme';
+
 export default function TabsLayout() {
-  return <AppTabs />;
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: { backgroundColor: colors.background },
+      }}
+    >
+      <Tabs.Screen name="home" options={{ title: 'Home' }} />
+      <Tabs.Screen name="explore" options={{ title: 'Explore' }} />
+      <Tabs.Screen name="biblioteca" options={{ title: 'Biblioteca' }} />
+    </Tabs>
+  );
 }
