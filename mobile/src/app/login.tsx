@@ -51,7 +51,9 @@ export default function LoginScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => {}}
+          onPress={() =>
+            router.push({ pathname: '/esqueci-senha', params: { email: email.trim() } })
+          }
           style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}>
           <Text style={styles.forgotLabel}>Esqueci minha senha</Text>
         </Pressable>
