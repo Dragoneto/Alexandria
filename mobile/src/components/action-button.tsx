@@ -26,7 +26,7 @@ export function ActionButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      accessibilityState={{ busy: loading, disabled: loading }}
+      aria-busy={loading}
       disabled={loading}
       onPress={onPress}
       style={({ pressed }) => [
