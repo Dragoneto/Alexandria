@@ -6,6 +6,7 @@ import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { saveAuth } from '@/services/auth-storage';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -13,7 +14,14 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    await saveAuth({
+      token: 'mock-token',
+      id: 1,
+      name: 'Usuário Teste',
+      email: 'teste@alexandria.com',
+    });
+
     router.replace('/home');
   };
 
