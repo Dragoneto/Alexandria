@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
+import { API_URL } from '@/constants/api';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 
 export default function LoginScreen() {
@@ -12,9 +13,41 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    router.replace('/home');
+  const handleSubmit = async () => {
+    if (!email || !password) {
+      Alert.alert('Erro', 'Preencha todos os campos');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          senha: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Erro', data.error || 'Erro ao fazer login');
+        return;
+      }
+
+      // Login bem sucedido! O token está em data.token
+      // Por enquanto, navega direto pro home
+      // Futuramente: salvar o token com AsyncStorage/SecureStore
+      router.replace('/home');
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível conectar ao servidor');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
