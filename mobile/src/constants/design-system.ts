@@ -66,7 +66,7 @@ export const DSFonts = Platform.select({
   ios: { display: 'Georgia', ui: 'system-ui' },
   android: { display: 'serif', ui: 'sans-serif' },
   default: { display: 'serif', ui: 'System' },
-  web: { display: "Georgia, 'Iowan Old Style', serif", ui: "var(--font-display)" },
+  web: { display: "Georgia, 'Iowan Old Style', serif", ui: 'var(--font-display)' },
 });
 
 /** Escala de espaço — grid de 4 pt */
