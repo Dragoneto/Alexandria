@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
+import { API_URL } from '@/constants/api';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 
 export default function SignUpScreen() {
@@ -14,9 +15,47 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
-    router.replace('/home');
+  const handleSubmit = async () => {
+    // Validações básicas
+    if (!name || !email || !password || !confirmation) {
+      Alert.alert('Erro', 'Preencha todos os campos');
+      return;
+    }
+
+    if (password !== confirmation) {
+      Alert.alert('Erro', 'As senhas não coincidem');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome: name,
+          email,
+          senha: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Erro', data.error || 'Erro ao cadastrar');
+        return;
+      }
+
+      Alert.alert('Sucesso!', 'Conta criada com sucesso!', [
+        { text: 'Fazer login', onPress: () => router.replace('/login') },
+      ]);
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível conectar ao servidor');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
