@@ -5,8 +5,8 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
-import { API_URL } from '@/constants/api';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { getApiUrl } from '@/constants/env';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
