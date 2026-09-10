@@ -5,6 +5,8 @@
  * compartilhado da issue #3 existir, as chamadas daqui passam a usá-lo.
  */
 
+import { getApiUrl } from '@/constants/env';
+
 const REQUEST_TIMEOUT_MS = 15000;
 
 export type ForgotPasswordResponse = {
@@ -41,9 +43,7 @@ export async function requestPasswordReset(
   email: string,
   { timeoutMs = REQUEST_TIMEOUT_MS }: RequestOptions = {},
 ): Promise<ForgotPasswordResponse> {
-  // O Expo só embute a variável quando ela aparece escrita por extenso
-  const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
-  const baseUrl = configuredUrl?.replace(/\/+$/, '');
+  const baseUrl = getApiUrl();
 
   if (!baseUrl) {
     throw new ApiError('config', 'EXPO_PUBLIC_API_URL não configurada. Veja mobile/.env.example');
