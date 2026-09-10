@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import { DSFonts, Ink, Mint, Radius, Shadow, TouchMin } from '@/constants/design-system';
 
@@ -8,6 +8,8 @@ type ActionButtonProps = {
   /** `primary` é a pílula de menta com glow; `ghost` é a versão contornada. */
   variant?: 'primary' | 'ghost';
   accessibilityLabel?: string;
+  /** Mostra o indicador de carregamento e bloqueia novos toques. */
+  loading?: boolean;
 };
 
 /** Botão de ação do design system — menta é a única cor de ação. */
@@ -16,6 +18,7 @@ export function ActionButton({
   onPress,
   variant = 'primary',
   accessibilityLabel,
+  loading = false,
 }: ActionButtonProps) {
   const isPrimary = variant === 'primary';
 
@@ -23,15 +26,21 @@ export function ActionButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityState={{ busy: loading, disabled: loading }}
+      disabled={loading}
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
         isPrimary ? styles.primary : styles.ghost,
         pressed && (isPrimary ? styles.primaryPressed : styles.ghostPressed),
       ]}>
-      <Text style={[styles.label, isPrimary ? styles.primaryLabel : styles.ghostLabel]}>
-        {label}
-      </Text>
+      {loading ? (
+        <ActivityIndicator color={isPrimary ? Ink.ink900 : Mint.mint400} />
+      ) : (
+        <Text style={[styles.label, isPrimary ? styles.primaryLabel : styles.ghostLabel]}>
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
