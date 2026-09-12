@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
+
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
+import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
 import { API_URL } from '@/constants/api';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
@@ -16,6 +17,8 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
+  // Preenchido quando o cadastro dá certo; enquanto não for null, o popup fica aberto
+  const [nomeCadastrado, setNomeCadastrado] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     // Validações básicas
@@ -48,9 +51,7 @@ export default function SignUpScreen() {
         return;
       }
 
-      Alert.alert('Sucesso!', 'Conta criada com sucesso!', [
-        { text: 'Fazer login', onPress: () => router.replace('/login') },
-      ]);
+      setNomeCadastrado(data.user?.nome ?? name);
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível conectar ao servidor');
     } finally {
@@ -117,7 +118,7 @@ export default function SignUpScreen() {
       </View>
 
       <View style={styles.actions}>
-        <ActionButton label="Criar conta" onPress={handleSubmit} />
+        <ActionButton label="Criar conta" onPress={handleSubmit} loading={loading} />
         <Text style={styles.terms}>
           Ao criar a conta você concorda com os termos de uso e a política de privacidade.
         </Text>
@@ -132,6 +133,15 @@ export default function SignUpScreen() {
           <Text style={styles.footerLink}>Entrar</Text>
         </Pressable>
       </View>
+
+      <PopupCadastroConcluido
+        visible={nomeCadastrado !== null}
+        nome={nomeCadastrado ?? undefined}
+        onConfirm={() => {
+          setNomeCadastrado(null);
+          router.replace('/login');
+        }}
+      />
     </AuthShell>
   );
 }
