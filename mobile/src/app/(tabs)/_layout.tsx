@@ -1,4 +1,4 @@
-﻿import { Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Image, useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
@@ -16,8 +16,7 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
         },
-      }}
-    >
+      }}>
       <Tabs.Screen
         name="home"
         options={{

@@ -4,7 +4,15 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
-import { DSFonts, Ink, Mint, Radius, ScreenInset, Space, TextColor } from '@/constants/design-system';
+import {
+  DSFonts,
+  Ink,
+  Mint,
+  Radius,
+  ScreenInset,
+  Space,
+  TextColor,
+} from '@/constants/design-system';
 import { apiRequest } from '@/services/api';
 import { clearAuth, getAuth } from '@/services/auth-storage';
 
@@ -51,7 +59,7 @@ export default function PerfilScreen() {
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, []),
   );
 
   const avatarInitial = (profile?.name?.trim() || profile?.email?.trim() || '?')
