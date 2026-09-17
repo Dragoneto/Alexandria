@@ -1,11 +1,27 @@
 /**
- * Chamadas de autenticação ao backend.
- *
- * Por enquanto só o forgot-password (issue #11). Quando o cliente HTTP
- * compartilhado da issue #3 existir, as chamadas daqui passam a usá-lo.
+ * Autenticação contra o backend Spring Boot (AuthController).
+ * Os nomes de campo seguem os DTOs do backend: name, email, password.
  */
 
-const REQUEST_TIMEOUT_MS = 15000;
+import { request } from '@/services/http';
+
+export { ApiError } from '@/services/http';
+export type { ApiErrorKind } from '@/services/http';
+
+/** AuthResponse do backend. */
+export type AuthResponse = {
+  token: string;
+  email: string;
+  name: string;
+  userId: number;
+};
+
+/** UserProfileResponse do backend. */
+export type UserProfile = {
+  id: number;
+  name: string;
+  email: string;
+};
 
 export type ForgotPasswordResponse = {
   message: string;
@@ -13,80 +29,37 @@ export type ForgotPasswordResponse = {
   resetUrl: string | null;
 };
 
-export type ApiErrorKind = 'validation' | 'network' | 'server' | 'config';
-
-export class ApiError extends Error {
-  kind: ApiErrorKind;
-  fieldErrors?: Record<string, string>;
-
-  constructor(kind: ApiErrorKind, message: string, fieldErrors?: Record<string, string>) {
-    super(message);
-    this.name = 'ApiError';
-    this.kind = kind;
-    this.fieldErrors = fieldErrors;
-  }
+export function login(email: string, password: string) {
+  return request<AuthResponse>('/api/auth/login', {
+    method: 'POST',
+    auth: false,
+    body: { email: email.trim().toLowerCase(), password },
+  });
 }
 
-/** Corpo de erro do backend (ErrorResponse do Spring). */
-type ErrorBody = {
-  message?: string;
-  errors?: Record<string, string> | null;
-};
+export function register(name: string, email: string, password: string) {
+  return request<AuthResponse>('/api/auth/register', {
+    method: 'POST',
+    auth: false,
+    body: { name: name.trim(), email: email.trim().toLowerCase(), password },
+  });
+}
 
-type RequestOptions = {
-  timeoutMs?: number;
-};
+export function fetchProfile() {
+  return request<UserProfile>('/api/auth/profile');
+}
 
-export async function requestPasswordReset(
-  email: string,
-  { timeoutMs = REQUEST_TIMEOUT_MS }: RequestOptions = {},
-): Promise<ForgotPasswordResponse> {
-  // O Expo só embute a variável quando ela aparece escrita por extenso
-  const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
-  const baseUrl = configuredUrl?.replace(/\/+$/, '');
+export function updateProfile(name: string, email: string) {
+  return request<AuthResponse>('/api/auth/profile', {
+    method: 'PUT',
+    body: { name: name.trim(), email: email.trim().toLowerCase() },
+  });
+}
 
-  if (!baseUrl) {
-    throw new ApiError('config', 'EXPO_PUBLIC_API_URL não configurada. Veja mobile/.env.example');
-  }
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  let response: Response;
-
-  try {
-    response = await fetch(`${baseUrl}/api/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-      signal: controller.signal,
-    });
-  } catch {
-    throw new ApiError('network', 'Não foi possível conectar ao servidor.');
-  } finally {
-    clearTimeout(timer);
-  }
-
-  let body: unknown;
-
-  try {
-    body = await response.json();
-  } catch {
-    throw new ApiError('server', `Resposta inválida do servidor (HTTP ${response.status}).`);
-  }
-
-  if (response.status === 400) {
-    const { message, errors } = (body ?? {}) as ErrorBody;
-    const fieldErrors = errors ?? undefined;
-
-    throw new ApiError('validation', fieldErrors?.email ?? message ?? 'Dados inválidos.', fieldErrors);
-  }
-
-  if (!response.ok) {
-    const { message } = (body ?? {}) as ErrorBody;
-
-    throw new ApiError('server', message ?? `Erro HTTP ${response.status}.`);
-  }
-
-  return body as ForgotPasswordResponse;
+export function requestPasswordReset(email: string) {
+  return request<ForgotPasswordResponse>('/api/auth/forgot-password', {
+    method: 'POST',
+    auth: false,
+    body: { email: email.trim().toLowerCase() },
+  });
 }
