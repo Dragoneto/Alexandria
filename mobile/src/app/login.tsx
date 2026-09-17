@@ -1,19 +1,29 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
+import { API_URL } from '@/constants/api';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { saveAuth } from '@/services/auth-storage';
 
 export default function LoginScreen() {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    await saveAuth({
+      token: 'mock-token',
+      id: 1,
+      name: 'Usuário Teste',
+      email: 'teste@alexandria.com',
+    });
+
     router.replace('/home');
   };
 
@@ -51,7 +61,9 @@ export default function LoginScreen() {
 
         <Pressable
           accessibilityRole="button"
-          onPress={() => {}}
+          onPress={() =>
+            router.push({ pathname: '/esqueci-senha', params: { email: email.trim() } })
+          }
           style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}>
           <Text style={styles.forgotLabel}>Esqueci minha senha</Text>
         </Pressable>
