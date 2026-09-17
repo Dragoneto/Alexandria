@@ -4,4 +4,4 @@
 //
 // ⚠️ Se o seu IP mudar, atualize aqui!
 // Você pode ver o IP no output do Expo (exp://192.168.X.X:8081)
-export const API_URL = 'https://backend-production-ddd2.up.railway.app';
+export { API_URL } from '@/constants/env';
