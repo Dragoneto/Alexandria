@@ -5,8 +5,8 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
-import { API_URL } from '@/constants/api';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { ApiError, login } from '@/services/auth';
 import { saveAuth } from '@/services/auth-storage';
 
 export default function LoginScreen() {
@@ -17,14 +17,34 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    await saveAuth({
-      token: 'mock-token',
-      id: 1,
-      name: 'Usuário Teste',
-      email: 'teste@alexandria.com',
-    });
+    if (loading) return;
 
-    router.replace('/home');
+    if (!email.trim() || !password) {
+      Alert.alert('Erro', 'Preencha o e-mail e a senha.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const auth = await login(email, password);
+
+      await saveAuth({
+        token: auth.token,
+        id: auth.userId,
+        name: auth.name,
+        email: auth.email,
+      });
+
+      router.replace('/home');
+    } catch (error) {
+      Alert.alert(
+        'Erro',
+        error instanceof ApiError ? error.message : 'Não foi possível entrar. Tente de novo.',
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,7 +90,7 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.actions}>
-        <ActionButton label="Entrar" onPress={handleSubmit} />
+        <ActionButton label="Entrar" onPress={handleSubmit} loading={loading} />
       </View>
 
       <View style={styles.footer}>
