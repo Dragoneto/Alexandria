@@ -6,8 +6,12 @@ import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
-import { API_URL } from '@/constants/api';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { ApiError, register } from '@/services/auth';
+import { saveAuth } from '@/services/auth-storage';
+
+/** Mesmo mínimo exigido pelo backend. */
+const MIN_SENHA = 8;
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -21,8 +25,9 @@ export default function SignUpScreen() {
   const [nomeCadastrado, setNomeCadastrado] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    // Validações básicas
-    if (!name || !email || !password || !confirmation) {
+    if (loading) return;
+
+    if (!name.trim() || !email.trim() || !password || !confirmation) {
       Alert.alert('Erro', 'Preencha todos os campos');
       return;
     }
@@ -32,28 +37,29 @@ export default function SignUpScreen() {
       return;
     }
 
+    if (password.length < MIN_SENHA) {
+      Alert.alert('Erro', `A senha precisa ter ao menos ${MIN_SENHA} caracteres`);
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: name,
-          email,
-          senha: password,
-        }),
+      const auth = await register(name, email, password);
+
+      await saveAuth({
+        token: auth.token,
+        id: auth.userId,
+        name: auth.name,
+        email: auth.email,
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert('Erro', data.error || 'Erro ao cadastrar');
-        return;
-      }
-
-      setNomeCadastrado(data.user?.nome ?? name);
+      setNomeCadastrado(auth.name);
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível conectar ao servidor');
+      Alert.alert(
+        'Erro',
+        error instanceof ApiError ? error.message : 'Não foi possível conectar ao servidor',
+      );
     } finally {
       setLoading(false);
     }
