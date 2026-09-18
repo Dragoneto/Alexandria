@@ -3,10 +3,19 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+
 import { ActionButton } from '@/components/action-button';
-import { DSFonts, Ink, Mint, Radius, ScreenInset, Space, TextColor } from '@/constants/design-system';
-import { apiRequest } from '@/services/api';
-import { clearAuth, getAuth } from '@/services/auth-storage';
+import {
+  DSFonts,
+  Ink,
+  Mint,
+  Radius,
+  ScreenInset,
+  Space,
+  TextColor,
+} from '@/constants/design-system';
+import { fetchProfile } from '@/services/auth';
+import { clearAuth } from '@/services/auth-storage';
 
 type ProfileData = {
   name: string;
@@ -29,8 +38,7 @@ export default function PerfilScreen() {
         setError('');
 
         try {
-          const auth = await getAuth();
-          const response = await apiRequest('/api/auth/profile', { token: auth?.token });
+          const response = await fetchProfile();
 
           if (isMounted) {
             setProfile(response);
@@ -51,7 +59,7 @@ export default function PerfilScreen() {
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, []),
   );
 
   const avatarInitial = (profile?.name?.trim() || profile?.email?.trim() || '?')

@@ -1,13 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  Alert,
-  Image,
-  StyleSheet,
-} from 'react-native';
+import { View, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -105,7 +97,7 @@ export default function Biblioteca() {
         if (item.favorito) acc.favoritos += 1;
         return acc;
       },
-      { total: 0, lendo: 0, favoritos: 0 }
+      { total: 0, lendo: 0, favoritos: 0 },
     );
   }, [items]);
 
@@ -132,12 +124,17 @@ export default function Biblioteca() {
   return (
     <ThemedView style={styles.root}>
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
-
             {/* HEADER */}
-            <ThemedText themeColor="accent" style={styles.eyebrow}>Biblioteca</ThemedText>
-            <ThemedText type="title" style={styles.title}>Sua estante de leitura</ThemedText>
+            <ThemedText themeColor="accent" style={styles.eyebrow}>
+              Biblioteca
+            </ThemedText>
+            <ThemedText type="title" style={styles.title}>
+              Sua estante de leitura
+            </ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.subtitle}>
               Organize livros salvos, acompanhe status e marque favoritos.
             </ThemedText>
@@ -146,20 +143,29 @@ export default function Biblioteca() {
             <View style={styles.statsRow}>
               <ThemedView type="backgroundElement" style={styles.statCard}>
                 <ThemedText style={styles.statNumber}>{counters.total}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>Total</ThemedText>
+                <ThemedText themeColor="textMuted" style={styles.statLabel}>
+                  Total
+                </ThemedText>
               </ThemedView>
               <ThemedView type="backgroundElement" style={styles.statCard}>
                 <ThemedText style={styles.statNumber}>{counters.lendo}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>Lendo</ThemedText>
+                <ThemedText themeColor="textMuted" style={styles.statLabel}>
+                  Lendo
+                </ThemedText>
               </ThemedView>
               <ThemedView type="backgroundElement" style={styles.statCard}>
                 <ThemedText style={styles.statNumber}>{counters.favoritos}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>Favoritos</ThemedText>
+                <ThemedText themeColor="textMuted" style={styles.statLabel}>
+                  Favoritos
+                </ThemedText>
               </ThemedView>
             </View>
 
             {/* FILTERS */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filtersScroll}>
               {FILTERS.map((option) => {
                 const active = filter === option.value;
                 return (
@@ -169,12 +175,10 @@ export default function Biblioteca() {
                     style={[
                       styles.filterChip,
                       { borderColor: active ? theme.accent : theme.border },
-                    ]}
-                  >
+                    ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}
-                      style={styles.filterChipText}
-                    >
+                      style={styles.filterChipText}>
                       {option.label}
                     </ThemedText>
                   </TouchableOpacity>
@@ -185,7 +189,9 @@ export default function Biblioteca() {
             {/* GRID / EMPTY */}
             {filteredItems.length === 0 ? (
               <ThemedView type="backgroundElement" style={styles.emptyCard}>
-                <ThemedText type="subtitle" style={styles.emptyTitle}>Nenhum livro neste filtro</ThemedText>
+                <ThemedText type="subtitle" style={styles.emptyTitle}>
+                  Nenhum livro neste filtro
+                </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.emptyText}>
                   Adicione livros pela tela Explorar para preencher sua biblioteca.
                 </ThemedText>
@@ -194,14 +200,22 @@ export default function Biblioteca() {
               <View style={styles.grid}>
                 {filteredItems.map((item: BibliotecaItem) => (
                   <ThemedView key={item.id} type="backgroundElement" style={styles.card}>
-                    <View style={[styles.coverPlaceholder, { backgroundColor: theme.backgroundSelected }]}>
+                    <View
+                      style={[
+                        styles.coverPlaceholder,
+                        { backgroundColor: theme.backgroundSelected },
+                      ]}>
                       <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
                         {item.livro.titulo}
                       </ThemedText>
                     </View>
 
                     <View style={styles.cardBody}>
-                      <View style={[styles.categoryBadge, { backgroundColor: 'rgba(100,255,218,0.08)' }]}>
+                      <View
+                        style={[
+                          styles.categoryBadge,
+                          { backgroundColor: 'rgba(100,255,218,0.08)' },
+                        ]}>
                         <ThemedText themeColor="accent" style={styles.categoryText}>
                           {item.livro.categoria || 'Livro'}
                         </ThemedText>
@@ -211,14 +225,16 @@ export default function Biblioteca() {
                       <ThemedText themeColor="textSecondary" style={styles.cardAuthor}>
                         {item.livro.autor}
                       </ThemedText>
-                      <ThemedText themeColor="textMuted" style={styles.cardDescription} numberOfLines={3}>
+                      <ThemedText
+                        themeColor="textMuted"
+                        style={styles.cardDescription}
+                        numberOfLines={3}>
                         {item.livro.descricao}
                       </ThemedText>
 
                       <TouchableOpacity
                         style={[styles.statusButton, { borderColor: theme.border }]}
-                        onPress={() => setStatusModalItemId(item.id)}
-                      >
+                        onPress={() => setStatusModalItemId(item.id)}>
                         <ThemedText themeColor="textSecondary" style={styles.statusButtonText}>
                           {STATUS_LEITURA[item.statusLeitura]}
                         </ThemedText>
@@ -233,19 +249,19 @@ export default function Biblioteca() {
                               borderColor: theme.accent,
                             },
                           ]}
-                          onPress={() => handleFavorite(item.id)}
-                        >
+                          onPress={() => handleFavorite(item.id)}>
                           <ThemedText
-                            style={[styles.favButtonText, { color: item.favorito ? theme.background : theme.accent }]}
-                          >
+                            style={[
+                              styles.favButtonText,
+                              { color: item.favorito ? theme.background : theme.accent },
+                            ]}>
                             {item.favorito ? 'Favorito' : 'Favoritar'}
                           </ThemedText>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                           style={[styles.removeButton, { borderColor: theme.danger }]}
-                          onPress={() => handleRemove(item.id, item.livro.titulo)}
-                        >
+                          onPress={() => handleRemove(item.id, item.livro.titulo)}>
                           <ThemedText themeColor="danger" style={styles.removeButtonText}>
                             Remover
                           </ThemedText>
@@ -265,21 +281,20 @@ export default function Biblioteca() {
         visible={statusModalItemId !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setStatusModalItemId(null)}
-      >
+        onRequestClose={() => setStatusModalItemId(null)}>
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setStatusModalItemId(null)}
-        >
+          onPress={() => setStatusModalItemId(null)}>
           <ThemedView type="backgroundElement" style={styles.modalCard}>
-            <ThemedText type="smallBold" style={styles.modalTitle}>Status de leitura</ThemedText>
+            <ThemedText type="smallBold" style={styles.modalTitle}>
+              Status de leitura
+            </ThemedText>
             {Object.entries(STATUS_LEITURA).map(([value, label]) => (
               <TouchableOpacity
                 key={value}
                 style={styles.modalOption}
-                onPress={() => statusModalItemId && handleStatusChange(statusModalItemId, value)}
-              >
+                onPress={() => statusModalItemId && handleStatusChange(statusModalItemId, value)}>
                 <ThemedText themeColor="textSecondary">{label}</ThemedText>
               </TouchableOpacity>
             ))}
@@ -294,8 +309,19 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
   scrollContent: { flexGrow: 1, alignItems: 'center' },
-  content: { width: '100%', maxWidth: MaxContentWidth, paddingHorizontal: Spacing.three, paddingBottom: Spacing.six },
-  eyebrow: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1, marginTop: Spacing.four },
+  content: {
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.six,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: Spacing.four,
+  },
   title: { marginTop: Spacing.one, fontSize: 30, lineHeight: 34 },
   subtitle: { marginTop: Spacing.two, lineHeight: 22 },
   statsRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.four },
@@ -303,30 +329,69 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: 22, fontWeight: '800' },
   statLabel: { fontSize: 12 },
   filtersScroll: { marginTop: Spacing.four, marginBottom: Spacing.three },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, marginRight: Spacing.two },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginRight: Spacing.two,
+  },
   filterChipText: { fontSize: 13, fontWeight: '700' },
   emptyCard: { borderRadius: 16, padding: Spacing.four, gap: 8 },
   emptyTitle: { fontSize: 18 },
   emptyText: { lineHeight: 22 },
   grid: { gap: Spacing.three },
   card: { borderRadius: 16, overflow: 'hidden' },
-  coverPlaceholder: { height: 160, alignItems: 'center', justifyContent: 'center', padding: Spacing.three },
+  coverPlaceholder: {
+    height: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.three,
+  },
   coverPlaceholderText: { fontWeight: '800', textAlign: 'center' },
   cardBody: { padding: Spacing.three, gap: 8 },
-  categoryBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
   categoryText: { fontSize: 11, fontWeight: '800' },
   cardTitle: { fontSize: 17, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   cardDescription: { fontSize: 13, lineHeight: 20 },
-  statusButton: { borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginTop: 4 },
+  statusButton: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
   statusButtonText: { fontSize: 13, fontWeight: '700' },
   actionsRow: { flexDirection: 'row', gap: Spacing.two, marginTop: 4 },
-  favButton: { flex: 1, borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  favButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   favButtonText: { fontSize: 13, fontWeight: '800' },
-  removeButton: { flex: 1, borderWidth: 1, borderRadius: 8, paddingVertical: 10, alignItems: 'center' },
+  removeButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   removeButtonText: { fontSize: 13, fontWeight: '800' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalCard: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: Spacing.four, gap: Spacing.one },
+  modalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: Spacing.four,
+    gap: Spacing.one,
+  },
   modalTitle: { marginBottom: Spacing.two },
   modalOption: { paddingVertical: Spacing.two },
 });
