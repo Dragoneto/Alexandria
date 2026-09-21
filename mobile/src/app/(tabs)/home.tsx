@@ -1,12 +1,5 @@
 import { useState } from 'react';
-import {
-  ScrollView,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  View,
-  Text,
-} from 'react-native';
+import { ScrollView, TextInput, TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -16,7 +9,7 @@ const BG = '#0a0e13';
 const CARD_BG = 'rgba(14, 21, 28, 0.82)';
 const BORDER = 'rgba(204, 214, 246, 0.08)';
 const WHITE = '#ffffff';
-const TEXT_PRIMARY = '#d7e2ef';
+
 const TEXT_SECONDARY = '#b9c5d7';
 const TEXT_MUTED = '#94a3b8';
 
@@ -40,16 +33,12 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         <SafeAreaView style={styles.safe}>
-
           {/* ── HERO ── */}
           <View style={styles.hero}>
             <Text style={styles.kicker}>Alexandria</Text>
-            <Text style={styles.heading}>
-              Sua biblioteca pessoal{'\n'}começa aqui.
-            </Text>
+            <Text style={styles.heading}>Sua biblioteca pessoal{'\n'}começa aqui.</Text>
             <Text style={styles.subtitle}>
               Descubra, organize e lembre dos livros que importam — tudo em um lugar só.
             </Text>
@@ -73,8 +62,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.searchButton}
               onPress={handleSearch}
-              activeOpacity={0.8}
-            >
+              activeOpacity={0.8}>
               <Text style={styles.searchButtonText}>Explorar</Text>
             </TouchableOpacity>
             {!!error && <Text style={styles.errorText}>{error}</Text>}
@@ -85,9 +73,21 @@ export default function HomeScreen() {
             <Text style={styles.sectionKicker}>O que você encontra</Text>
 
             {[
-              { num: '01', title: 'Busca', desc: 'Pesquise obras pelo catálogo e veja título, autor, capa e descrição.' },
-              { num: '02', title: 'Biblioteca', desc: 'Salve livros e mantenha sua estante organizada em um só lugar.' },
-              { num: '03', title: 'Avaliação', desc: 'Registre notas e resenhas sobre cada obra que você ler.' },
+              {
+                num: '01',
+                title: 'Busca',
+                desc: 'Pesquise obras pelo catálogo e veja título, autor, capa e descrição.',
+              },
+              {
+                num: '02',
+                title: 'Biblioteca',
+                desc: 'Salve livros e mantenha sua estante organizada em um só lugar.',
+              },
+              {
+                num: '03',
+                title: 'Avaliação',
+                desc: 'Registre notas e resenhas sobre cada obra que você ler.',
+              },
             ].map((f) => (
               <View key={f.num} style={styles.featureRow}>
                 <Text style={styles.featureNum}>{f.num}</Text>
@@ -108,8 +108,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={styles.ctaButton}
               onPress={() => router.push('/explore' as any)}
-              activeOpacity={0.8}
-            >
+              activeOpacity={0.8}>
               <Text style={styles.ctaButtonText}>Ver catálogo</Text>
             </TouchableOpacity>
           </View>
@@ -122,7 +121,6 @@ export default function HomeScreen() {
               </View>
             ))}
           </View>
-
         </SafeAreaView>
       </ScrollView>
     </View>
