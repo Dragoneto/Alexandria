@@ -1,17 +1,20 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
-import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { ApiError, register } from '@/services/auth';
+import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { register } from '@/services/auth';
 import { saveAuth } from '@/services/auth-storage';
+import { fieldErrorsFor, messageFor } from '@/services/error-message';
 
 /** Mesmo mínimo exigido pelo backend. */
 const MIN_SENHA = 8;
+
+const CAMPOS = ['name', 'email', 'password', 'confirmation'];
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -21,27 +24,44 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // Preenchido quando o cadastro dá certo; enquanto não for null, o popup fica aberto
   const [nomeCadastrado, setNomeCadastrado] = useState<string | null>(null);
+
+  const clearErrors = (field: string) => {
+    setError('');
+    setFieldErrors((current) => ({ ...current, [field]: '' }));
+  };
 
   const handleSubmit = async () => {
     if (loading) return;
 
-    if (!name.trim() || !email.trim() || !password || !confirmation) {
-      Alert.alert('Erro', 'Preencha todos os campos');
+    const nextFieldErrors: Record<string, string> = {};
+
+    if (!name.trim()) nextFieldErrors.name = 'Informe seu nome.';
+    if (!email.trim()) nextFieldErrors.email = 'Informe seu e-mail.';
+
+    if (!password) {
+      nextFieldErrors.password = 'Crie uma senha.';
+    } else if (password.length < MIN_SENHA) {
+      nextFieldErrors.password = `A senha precisa ter ao menos ${MIN_SENHA} caracteres.`;
+    }
+
+    if (!confirmation) {
+      nextFieldErrors.confirmation = 'Confirme sua senha.';
+    } else if (password && password !== confirmation) {
+      nextFieldErrors.confirmation = 'As senhas não coincidem.';
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError('');
+      setFieldErrors(nextFieldErrors);
       return;
     }
 
-    if (password !== confirmation) {
-      Alert.alert('Erro', 'As senhas não coincidem');
-      return;
-    }
-
-    if (password.length < MIN_SENHA) {
-      Alert.alert('Erro', `A senha precisa ter ao menos ${MIN_SENHA} caracteres`);
-      return;
-    }
-
+    setError('');
+    setFieldErrors({});
     setLoading(true);
 
     try {
@@ -55,11 +75,12 @@ export default function SignUpScreen() {
       });
 
       setNomeCadastrado(auth.name);
-    } catch (error) {
-      Alert.alert(
-        'Erro',
-        error instanceof ApiError ? error.message : 'Não foi possível conectar ao servidor',
-      );
+    } catch (submitError) {
+      const fields = fieldErrorsFor(submitError);
+      const mostradoNoCampo = Object.keys(fields).some((campo) => CAMPOS.includes(campo));
+
+      setFieldErrors(fields);
+      setError(mostradoNoCampo ? '' : messageFor(submitError));
     } finally {
       setLoading(false);
     }
@@ -75,7 +96,12 @@ export default function SignUpScreen() {
           icon={{ ios: 'person.fill', android: 'person', web: 'person' }}
           placeholder="Como quer ser chamado"
           value={name}
-          onChangeText={setName}
+          onChangeText={(value) => {
+            setName(value);
+            clearErrors('name');
+          }}
+          editable={!loading}
+          error={fieldErrors.name}
           autoCapitalize="words"
           autoComplete="name"
           textContentType="name"
@@ -87,7 +113,12 @@ export default function SignUpScreen() {
           icon={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
           placeholder="voce@email.com"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(value) => {
+            setEmail(value);
+            clearErrors('email');
+          }}
+          editable={!loading}
+          error={fieldErrors.email}
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
@@ -100,7 +131,12 @@ export default function SignUpScreen() {
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Crie uma senha"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(value) => {
+            setPassword(value);
+            clearErrors('password');
+          }}
+          editable={!loading}
+          error={fieldErrors.password}
           secure
           autoCapitalize="none"
           autoComplete="new-password"
@@ -113,7 +149,12 @@ export default function SignUpScreen() {
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Repita a senha"
           value={confirmation}
-          onChangeText={setConfirmation}
+          onChangeText={(value) => {
+            setConfirmation(value);
+            clearErrors('confirmation');
+          }}
+          editable={!loading}
+          error={fieldErrors.confirmation}
           secure
           autoCapitalize="none"
           autoComplete="new-password"
@@ -124,6 +165,12 @@ export default function SignUpScreen() {
       </View>
 
       <View style={styles.actions}>
+        {error ? (
+          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
+
         <ActionButton label="Criar conta" onPress={handleSubmit} loading={loading} />
         <Text style={styles.terms}>
           Ao criar a conta você concorda com os termos de uso e a política de privacidade.
@@ -160,6 +207,14 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: Space.six,
     gap: Space.four,
+  },
+  error: {
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: Accent.coral,
+    textAlign: 'center',
   },
   // Corpo pequeno · sans 13/20 · 500
   terms: {
