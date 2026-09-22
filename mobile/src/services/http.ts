@@ -29,6 +29,14 @@ type ErrorBody = {
   errors?: Record<string, string> | null;
 };
 
+type UnauthorizedListener = () => void;
+
+let unauthorizedListener: UnauthorizedListener | null = null;
+
+export function setUnauthorizedListener(listener: UnauthorizedListener | null): void {
+  unauthorizedListener = listener;
+}
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
@@ -108,9 +116,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (!response.ok) {
     const errorBody = parsed as ErrorBody | null;
+    const kind = kindFromStatus(response.status);
+
+    if (kind === 'auth' && auth) {
+      unauthorizedListener?.();
+    }
 
     throw new ApiError(
-      kindFromStatus(response.status),
+      kind,
       messageFrom(errorBody, response.status),
       response.status,
       errorBody?.errors ?? undefined,

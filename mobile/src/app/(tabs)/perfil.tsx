@@ -3,7 +3,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-
 import { ActionButton } from '@/components/action-button';
 import {
   DSFonts,
@@ -14,8 +13,8 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
+import { useAuth } from '@/hooks/use-auth';
 import { fetchProfile } from '@/services/auth';
-import { clearAuth } from '@/services/auth-storage';
 
 type ProfileData = {
   name: string;
@@ -24,6 +23,7 @@ type ProfileData = {
 
 export default function PerfilScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,8 +67,7 @@ export default function PerfilScreen() {
     .toUpperCase();
 
   const handleLogout = async () => {
-    await clearAuth();
-    router.replace('/login');
+    await signOut();
   };
 
   return (

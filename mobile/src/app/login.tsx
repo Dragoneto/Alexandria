@@ -6,11 +6,12 @@ import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { useAuth } from '@/hooks/use-auth';
 import { ApiError, login } from '@/services/auth';
-import { saveAuth } from '@/services/auth-storage';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,14 +30,12 @@ export default function LoginScreen() {
     try {
       const auth = await login(email, password);
 
-      await saveAuth({
+      await signIn({
         token: auth.token,
         id: auth.userId,
         name: auth.name,
         email: auth.email,
       });
-
-      router.replace('/home');
     } catch (error) {
       Alert.alert(
         'Erro',
