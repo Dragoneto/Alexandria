@@ -1,13 +1,16 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
-import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { useAuth } from '@/hooks/use-auth';
-import { ApiError, login } from '@/services/auth';
+import { login } from '@/services/auth';
+import { fieldErrorsFor, messageFor } from '@/services/error-message';
+
+const CAMPOS = ['email', 'password'];
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -16,15 +19,30 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearErrors = (field: string) => {
+    setError('');
+    setFieldErrors((current) => ({ ...current, [field]: '' }));
+  };
 
   const handleSubmit = async () => {
     if (loading) return;
 
-    if (!email.trim() || !password) {
-      Alert.alert('Erro', 'Preencha o e-mail e a senha.');
+    const nextFieldErrors: Record<string, string> = {};
+
+    if (!email.trim()) nextFieldErrors.email = 'Informe seu e-mail.';
+    if (!password) nextFieldErrors.password = 'Informe sua senha.';
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setError('');
+      setFieldErrors(nextFieldErrors);
       return;
     }
 
+    setError('');
+    setFieldErrors({});
     setLoading(true);
 
     try {
@@ -36,11 +54,12 @@ export default function LoginScreen() {
         name: auth.name,
         email: auth.email,
       });
-    } catch (error) {
-      Alert.alert(
-        'Erro',
-        error instanceof ApiError ? error.message : 'Não foi possível entrar. Tente de novo.',
-      );
+    } catch (submitError) {
+      const fields = fieldErrorsFor(submitError);
+      const mostradoNoCampo = Object.keys(fields).some((campo) => CAMPOS.includes(campo));
+
+      setFieldErrors(fields);
+      setError(mostradoNoCampo ? '' : messageFor(submitError));
     } finally {
       setLoading(false);
     }
@@ -56,7 +75,12 @@ export default function LoginScreen() {
           icon={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
           placeholder="voce@email.com"
           value={email}
-          onChangeText={setEmail}
+          onChangeText={(value) => {
+            setEmail(value);
+            clearErrors('email');
+          }}
+          editable={!loading}
+          error={fieldErrors.email}
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
@@ -69,7 +93,12 @@ export default function LoginScreen() {
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Sua senha"
           value={password}
-          onChangeText={setPassword}
+          onChangeText={(value) => {
+            setPassword(value);
+            clearErrors('password');
+          }}
+          editable={!loading}
+          error={fieldErrors.password}
           secure
           autoCapitalize="none"
           autoComplete="current-password"
@@ -89,6 +118,12 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.actions}>
+        {error ? (
+          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
+            {error}
+          </Text>
+        ) : null}
+
         <ActionButton label="Entrar" onPress={handleSubmit} loading={loading} />
       </View>
 
@@ -124,6 +159,15 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: Space.six,
+    gap: Space.four,
+  },
+  error: {
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: Accent.coral,
+    textAlign: 'center',
   },
   footer: {
     marginTop: Space.eight,

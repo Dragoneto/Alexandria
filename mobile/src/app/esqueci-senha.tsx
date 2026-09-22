@@ -6,30 +6,12 @@ import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { ApiError, requestPasswordReset } from '@/services/auth';
+import { requestPasswordReset } from '@/services/auth';
+import { messageFor } from '@/services/error-message';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Status = 'idle' | 'sending' | 'sent';
-
-/** Traduz a falha do serviço no texto mostrado ao usuário. */
-function messageFor(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.kind === 'validation') {
-      return error.message;
-    }
-
-    if (error.kind === 'network') {
-      return 'Não foi possível conectar. Verifique sua internet e tente novamente.';
-    }
-
-    if (error.kind === 'config' && __DEV__) {
-      return error.message;
-    }
-  }
-
-  return 'Algo deu errado. Tente novamente em instantes.';
-}
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();

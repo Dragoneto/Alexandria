@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
 import {
+  Accent,
   DSFonts,
   Ink,
   Mint,
@@ -19,11 +20,14 @@ type TextFieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
   icon: SymbolViewProps['name'];
   /** Ativa o campo de senha com botão de mostrar/ocultar. */
   secure?: boolean;
+  error?: string;
 };
 
-export function TextField({ label, icon, secure = false, ...inputProps }: TextFieldProps) {
+export function TextField({ label, icon, secure = false, error, ...inputProps }: TextFieldProps) {
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
+
+  const accentColor = error ? Accent.coral : focused ? Mint.mint400 : null;
 
   return (
     <View style={styles.field}>
@@ -32,13 +36,13 @@ export function TextField({ label, icon, secure = false, ...inputProps }: TextFi
       <View
         style={[
           styles.inputRow,
-          { borderColor: focused ? Mint.mint400 : Ink.ink500 },
-          focused && styles.inputRowFocused,
+          { borderColor: accentColor ?? Ink.ink500 },
+          focused && !error && styles.inputRowFocused,
         ]}>
         <SymbolView
           name={icon}
           size={20}
-          tintColor={focused ? Mint.mint400 : TextColor.muted}
+          tintColor={accentColor ?? TextColor.muted}
           style={styles.icon}
         />
 
@@ -76,6 +80,12 @@ export function TextField({ label, icon, secure = false, ...inputProps }: TextFi
           </Pressable>
         )}
       </View>
+
+      {error ? (
+        <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -122,5 +132,12 @@ const styles = StyleSheet.create({
   },
   revealPressed: {
     opacity: 0.6,
+  },
+  error: {
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: Accent.coral,
   },
 });
