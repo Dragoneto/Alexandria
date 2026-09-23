@@ -1,25 +1,28 @@
-// O Expo substitui `process.env.EXPO_PUBLIC_*` em build time, então a chave
-// precisa estar escrita por extenso: process.env[nome] não funciona.
-
-function required(value: string | undefined, name: string): string {
-  if (!value) {
-    throw new Error(`${name} não definida. Copie .env.example para .env e rode expo start -c.`);
+// Acesso literal exigido pelo Expo para substituir as variáveis durante o build.
+// Validar na requisição permite mostrar erros sem impedir o app de abrir.
+export function getApiConfig() {
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (!configuredUrl) {
+    throw new Error('Configure EXPO_PUBLIC_API_URL em mobile/.env.local e reinicie o Expo.');
   }
-
-  return value.replace(/\/+$/, '');
+  let url: URL;
+  try {
+    url = new URL(configuredUrl);
+  } catch {
+    throw new Error('EXPO_PUBLIC_API_URL deve ser uma URL HTTP ou HTTPS válida.');
+  }
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error('EXPO_PUBLIC_API_URL deve conter somente o endereço HTTP ou HTTPS da API.');
+  }
+  const timeout = Number(process.env.EXPO_PUBLIC_API_TIMEOUT);
+  return {
+    baseUrl: url.toString().replace(/\/+$/, ''),
+    timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 15000,
+  };
 }
-
-function number(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-export const API_URL = required(process.env.EXPO_PUBLIC_API_URL, 'EXPO_PUBLIC_API_URL');
-
-export const OPENLIBRARY_URL = required(
-  process.env.EXPO_PUBLIC_OPENLIBRARY_URL,
-  'EXPO_PUBLIC_OPENLIBRARY_URL',
-);
-
-export const API_TIMEOUT = number(process.env.EXPO_PUBLIC_API_TIMEOUT, 15000);
