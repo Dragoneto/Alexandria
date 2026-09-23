@@ -1,10 +1,28 @@
-import { useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing, MaxContentWidth } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  OpenLibraryError,
+  searchBooks,
+  type BookSearchItem,
+  type BookSearchOrder,
+  type BookSearchQuality,
+} from '@/services/open-library';
 
 const CATEGORY_OPTIONS = [
   'Todos',
@@ -15,94 +33,235 @@ const CATEGORY_OPTIONS = [
   'Biografia',
   'Mistério',
 ];
-const ORDER_OPTIONS = [
+const ORDER_OPTIONS: { label: string; value: BookSearchOrder }[] = [
   { label: 'Mais relevantes', value: 'relevance' },
   { label: 'Mais recentes', value: 'newest' },
 ];
-const QUALITY_OPTIONS = [
-  { label: 'Precisos', value: 'precise', detail: 'Título ou autor' },
-  { label: 'Curados', value: 'curated', detail: 'Capa e sinopse' },
-  { label: 'Amplos', value: 'all', detail: 'Menos restrições' },
+const QUALITY_OPTIONS: { label: string; value: BookSearchQuality; detail: string }[] = [
+  { label: 'Precisos', value: 'precise', detail: 'Título, autor ou assunto' },
+  { label: 'Com capa', value: 'curated', detail: 'Capa e autoria disponíveis' },
+  { label: 'Amplos', value: 'all', detail: 'Todos os resultados válidos' },
 ];
 
-// Mock — substituir por searchBooks() real na Sprint 3
-const MOCK_BOOKS = [
-  {
-    id: '1',
-    title: 'Dom Casmurro',
-    authors: 'Machado de Assis',
-    category: 'Literatura brasileira',
-    description: 'A história de Bentinho e sua desconfiança sobre Capitu.',
-  },
-  {
-    id: '2',
-    title: 'Torto Arado',
-    authors: 'Itamar Vieira Junior',
-    category: 'Romance',
-    description: 'Duas irmãs e o sertão que carregam consigo.',
-  },
-  {
-    id: '3',
-    title: 'O Hobbit',
-    authors: 'J. R. R. Tolkien',
-    category: 'Fantasia',
-    description: 'Bilbo Bolseiro é levado numa aventura inesperada.',
-  },
-];
+function firstParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof OpenLibraryError) return error.message;
+  return 'Não foi possível buscar livros agora.';
+}
 
 export default function Explorar() {
   const theme = useTheme();
-  const [query, setQuery] = useState('');
+  const params = useLocalSearchParams<{ q?: string | string[] }>();
+  const initialQuery = firstParam(params.q).trim();
+  const [query, setQuery] = useState(initialQuery);
+  const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [category, setCategory] = useState('Todos');
-  const [order, setOrder] = useState('relevance');
-  const [quality, setQuality] = useState('precise');
+  const [order, setOrder] = useState<BookSearchOrder>('relevance');
+  const [quality, setQuality] = useState<BookSearchQuality>('precise');
+  const [books, setBooks] = useState<BookSearchItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const inputRef = useRef<TextInput>(null);
+  const loadMoreControllerRef = useRef<AbortController | null>(null);
+  const activeSearchKey = `${submittedQuery}\u0000${category}\u0000${order}\u0000${quality}`;
+  const activeSearchKeyRef = useRef(activeSearchKey);
+  const lastParamQueryRef = useRef(initialQuery);
 
   const hasActiveFilters = category !== 'Todos' || order !== 'relevance' || quality !== 'precise';
-
   const qualityCaption = useMemo(() => {
-    if (quality === 'curated') return 'Resultados com boa apresentação, capa e sinopse.';
-    if (quality === 'all') return 'Resultados amplos retornados pela busca.';
-    return 'Resultados com match forte no título ou autor.';
+    if (quality === 'curated') return 'Exibindo obras com capa e autoria informada.';
+    if (quality === 'all') return 'Exibindo todos os resultados válidos da Open Library.';
+    return 'Resultados ordenados para aproximar título, autor ou assunto.';
   }, [quality]);
+
+  useEffect(() => {
+    activeSearchKeyRef.current = activeSearchKey;
+  }, [activeSearchKey]);
+
+  useEffect(
+    () => () => {
+      loadMoreControllerRef.current?.abort();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!initialQuery || initialQuery === lastParamQueryRef.current) return;
+    lastParamQueryRef.current = initialQuery;
+    void Promise.resolve().then(() => {
+      setQuery(initialQuery);
+      setSubmittedQuery(initialQuery);
+    });
+  }, [initialQuery]);
+
+  useEffect(() => {
+    if (!submittedQuery) return;
+    const controller = new AbortController();
+    loadMoreControllerRef.current?.abort();
+    loadMoreControllerRef.current = null;
+    const runSearch = async () => {
+      // Inicia fora do corpo síncrono do effect e evita uma renderização encadeada.
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setLoading(true);
+      setError('');
+      try {
+        const result = await searchBooks({
+          query: submittedQuery,
+          category: category === 'Todos' ? undefined : category,
+          order,
+          quality,
+          page: 1,
+          signal: controller.signal,
+        });
+        setBooks(result.books);
+        setTotal(result.total);
+        setPage(1);
+        setHasMore(result.hasMore);
+      } catch (failure) {
+        if (!controller.signal.aborted) {
+          setBooks([]);
+          setTotal(0);
+          setHasMore(false);
+          setError(errorMessage(failure));
+        }
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    };
+    void runSearch();
+    return () => controller.abort();
+  }, [submittedQuery, category, order, quality, refresh]);
+
+  const handleSearch = () => {
+    const normalized = query.trim();
+    if (normalized.length < 2) {
+      setError('Digite pelo menos dois caracteres para buscar.');
+      inputRef.current?.focus();
+      return;
+    }
+    setError('');
+    if (normalized === submittedQuery) setRefresh((value) => value + 1);
+    else setSubmittedQuery(normalized);
+  };
+
+  const loadMore = async () => {
+    if (!submittedQuery || loadingMore || !hasMore) return;
+    const requestedSearchKey = activeSearchKey;
+    const controller = new AbortController();
+    loadMoreControllerRef.current?.abort();
+    loadMoreControllerRef.current = controller;
+    setLoadingMore(true);
+    setError('');
+    try {
+      const result = await searchBooks({
+        query: submittedQuery,
+        category: category === 'Todos' ? undefined : category,
+        order,
+        quality,
+        page: page + 1,
+        signal: controller.signal,
+      });
+      if (requestedSearchKey !== activeSearchKeyRef.current) return;
+      setBooks((current) => {
+        const known = new Set(current.map((book) => book.id));
+        return [...current, ...result.books.filter((book) => !known.has(book.id))];
+      });
+      setPage(result.page);
+      setHasMore(result.hasMore);
+    } catch (failure) {
+      if (!controller.signal.aborted) setError(errorMessage(failure));
+    } finally {
+      if (loadMoreControllerRef.current === controller) {
+        loadMoreControllerRef.current = null;
+        setLoadingMore(false);
+      }
+    }
+  };
+
+  const clearFilters = () => {
+    setCategory('Todos');
+    setOrder('relevance');
+    setQuality('precise');
+  };
+
+  const openBook = async (book: BookSearchItem) => {
+    try {
+      await Linking.openURL(book.openLibraryUrl);
+    } catch {
+      setError('Não foi possível abrir a página da obra.');
+    }
+  };
 
   return (
     <ThemedView style={styles.root}>
       <SafeAreaView style={styles.safe}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
+          keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
-            {/* HERO */}
             <ThemedText themeColor="accent" style={styles.eyebrow}>
               Explorar
             </ThemedText>
             <ThemedText type="title" style={styles.title}>
-              Encontre livros para sua próxima leitura.
+              Encontre sua próxima leitura.
             </ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-              Pesquise, filtre e avance pelos resultados de forma rápida e organizada.
+              Pesquise o catálogo público da Open Library por título, autor ou assunto.
             </ThemedText>
 
-            {/* SEARCH */}
             <View style={[styles.searchBox, { borderColor: theme.border }]}>
               <ThemedText themeColor="textMuted" style={styles.searchLabel}>
                 Buscar por título, autor ou assunto
               </ThemedText>
-              <View style={[styles.inputRow]}>
-                <View style={[styles.input, { borderColor: theme.border }]}>
-                  <ThemedText themeColor={query ? 'text' : 'textMuted'}>
-                    {query || 'Ex.: Machado de Assis'}
-                  </ThemedText>
-                </View>
-                <TouchableOpacity style={[styles.searchButton, { backgroundColor: theme.accent }]}>
-                  <ThemedText style={[styles.searchButtonText, { color: theme.background }]}>
-                    Buscar
-                  </ThemedText>
+              <View style={styles.inputRow}>
+                <TextInput
+                  ref={inputRef}
+                  accessibilityLabel="Busca de livros"
+                  style={[styles.input, { borderColor: theme.border, color: theme.text }]}
+                  placeholder="Ex.: Machado de Assis"
+                  placeholderTextColor={theme.textMuted}
+                  value={query}
+                  onChangeText={(value) => {
+                    setQuery(value);
+                    setError('');
+                  }}
+                  onSubmitEditing={handleSearch}
+                  returnKeyType="search"
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={loading}
+                  onPress={handleSearch}
+                  style={[
+                    styles.searchButton,
+                    { backgroundColor: theme.accent, opacity: loading ? 0.65 : 1 },
+                  ]}>
+                  {loading ? (
+                    <ActivityIndicator color={theme.background} />
+                  ) : (
+                    <ThemedText style={[styles.searchButtonText, { color: theme.background }]}>
+                      Buscar
+                    </ThemedText>
+                  )}
                 </TouchableOpacity>
               </View>
+              {!!error && (
+                <ThemedText themeColor="danger" style={styles.errorText}>
+                  {error}
+                </ThemedText>
+              )}
             </View>
 
-            {/* FILTERS */}
             <View style={styles.filterHeader}>
               <View>
                 <ThemedText style={styles.filterHeaderTitle}>Filtros</ThemedText>
@@ -111,12 +270,8 @@ export default function Explorar() {
                 </ThemedText>
               </View>
               <TouchableOpacity
-                disabled={!hasActiveFilters}
-                onPress={() => {
-                  setCategory('Todos');
-                  setOrder('relevance');
-                  setQuality('precise');
-                }}
+                disabled={!hasActiveFilters || loading}
+                onPress={clearFilters}
                 style={[
                   styles.clearButton,
                   { borderColor: theme.border, opacity: hasActiveFilters ? 1 : 0.4 },
@@ -139,6 +294,7 @@ export default function Explorar() {
                 return (
                   <TouchableOpacity
                     key={option}
+                    disabled={loading}
                     onPress={() => setCategory(option)}
                     style={[styles.chip, { borderColor: active ? theme.accent : theme.border }]}>
                     <ThemedText
@@ -160,6 +316,7 @@ export default function Explorar() {
                 return (
                   <TouchableOpacity
                     key={option.value}
+                    disabled={loading}
                     onPress={() => setOrder(option.value)}
                     style={[
                       styles.segment,
@@ -184,6 +341,7 @@ export default function Explorar() {
                 return (
                   <TouchableOpacity
                     key={option.value}
+                    disabled={loading}
                     onPress={() => setQuality(option.value)}
                     style={[
                       styles.qualityCard,
@@ -202,76 +360,117 @@ export default function Explorar() {
               })}
             </View>
 
-            {/* RESULTS */}
-            <View style={styles.resultsHeader}>
-              <ThemedText style={styles.resultsTitle}>
-                Resultados para “{query || 'literatura brasileira'}”
-              </ThemedText>
-              <ThemedText themeColor="textMuted" style={styles.resultsCaption}>
-                {qualityCaption}
-              </ThemedText>
-              <ThemedText themeColor="textMuted" style={styles.resultsCount}>
-                {MOCK_BOOKS.length} livro(s) encontrados
-              </ThemedText>
-            </View>
+            {!submittedQuery ? (
+              <ThemedView type="backgroundElement" style={styles.emptyCard}>
+                <ThemedText type="subtitle" style={styles.emptyTitle}>
+                  Comece por uma busca
+                </ThemedText>
+                <ThemedText themeColor="textSecondary">
+                  Digite um título, autor ou assunto para consultar a Open Library.
+                </ThemedText>
+              </ThemedView>
+            ) : !loading && !error && books.length === 0 ? (
+              <ThemedView type="backgroundElement" style={styles.emptyCard}>
+                <ThemedText type="subtitle" style={styles.emptyTitle}>
+                  Nenhum livro encontrado
+                </ThemedText>
+                <ThemedText themeColor="textSecondary">
+                  Tente outros termos ou remova alguns filtros.
+                </ThemedText>
+              </ThemedView>
+            ) : (
+              <>
+                <View style={styles.resultsHeader}>
+                  <ThemedText style={styles.resultsTitle}>
+                    Resultados para “{submittedQuery}”
+                  </ThemedText>
+                  <ThemedText themeColor="textMuted" style={styles.resultsCaption}>
+                    {qualityCaption}
+                  </ThemedText>
+                  <ThemedText themeColor="textMuted" style={styles.resultsCount}>
+                    {total.toLocaleString('pt-BR')} obra(s) encontrada(s)
+                  </ThemedText>
+                </View>
 
-            <View style={styles.grid}>
-              {MOCK_BOOKS.map((book) => (
-                <ThemedView key={book.id} type="backgroundElement" style={styles.card}>
-                  <View
-                    style={[
-                      styles.coverPlaceholder,
-                      { backgroundColor: theme.backgroundSelected },
-                    ]}>
-                    <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
-                      {book.title}
-                    </ThemedText>
-                  </View>
-                  <View style={styles.cardBody}>
-                    <View
-                      style={[styles.categoryBadge, { backgroundColor: 'rgba(100,255,218,0.08)' }]}>
-                      <ThemedText themeColor="accent" style={styles.categoryText}>
-                        {book.category}
+                <View style={styles.grid}>
+                  {books.map((book) => (
+                    <ThemedView key={book.id} type="backgroundElement" style={styles.card}>
+                      {book.coverUrl ? (
+                        <Image
+                          source={{ uri: book.coverUrl }}
+                          style={styles.cover}
+                          contentFit="contain"
+                          accessibilityLabel={`Capa de ${book.title}`}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.coverPlaceholder,
+                            { backgroundColor: theme.backgroundSelected },
+                          ]}>
+                          <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+                            {book.title}
+                          </ThemedText>
+                        </View>
+                      )}
+                      <View style={styles.cardBody}>
+                        <View
+                          style={[
+                            styles.categoryBadge,
+                            { backgroundColor: 'rgba(100,255,218,0.08)' },
+                          ]}>
+                          <ThemedText themeColor="accent" style={styles.categoryText}>
+                            {book.category}
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={styles.cardTitle} numberOfLines={2}>
+                          {book.title}
+                        </ThemedText>
+                        <ThemedText
+                          themeColor="textSecondary"
+                          style={styles.cardAuthor}
+                          numberOfLines={2}>
+                          {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
+                        </ThemedText>
+                        <ThemedText themeColor="textMuted" style={styles.cardDescription}>
+                          {book.firstPublishYear
+                            ? `Primeira publicação: ${book.firstPublishYear}`
+                            : 'Ano não informado'}
+                          {' · '}
+                          {book.editionCount} edição(ões)
+                        </ThemedText>
+                        <TouchableOpacity
+                          accessibilityRole="link"
+                          onPress={() => void openBook(book)}>
+                          <ThemedText themeColor="accent" style={styles.detailsLink}>
+                            Ver na Open Library
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    </ThemedView>
+                  ))}
+                </View>
+
+                {hasMore && (
+                  <TouchableOpacity
+                    disabled={loadingMore}
+                    onPress={loadMore}
+                    style={[styles.loadMoreButton, { borderColor: theme.accent }]}>
+                    {loadingMore ? (
+                      <ActivityIndicator color={theme.accent} />
+                    ) : (
+                      <ThemedText themeColor="accent" style={styles.loadMoreText}>
+                        Carregar mais
                       </ThemedText>
-                    </View>
-                    <ThemedText style={styles.cardTitle} numberOfLines={2}>
-                      {book.title}
-                    </ThemedText>
-                    <ThemedText
-                      themeColor="textSecondary"
-                      style={styles.cardAuthor}
-                      numberOfLines={1}>
-                      {book.authors}
-                    </ThemedText>
-                    <ThemedText
-                      themeColor="textMuted"
-                      style={styles.cardDescription}
-                      numberOfLines={4}>
-                      {book.description}
-                    </ThemedText>
-                    <View style={styles.cardActions}>
-                      <TouchableOpacity>
-                        <ThemedText themeColor="accent" style={styles.detailsLink}>
-                          Ver detalhes
-                        </ThemedText>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.saveButton, { backgroundColor: 'rgba(100,255,218,0.12)' }]}>
-                        <ThemedText themeColor="accent" style={styles.saveButtonText}>
-                          Adicionar
-                        </ThemedText>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </ThemedView>
-              ))}
-            </View>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
 
-            <View style={styles.paginationRow}>
-              <ThemedText themeColor="textMuted" style={styles.paginationText}>
-                Você já visualizou todos os resultados desta busca.
-              </ThemedText>
-            </View>
+            <ThemedText themeColor="textMuted" style={styles.attribution}>
+              Dados bibliográficos e capas fornecidos pela Open Library.
+            </ThemedText>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -298,7 +497,6 @@ const styles = StyleSheet.create({
   },
   title: { marginTop: Spacing.one, fontSize: 30, lineHeight: 34 },
   subtitle: { marginTop: Spacing.two, lineHeight: 22 },
-
   searchBox: {
     marginTop: Spacing.four,
     borderWidth: 1,
@@ -308,10 +506,16 @@ const styles = StyleSheet.create({
   },
   searchLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   inputRow: { gap: Spacing.two },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12 },
-  searchButton: { borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  searchButton: { minHeight: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   searchButtonText: { fontWeight: '800', fontSize: 14 },
-
+  errorText: { fontSize: 13, lineHeight: 20 },
   filterHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -322,7 +526,6 @@ const styles = StyleSheet.create({
   filterHeaderSubtitle: { fontSize: 12, marginTop: 2 },
   clearButton: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   clearButtonText: { fontSize: 12, fontWeight: '800' },
-
   filterBlockLabel: {
     marginTop: Spacing.three,
     fontSize: 11,
@@ -339,7 +542,6 @@ const styles = StyleSheet.create({
     marginRight: Spacing.two,
   },
   chipText: { fontSize: 13, fontWeight: '700' },
-
   segmented: {
     flexDirection: 'row',
     marginTop: Spacing.two,
@@ -350,19 +552,19 @@ const styles = StyleSheet.create({
   },
   segment: { flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   segmentText: { fontSize: 12, fontWeight: '800' },
-
   qualityList: { marginTop: Spacing.two, gap: Spacing.two },
   qualityCard: { borderWidth: 1, borderRadius: 14, padding: Spacing.three, gap: 2 },
   qualityLabel: { fontSize: 14, fontWeight: '800' },
   qualityDetail: { fontSize: 12 },
-
+  emptyCard: { marginTop: Spacing.five, borderRadius: 16, padding: Spacing.four, gap: 8 },
+  emptyTitle: { fontSize: 18 },
   resultsHeader: { marginTop: Spacing.five, gap: 4 },
   resultsTitle: { fontSize: 17, fontWeight: '800' },
   resultsCaption: { fontSize: 13, lineHeight: 19 },
   resultsCount: { fontSize: 12, marginTop: 4 },
-
   grid: { marginTop: Spacing.three, gap: Spacing.three },
   card: { borderRadius: 16, overflow: 'hidden' },
+  cover: { width: '100%', height: 220, backgroundColor: 'rgba(0,0,0,0.14)' },
   coverPlaceholder: {
     height: 180,
     alignItems: 'center',
@@ -381,16 +583,15 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 17, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   cardDescription: { fontSize: 13, lineHeight: 20 },
-  cardActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  detailsLink: { fontSize: 13, fontWeight: '800', paddingVertical: 8 },
+  loadMoreButton: {
+    minHeight: 48,
+    marginTop: Spacing.four,
+    borderWidth: 1,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'center',
   },
-  detailsLink: { fontSize: 13, fontWeight: '800' },
-  saveButton: { borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
-  saveButtonText: { fontSize: 13, fontWeight: '800' },
-
-  paginationRow: { marginTop: Spacing.four, alignItems: 'center' },
-  paginationText: { fontSize: 13 },
+  loadMoreText: { fontSize: 14, fontWeight: '800' },
+  attribution: { marginTop: Spacing.four, fontSize: 11, lineHeight: 17, textAlign: 'center' },
 });
