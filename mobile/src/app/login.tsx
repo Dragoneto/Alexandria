@@ -77,6 +77,8 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
+      {!!error && <Text style={styles.error}>{error}</Text>}
+
       <View style={styles.actions}>
         {!!error && (
           <Text accessibilityRole="alert" style={{ color: Accent.coral }}>
@@ -119,6 +121,14 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: Space.six,
     gap: Space.three,
+  },
+  error: {
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: Accent.coral,
+    textAlign: 'center',
   },
   footer: {
     marginTop: Space.eight,
