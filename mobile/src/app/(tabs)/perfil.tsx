@@ -13,8 +13,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
-import { useAuth } from '@/hooks/use-auth';
-import { fetchProfile } from '@/services/auth';
+import { getProfile, logoutUser } from '@/services/auth';
 
 type ProfileData = {
   name: string;
@@ -23,11 +22,11 @@ type ProfileData = {
 
 export default function PerfilScreen() {
   const router = useRouter();
-  const { signOut } = useAuth();
 
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -38,7 +37,7 @@ export default function PerfilScreen() {
         setError('');
 
         try {
-          const response = await fetchProfile();
+          const response = await getProfile();
 
           if (isMounted) {
             setProfile(response);
@@ -67,7 +66,16 @@ export default function PerfilScreen() {
     .toUpperCase();
 
   const handleLogout = async () => {
-    await signOut();
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logoutUser();
+      router.replace('/login');
+    } catch {
+      setError('Não foi possível sair da conta. Tente novamente.');
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   return (
@@ -79,9 +87,7 @@ export default function PerfilScreen() {
           </View>
 
           <Text style={styles.title}>Meu perfil</Text>
-          <Text style={styles.subtitle}>
-            Visualize os dados da conta e avance para a edição quando precisar.
-          </Text>
+          <Text style={styles.subtitle}>Confira os dados da sua conta.</Text>
 
           {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -106,13 +112,23 @@ export default function PerfilScreen() {
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Status da conta</Text>
-              <Text style={styles.fieldValue}>Conta ativa</Text>
+              <Text style={styles.fieldValue}>
+                {loading ? 'Verificando...' : profile ? 'Conta ativa' : 'Indisponível'}
+              </Text>
             </View>
           </View>
 
           <View style={styles.actions}>
-            <ActionButton label="Editar perfil" onPress={() => router.push('/editar-perfil')} />
-            <ActionButton label="Sair da conta" variant="ghost" onPress={handleLogout} />
+            <ActionButton
+              label="Editar perfil"
+              onPress={() => router.push('/editar_perfil')}
+            />
+            <ActionButton
+              label="Sair da conta"
+              variant="ghost"
+              onPress={handleLogout}
+              loading={loggingOut}
+            />
           </View>
         </View>
       </SafeAreaView>

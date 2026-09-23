@@ -1,14 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { ApiError, requestPasswordReset } from '@/services/auth';
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { ApiError, forgotPassword } from '@/services/auth';
 
 type Status = 'idle' | 'sending' | 'sent';
 
@@ -21,6 +19,11 @@ function messageFor(error: unknown): string {
 
     if (error.kind === 'network') {
       return 'Não foi possível conectar. Verifique sua internet e tente novamente.';
+    }
+
+    if (error.kind === 'timeout') return error.message;
+    if (error.status === 404 || error.status === 501) {
+      return 'A recuperação de senha ainda não está disponível. Tente novamente mais tarde.';
     }
 
     if (error.kind === 'config' && __DEV__) {
@@ -38,6 +41,7 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState(params.email ?? '');
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
+  const submitting = useRef(false);
 
   const goToLogin = () => {
     if (router.canGoBack()) {
@@ -53,32 +57,22 @@ export default function ForgotPasswordScreen() {
   };
 
   const handleSubmit = async () => {
-    if (status === 'sending') {
+    if (submitting.current) {
       return;
     }
 
-    const trimmedEmail = email.trim();
-
-    if (!trimmedEmail) {
-      setError('Informe seu e-mail.');
-      return;
-    }
-
-    if (!EMAIL_PATTERN.test(trimmedEmail)) {
-      setError('Digite um e-mail válido.');
-      return;
-    }
-
+    submitting.current = true;
     setError('');
     setStatus('sending');
 
     try {
-      // A resposta traz resetToken e resetUrl, que só serão usados na tela de redefinir (#14)
-      await requestPasswordReset(trimmedEmail);
+      await forgotPassword(email);
       setStatus('sent');
     } catch (requestError) {
       setError(messageFor(requestError));
       setStatus('idle');
+    } finally {
+      submitting.current = false;
     }
   };
 

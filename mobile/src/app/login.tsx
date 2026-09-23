@@ -1,45 +1,34 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { useAuth } from '@/hooks/use-auth';
-import { ApiError, login } from '@/services/auth';
+import { loginUser } from '@/services/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const submitting = useRef(false);
 
   const handleSubmit = async () => {
-    if (loading) return;
-
-    if (!email.trim() || !password) {
-      setError('Preencha email e senha para continuar.')
-      return;
-    }
-
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
-
+    setError('');
     try {
-      const auth = await login(email, password);
-
-      await signIn({
-        token: auth.token,
-        id: auth.userId,
-        name: auth.name,
-        email: auth.email,
-      });
-    } catch (error) {
-      setError(error instanceof ApiError ? error.message : 'Não foi possível fazer login.');
+      await loginUser(email, password);
+      router.replace('/home');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Não foi possível entrar.');
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -51,6 +40,7 @@ export default function LoginScreen() {
       <View style={styles.form}>
         <TextField
           label="E-mail"
+          editable={!loading}
           icon={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
           placeholder="voce@email.com"
           value={email}
@@ -64,6 +54,7 @@ export default function LoginScreen() {
 
         <TextField
           label="Senha"
+          editable={!loading}
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Sua senha"
           value={password}
@@ -89,6 +80,11 @@ export default function LoginScreen() {
       {!!error && <Text style={styles.error}>{error}</Text>}
 
       <View style={styles.actions}>
+        {!!error && (
+          <Text accessibilityRole="alert" style={{ color: Accent.coral }}>
+            {error}
+          </Text>
+        )}
         <ActionButton label="Entrar" onPress={handleSubmit} loading={loading} />
       </View>
 
@@ -124,6 +120,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: Space.six,
+    gap: Space.three,
   },
   error: {
     fontFamily: DSFonts.ui,
