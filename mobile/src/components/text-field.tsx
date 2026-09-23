@@ -62,23 +62,29 @@ export function TextField({ label, icon, secure = false, error, ...inputProps }:
         />
 
         {secure && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={revealed ? 'Ocultar senha' : 'Mostrar senha'}
-            hitSlop={Space.two}
-            onPress={() => setRevealed((current) => !current)}
-            style={({ pressed }) => pressed && styles.revealPressed}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={revealed ? 'Ocultar senha' : 'Mostrar senha'}
+              accessibilityState={{ selected: revealed }}
+              hitSlop={Space.one}
+              onPress={() => setRevealed((current) => !current)}
+              style={({ pressed }) => [
+              styles.revealButton,
+              revealed && styles.revealButtonActive,
+              pressed && styles.revealButtonPressed,
+              ]}>
             <SymbolView
-              name={
-                revealed
-                  ? { ios: 'eye.slash.fill', android: 'visibility_off', web: 'visibility_off' }
-                  : { ios: 'eye.fill', android: 'visibility', web: 'visibility' }
-              }
-              size={20}
-              tintColor={TextColor.muted}
-            />
-          </Pressable>
-        )}
+            name={
+            revealed
+              ? { ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }
+              : { ios: 'eye', android: 'visibility', web: 'visibility' }
+            }
+           size={18}
+           tintColor={revealed ? Mint.mint400 : TextColor.secondary}
+         />
+        </Pressable>
+       )}
+
       </View>
 
       {error ? (
@@ -130,8 +136,23 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: TextColor.primary,
   },
-  revealPressed: {
-    opacity: 0.6,
+  revealButton: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Ink.ink700,
+    borderWidth: 1,
+    borderColor: Ink.ink500,
+  },
+  revealButtonActive: {
+    backgroundColor: Mint.mint900,
+    borderColor: withAlpha(Mint.mint400, 0.4),
+  },
+  revealButtonPressed: {
+    transform: [{ scale: 0.92 }],
+    opacity: 0.85,
   },
   error: {
     fontFamily: DSFonts.ui,

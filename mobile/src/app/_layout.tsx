@@ -39,9 +39,10 @@ function SessionRoutes() {
   }
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!!user}>
+    <Stack.Protected guard={!!user}>
         <Stack.Screen name="(tabs)" />
-      </Stack.Protected>
+        <Stack.Screen name="editar_perfil" />
+    </Stack.Protected>
       <Stack.Protected guard={!user}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
