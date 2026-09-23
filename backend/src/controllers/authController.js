@@ -34,9 +34,7 @@ const register = async (req, res) => {
     const senhaHash = await bcrypt.hash(senha, saltRounds);
 
     // 4. Inserir o usuário no banco
-    const novoUsuario = await users.create({ nome, email, senhaHash });
-
-    const usuarioCriado = novoUsuario.rows[0];
+    const usuarioCriado = await users.create({ nome, email, senhaHash });
 
     // 5. Gerar o token JWT (igual o login faz)
     const token = jwt.sign(
@@ -153,7 +151,8 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   try {
-    const { nome, email } = req.body;
+    const nome = typeof req.body?.nome === 'string' ? req.body.nome.trim() : '';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
 
     if (!nome || !email) {
       return res.status(400).json({
@@ -161,12 +160,9 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    const resultado = await pool.query(
-      'UPDATE users SET nome = $1, email = $2 WHERE id = $3 RETURNING id, nome, email, criado_em',
-      [nome, email, req.user.id]
-    );
+    const usuarioAtualizado = await users.update(req.user.id, { nome, email });
 
-    if (resultado.rows.length === 0) {
+    if (!usuarioAtualizado) {
       return res.status(404).json({
         error: 'Usuário não encontrado',
       });
@@ -174,10 +170,13 @@ const updateProfile = async (req, res) => {
 
     return res.status(200).json({
       message: 'Perfil atualizado com sucesso!',
-      user: resultado.rows[0],
+      user: usuarioAtualizado,
     });
 
   } catch (error) {
+    if (error.code === 'DUPLICATE_EMAIL' || error.code === '23505') {
+      return res.status(409).json({ error: 'Este email já está cadastrado' });
+    }
     console.error('Erro ao atualizar perfil:', error.message);
     return res.status(500).json({
       error: 'Erro interno do servidor',
