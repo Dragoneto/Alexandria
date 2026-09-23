@@ -36,10 +36,20 @@ const register = async (req, res) => {
     // 4. Inserir o usuário no banco
     const novoUsuario = await users.create({ nome, email, senhaHash });
 
-    // 5. Retornar o usuário criado (sem a senha!)
+    const usuarioCriado = novoUsuario.rows[0];
+
+    // 5. Gerar o token JWT (igual o login faz)
+    const token = jwt.sign(
+      { id: usuarioCriado.id, email: usuarioCriado.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // 6. Retornar o token junto com o usuário criado
     return res.status(201).json({
       message: 'Usuário cadastrado com sucesso!',
-      user: novoUsuario,
+      token,
+      user: usuarioCriado,
     });
 
   } catch (error) {
@@ -141,4 +151,38 @@ const getProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile };
+const updateProfile = async (req, res) => {
+  try {
+    const { nome, email } = req.body;
+
+    if (!nome || !email) {
+      return res.status(400).json({
+        error: 'Nome e email são obrigatórios',
+      });
+    }
+
+    const resultado = await pool.query(
+      'UPDATE users SET nome = $1, email = $2 WHERE id = $3 RETURNING id, nome, email, criado_em',
+      [nome, email, req.user.id]
+    );
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Usuário não encontrado',
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Perfil atualizado com sucesso!',
+      user: resultado.rows[0],
+    });
+
+  } catch (error) {
+    console.error('Erro ao atualizar perfil:', error.message);
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+    });
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile };
