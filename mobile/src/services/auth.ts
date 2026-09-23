@@ -79,7 +79,28 @@ export async function restoreSession(): Promise<StoredUser | null> {
     }
     throw error;
   }
+
+
 }
+
+
+export async function updateProfile(input: { name: string; email: string }): Promise<UserProfile> {
+  const name = input.name.trim();
+  if (!name) throw new ApiError('validation', 'Informe seu nome.');
+
+  const response = await apiRequest<UserResponse>('/api/auth/profile', {
+    method: 'PUT',
+    body: { nome: name, email: normalizeEmail(input.email) },
+  });
+  const profile = profileFrom(response);
+
+  // Atualiza a sessão salva no aparelho para o app inteiro enxergar os dados novos
+  const stored = await getAuth();
+  if (stored) await saveAuth({ ...profile, token: stored.token }, stored.token);
+
+  return profile;
+}
+
 
 export function logoutUser(): Promise<void> {
   // O backend usa JWT sem endpoint de revogação; o logout remove a sessão deste dispositivo.
