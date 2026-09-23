@@ -107,10 +107,38 @@ async function create({ nome, email, senhaHash }) {
   });
 }
 
+async function update(id, { nome, email }) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'UPDATE users SET nome = $1, email = $2 WHERE id = $3 RETURNING id, nome, email, criado_em',
+      [nome, email, id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return serializeWrite(async () => {
+    const users = await readLocalUsers();
+    const index = users.findIndex((user) => user.id === Number(id));
+    if (index === -1) return null;
+    if (users.some((user) => user.email === email && user.id !== Number(id))) {
+      const error = new Error('Email já cadastrado');
+      error.code = 'DUPLICATE_EMAIL';
+      throw error;
+    }
+    const user = { ...users[index], nome, email };
+    const updatedUsers = [...users];
+    updatedUsers[index] = user;
+    await writeLocalUsers(updatedUsers);
+    const { senha_hash: _password, ...profile } = user;
+    return profile;
+  });
+}
+
 module.exports = {
   mode: usePostgres() ? 'postgres' : 'local-file',
   initialize,
   findByEmail,
   findById,
   create,
+  update,
 };
