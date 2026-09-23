@@ -1,30 +1,28 @@
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import Animated, { Easing, Keyframe } from 'react-native-reanimated';
 
 const INITIAL_SCALE_FACTOR = Dimensions.get('screen').height / 90;
 const DURATION = 600;
 
-export function AnimatedSplashOverlay({ ready }: { ready: boolean }) {
+export function AnimatedSplashOverlay() {
   const [visible, setVisible] = useState(true);
-  const [laidOut, setLaidOut] = useState(false);
-
-  useEffect(() => {
-    if (!laidOut || !ready) return;
-
-    SplashScreen.hideAsync()
-      .catch(() => {})
-      .finally(() => {
-        setTimeout(() => setVisible(false), 400);
-      });
-  }, [laidOut, ready]);
 
   if (!visible) return null;
 
   return (
-    <View onLayout={() => setLaidOut(true)} style={styles.splashOverlay}>
+    <View
+      onLayout={() => {
+        SplashScreen.hideAsync()
+          .catch(() => {})
+          .finally(() => {
+            // Pequeno delay para a transição visual
+            setTimeout(() => setVisible(false), 400);
+          });
+      }}
+      style={styles.splashOverlay}>
       <Image style={styles.image} source={require('@/assets/images/expo-logo.png')} />
     </View>
   );

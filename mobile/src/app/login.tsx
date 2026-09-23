@@ -1,66 +1,34 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { useAuth } from '@/hooks/use-auth';
-import { login } from '@/services/auth';
-import { fieldErrorsFor, messageFor } from '@/services/error-message';
-
-const CAMPOS = ['email', 'password'];
+import { loginUser } from '@/services/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-
-  const clearErrors = (field: string) => {
-    setError('');
-    setFieldErrors((current) => ({ ...current, [field]: '' }));
-  };
+  const submitting = useRef(false);
 
   const handleSubmit = async () => {
-    if (loading) return;
-
-    const nextFieldErrors: Record<string, string> = {};
-
-    if (!email.trim()) nextFieldErrors.email = 'Informe seu e-mail.';
-    if (!password) nextFieldErrors.password = 'Informe sua senha.';
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setError('');
-      setFieldErrors(nextFieldErrors);
-      return;
-    }
-
-    setError('');
-    setFieldErrors({});
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
-
+    setError('');
     try {
-      const auth = await login(email, password);
-
-      await signIn({
-        token: auth.token,
-        id: auth.userId,
-        name: auth.name,
-        email: auth.email,
-      });
-    } catch (submitError) {
-      const fields = fieldErrorsFor(submitError);
-      const mostradoNoCampo = Object.keys(fields).some((campo) => CAMPOS.includes(campo));
-
-      setFieldErrors(fields);
-      setError(mostradoNoCampo ? '' : messageFor(submitError));
+      await loginUser(email, password);
+      router.replace('/home');
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Não foi possível entrar.');
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -72,15 +40,11 @@ export default function LoginScreen() {
       <View style={styles.form}>
         <TextField
           label="E-mail"
+          editable={!loading}
           icon={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
           placeholder="voce@email.com"
           value={email}
-          onChangeText={(value) => {
-            setEmail(value);
-            clearErrors('email');
-          }}
-          editable={!loading}
-          error={fieldErrors.email}
+          onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
@@ -90,15 +54,11 @@ export default function LoginScreen() {
 
         <TextField
           label="Senha"
+          editable={!loading}
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Sua senha"
           value={password}
-          onChangeText={(value) => {
-            setPassword(value);
-            clearErrors('password');
-          }}
-          editable={!loading}
-          error={fieldErrors.password}
+          onChangeText={setPassword}
           secure
           autoCapitalize="none"
           autoComplete="current-password"
@@ -118,12 +78,11 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.actions}>
-        {error ? (
-          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
+        {!!error && (
+          <Text accessibilityRole="alert" style={{ color: Accent.coral }}>
             {error}
           </Text>
-        ) : null}
-
+        )}
         <ActionButton label="Entrar" onPress={handleSubmit} loading={loading} />
       </View>
 
@@ -159,15 +118,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: Space.six,
-    gap: Space.four,
-  },
-  error: {
-    fontFamily: DSFonts.ui,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
-    color: Accent.coral,
-    textAlign: 'center',
+    gap: Space.three,
   },
   footer: {
     marginTop: Space.eight,

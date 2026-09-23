@@ -1,13 +1,15 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const pool = require('../config/database');
+const users = require('../repositories/userRepository');
 
 // ==========================================
 // CADASTRO - POST /api/auth/register
 // ==========================================
 const register = async (req, res) => {
   try {
-    const { nome, email, senha } = req.body;
+    const nome = typeof req.body?.nome === 'string' ? req.body.nome.trim() : '';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const senha = typeof req.body?.senha === 'string' ? req.body.senha : '';
 
     // 1. Validar se todos os campos foram enviados
     if (!nome || !email || !senha) {
@@ -17,12 +19,9 @@ const register = async (req, res) => {
     }
 
     // 2. Verificar se o email já está cadastrado
-    const usuarioExistente = await pool.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
+    const usuarioExistente = await users.findByEmail(email);
 
-    if (usuarioExistente.rows.length > 0) {
+    if (usuarioExistente) {
       return res.status(409).json({
         error: 'Este email já está cadastrado',
       });
@@ -35,18 +34,18 @@ const register = async (req, res) => {
     const senhaHash = await bcrypt.hash(senha, saltRounds);
 
     // 4. Inserir o usuário no banco
-    const novoUsuario = await pool.query(
-      'INSERT INTO users (nome, email, senha_hash) VALUES ($1, $2, $3) RETURNING id, nome, email, criado_em',
-      [nome, email, senhaHash]
-    );
+    const novoUsuario = await users.create({ nome, email, senhaHash });
 
     // 5. Retornar o usuário criado (sem a senha!)
     return res.status(201).json({
       message: 'Usuário cadastrado com sucesso!',
-      user: novoUsuario.rows[0],
+      user: novoUsuario,
     });
 
   } catch (error) {
+    if (error.code === 'DUPLICATE_EMAIL' || error.code === '23505') {
+      return res.status(409).json({ error: 'Este email já está cadastrado' });
+    }
     console.error('Erro no cadastro:', error.message);
     return res.status(500).json({
       error: 'Erro interno do servidor',
@@ -59,7 +58,8 @@ const register = async (req, res) => {
 // ==========================================
 const login = async (req, res) => {
   try {
-    const { email, senha } = req.body;
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const senha = typeof req.body?.senha === 'string' ? req.body.senha : '';
 
     // 1. Validar campos
     if (!email || !senha) {
@@ -69,18 +69,13 @@ const login = async (req, res) => {
     }
 
     // 2. Buscar o usuário pelo email
-    const resultado = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
+    const usuario = await users.findByEmail(email);
 
-    if (resultado.rows.length === 0) {
+    if (!usuario) {
       return res.status(401).json({
         error: 'Email ou senha incorretos',
       });
     }
-
-    const usuario = resultado.rows[0];
 
     // 3. Comparar a senha enviada com o hash salvo no banco
     //    bcrypt.compare() hasheia a senha enviada e compara com o hash salvo
@@ -126,19 +121,16 @@ const login = async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     // req.user vem do middleware de autenticação (já verificou o JWT)
-    const resultado = await pool.query(
-      'SELECT id, nome, email, criado_em FROM users WHERE id = $1',
-      [req.user.id]
-    );
+    const usuario = await users.findById(req.user.id);
 
-    if (resultado.rows.length === 0) {
+    if (!usuario) {
       return res.status(404).json({
         error: 'Usuário não encontrado',
       });
     }
 
     return res.status(200).json({
-      user: resultado.rows[0],
+      user: usuario,
     });
 
   } catch (error) {

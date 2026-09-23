@@ -1,65 +1,98 @@
-/**
- * Autenticação contra o backend Spring Boot (AuthController).
- * Os nomes de campo seguem os DTOs do backend: name, email, password.
- */
+import { ApiError, apiRequest } from '@/services/api';
+import { clearAuth, getAuth, saveAuth, type StoredUser } from '@/services/auth-storage';
 
-import { request } from '@/services/http';
+export { ApiError } from '@/services/api';
+export type UserProfile = Omit<StoredUser, 'token'>;
+type UserResponse = { user: { id: number; nome: string; email: string } };
+type LoginResponse = UserResponse & { token: string };
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export { ApiError } from '@/services/http';
-export type { ApiErrorKind } from '@/services/http';
+function normalizeEmail(email: string) {
+  const normalized = email.trim();
+  if (!EMAIL_PATTERN.test(normalized)) throw new ApiError('validation', 'Digite um e-mail válido.');
+  return normalized;
+}
 
-/** AuthResponse do backend. */
-export type AuthResponse = {
-  token: string;
-  email: string;
+function profileFrom(response: UserResponse): UserProfile {
+  const user = response?.user;
+  if (
+    !user ||
+    !Number.isInteger(user.id) ||
+    user.id <= 0 ||
+    typeof user.nome !== 'string' ||
+    typeof user.email !== 'string'
+  ) {
+    throw new ApiError('server', 'Dados de usuário inválidos recebidos do servidor.');
+  }
+  return { id: user.id, name: user.nome, email: user.email };
+}
+
+export async function registerUser(input: {
   name: string;
-  userId: number;
-};
-
-/** UserProfileResponse do backend. */
-export type UserProfile = {
-  id: number;
-  name: string;
   email: string;
-};
-
-export type ForgotPasswordResponse = {
-  message: string;
-  resetToken: string | null;
-  resetUrl: string | null;
-};
-
-export function login(email: string, password: string) {
-  return request<AuthResponse>('/api/auth/login', {
+  password: string;
+  confirmation: string;
+}) {
+  if (!input.name.trim() || !input.password)
+    throw new ApiError('validation', 'Preencha todos os campos.');
+  if (input.password !== input.confirmation)
+    throw new ApiError('validation', 'As senhas não coincidem.');
+  const response = await apiRequest<UserResponse>('/api/auth/register', {
     method: 'POST',
-    auth: false,
-    body: { email: email.trim().toLowerCase(), password },
+    authenticated: false,
+    body: { nome: input.name.trim(), email: normalizeEmail(input.email), senha: input.password },
   });
+  // Cadastro não cria uma sessão: o backend só fornece token no login.
+  return profileFrom(response);
 }
 
-export function register(name: string, email: string, password: string) {
-  return request<AuthResponse>('/api/auth/register', {
+export async function loginUser(email: string, password: string): Promise<StoredUser> {
+  if (!password) throw new ApiError('validation', 'Informe sua senha.');
+  const response = await apiRequest<LoginResponse>('/api/auth/login', {
     method: 'POST',
-    auth: false,
-    body: { name: name.trim(), email: email.trim().toLowerCase(), password },
+    authenticated: false,
+    body: { email: normalizeEmail(email), senha: password },
   });
+  if (typeof response?.token !== 'string' || !response.token || response.token === 'mock-token') {
+    throw new ApiError('server', 'O servidor não retornou uma sessão válida.');
+  }
+  const session = { ...profileFrom(response), token: response.token };
+  await saveAuth(session);
+  return session;
 }
 
-export function fetchProfile() {
-  return request<UserProfile>('/api/auth/profile');
+export async function getProfile(): Promise<UserProfile> {
+  return profileFrom(await apiRequest<UserResponse>('/api/auth/profile'));
 }
 
-export function updateProfile(name: string, email: string) {
-  return request<AuthResponse>('/api/auth/profile', {
-    method: 'PUT',
-    body: { name: name.trim(), email: email.trim().toLowerCase() },
-  });
+export async function restoreSession(): Promise<StoredUser | null> {
+  const stored = await getAuth();
+  if (!stored) return null;
+  try {
+    const profile = await getProfile();
+    // Não restaurar uma sessão se houve logout enquanto a requisição estava em andamento.
+    return await saveAuth({ ...profile, token: stored.token }, stored.token);
+  } catch (error) {
+    if (error instanceof ApiError && [401, 404].includes(error.status ?? 0)) {
+      await clearAuth(stored.token);
+      return null;
+    }
+    throw error;
+  }
 }
 
-export function requestPasswordReset(email: string) {
-  return request<ForgotPasswordResponse>('/api/auth/forgot-password', {
+export function logoutUser(): Promise<void> {
+  // O backend usa JWT sem endpoint de revogação; o logout remove a sessão deste dispositivo.
+  return clearAuth();
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await apiRequest<{ message: string }>('/api/auth/forgot-password', {
     method: 'POST',
-    auth: false,
-    body: { email: email.trim().toLowerCase() },
+    authenticated: false,
+    body: { email: normalizeEmail(email) },
   });
+  if (typeof response?.message !== 'string') {
+    throw new ApiError('server', 'Resposta inválida ao solicitar recuperação de senha.');
+  }
 }
