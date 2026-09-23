@@ -26,6 +26,7 @@ export class ApiError extends Error {
 /** Corpo de erro do backend (ErrorResponse do Spring). */
 type ErrorBody = {
   message?: string;
+  error?: string;
   errors?: Record<string, string> | null;
 };
 
@@ -60,6 +61,7 @@ function messageFrom(body: ErrorBody | null, status: number): string {
   }
 
   if (body?.message) return body.message;
+  if (body?.error) return body.error;
 
   if (status === 401) return 'E-mail ou senha incorretos.';
   if (status === 403) return 'Sua sessão expirou. Entre novamente.';

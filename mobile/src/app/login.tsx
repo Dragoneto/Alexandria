@@ -5,7 +5,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
-import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { useAuth } from '@/hooks/use-auth';
 import { ApiError, login } from '@/services/auth';
 
@@ -16,12 +16,13 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (loading) return;
 
     if (!email.trim() || !password) {
-      Alert.alert('Erro', 'Preencha o e-mail e a senha.');
+      setError('Preencha email e senha para continuar.')
       return;
     }
 
@@ -37,10 +38,7 @@ export default function LoginScreen() {
         email: auth.email,
       });
     } catch (error) {
-      Alert.alert(
-        'Erro',
-        error instanceof ApiError ? error.message : 'Não foi possível entrar. Tente de novo.',
-      );
+      setError(error instanceof ApiError ? error.message : 'Não foi possível fazer login.');
     } finally {
       setLoading(false);
     }
@@ -88,6 +86,8 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
+      {!!error && <Text style={styles.error}>{error}</Text>}
+
       <View style={styles.actions}>
         <ActionButton label="Entrar" onPress={handleSubmit} loading={loading} />
       </View>
@@ -124,6 +124,14 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginTop: Space.six,
+  },
+  error: {
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: Accent.coral,
+    textAlign: 'center',
   },
   footer: {
     marginTop: Space.eight,
