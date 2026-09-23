@@ -9,13 +9,12 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      initialRouteName="home"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-        },
+        tabBarStyle: { backgroundColor: colors.background },
       }}>
       <Tabs.Screen
         name="home"
@@ -24,11 +23,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Image
               source={require('../../../assets/images/home_icone_navbar.png')}
-              style={{
-                width: size,
-                height: size,
-                tintColor: color,
-              }}
+              style={{ width: size, height: size, tintColor: color }}
               resizeMode="contain"
             />
           ),
@@ -42,11 +37,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Image
               source={require('../../../assets/images/explorar_icone_navbar.png')}
-              style={{
-                width: size,
-                height: size,
-                tintColor: color,
-              }}
+              style={{ width: size, height: size, tintColor: color }}
               resizeMode="contain"
             />
           ),
@@ -60,11 +51,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Image
               source={require('../../../assets/images/biblioteca_icone_navbar.png')}
-              style={{
-                width: size,
-                height: size,
-                tintColor: color,
-              }}
+              style={{ width: size, height: size, tintColor: color }}
               resizeMode="contain"
             />
           ),
@@ -78,11 +65,7 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Image
               source={require('../../../assets/images/perfil_icone_navbar.png')}
-              style={{
-                width: size,
-                height: size,
-                tintColor: color,
-              }}
+              style={{ width: size, height: size, tintColor: color }}
               resizeMode="contain"
             />
           ),

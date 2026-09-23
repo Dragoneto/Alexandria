@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
@@ -7,14 +7,7 @@ import { AuthShell } from '@/components/auth-shell';
 import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { register } from '@/services/auth';
-import { saveAuth } from '@/services/auth-storage';
-import { fieldErrorsFor, messageFor } from '@/services/error-message';
-
-/** Mesmo mínimo exigido pelo backend. */
-const MIN_SENHA = 8;
-
-const CAMPOS = ['name', 'email', 'password', 'confirmation'];
+import { registerUser } from '@/services/auth';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -25,63 +18,22 @@ export default function SignUpScreen() {
   const [confirmation, setConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const submitting = useRef(false);
   // Preenchido quando o cadastro dá certo; enquanto não for null, o popup fica aberto
   const [nomeCadastrado, setNomeCadastrado] = useState<string | null>(null);
 
-  const clearErrors = (field: string) => {
-    setError('');
-    setFieldErrors((current) => ({ ...current, [field]: '' }));
-  };
-
   const handleSubmit = async () => {
-    if (loading) return;
-
-    const nextFieldErrors: Record<string, string> = {};
-
-    if (!name.trim()) nextFieldErrors.name = 'Informe seu nome.';
-    if (!email.trim()) nextFieldErrors.email = 'Informe seu e-mail.';
-
-    if (!password) {
-      nextFieldErrors.password = 'Crie uma senha.';
-    } else if (password.length < MIN_SENHA) {
-      nextFieldErrors.password = `A senha precisa ter ao menos ${MIN_SENHA} caracteres.`;
-    }
-
-    if (!confirmation) {
-      nextFieldErrors.confirmation = 'Confirme sua senha.';
-    } else if (password && password !== confirmation) {
-      nextFieldErrors.confirmation = 'As senhas não coincidem.';
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setError('');
-      setFieldErrors(nextFieldErrors);
-      return;
-    }
-
-    setError('');
-    setFieldErrors({});
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
-
+    setError('');
     try {
-      const auth = await register(name, email, password);
-
-      await saveAuth({
-        token: auth.token,
-        id: auth.userId,
-        name: auth.name,
-        email: auth.email,
-      });
-
-      setNomeCadastrado(auth.name);
-    } catch (submitError) {
-      const fields = fieldErrorsFor(submitError);
-      const mostradoNoCampo = Object.keys(fields).some((campo) => CAMPOS.includes(campo));
-
-      setFieldErrors(fields);
-      setError(mostradoNoCampo ? '' : messageFor(submitError));
+      const user = await registerUser({ name, email, password, confirmation });
+      setNomeCadastrado(user.name);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Não foi possível cadastrar.');
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -93,15 +45,11 @@ export default function SignUpScreen() {
       <View style={styles.form}>
         <TextField
           label="Nome"
+          editable={!loading}
           icon={{ ios: 'person.fill', android: 'person', web: 'person' }}
           placeholder="Como quer ser chamado"
           value={name}
-          onChangeText={(value) => {
-            setName(value);
-            clearErrors('name');
-          }}
-          editable={!loading}
-          error={fieldErrors.name}
+          onChangeText={setName}
           autoCapitalize="words"
           autoComplete="name"
           textContentType="name"
@@ -110,15 +58,11 @@ export default function SignUpScreen() {
 
         <TextField
           label="E-mail"
+          editable={!loading}
           icon={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
           placeholder="voce@email.com"
           value={email}
-          onChangeText={(value) => {
-            setEmail(value);
-            clearErrors('email');
-          }}
-          editable={!loading}
-          error={fieldErrors.email}
+          onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
           autoComplete="email"
@@ -128,15 +72,11 @@ export default function SignUpScreen() {
 
         <TextField
           label="Senha"
+          editable={!loading}
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Crie uma senha"
           value={password}
-          onChangeText={(value) => {
-            setPassword(value);
-            clearErrors('password');
-          }}
-          editable={!loading}
-          error={fieldErrors.password}
+          onChangeText={setPassword}
           secure
           autoCapitalize="none"
           autoComplete="new-password"
@@ -146,15 +86,11 @@ export default function SignUpScreen() {
 
         <TextField
           label="Confirmar senha"
+          editable={!loading}
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Repita a senha"
           value={confirmation}
-          onChangeText={(value) => {
-            setConfirmation(value);
-            clearErrors('confirmation');
-          }}
-          editable={!loading}
-          error={fieldErrors.confirmation}
+          onChangeText={setConfirmation}
           secure
           autoCapitalize="none"
           autoComplete="new-password"
@@ -165,12 +101,11 @@ export default function SignUpScreen() {
       </View>
 
       <View style={styles.actions}>
-        {error ? (
-          <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
+        {!!error && (
+          <Text accessibilityRole="alert" style={{ color: Accent.coral }}>
             {error}
           </Text>
-        ) : null}
-
+        )}
         <ActionButton label="Criar conta" onPress={handleSubmit} loading={loading} />
         <Text style={styles.terms}>
           Ao criar a conta você concorda com os termos de uso e a política de privacidade.
@@ -207,14 +142,6 @@ const styles = StyleSheet.create({
   actions: {
     marginTop: Space.six,
     gap: Space.four,
-  },
-  error: {
-    fontFamily: DSFonts.ui,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
-    color: Accent.coral,
-    textAlign: 'center',
   },
   // Corpo pequeno · sans 13/20 · 500
   terms: {
