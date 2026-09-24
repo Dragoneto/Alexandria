@@ -3,7 +3,9 @@
 export function getApiConfig() {
   const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (!configuredUrl) {
-    throw new Error('Configure EXPO_PUBLIC_API_URL em mobile/.env.local e reinicie o Expo.');
+    throw new Error(
+      'Configure EXPO_PUBLIC_API_URL em mobile/.env.development (ou .env.local) e reinicie o Expo.',
+    );
   }
   let url: URL;
   try {
