@@ -4,8 +4,10 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,10 +36,12 @@ const COLOR: Record<MessageKind, string> = {
 type MessageBannerProps = {
   message: Message;
   onDismiss: (id: number) => void;
+  /** Acompanha a altura visível da faixa, para o conteúdo descer junto. */
+  shift: SharedValue<number>;
 };
 
 /** Faixa do topo: entra, preenche a barra de contagem e sai sozinha no fim. */
-export function MessageBanner({ message, onDismiss }: MessageBannerProps) {
+export function MessageBanner({ message, onDismiss, shift }: MessageBannerProps) {
   const insets = useSafeAreaInsets();
   const color = COLOR[message.kind];
 
@@ -57,7 +61,12 @@ export function MessageBanner({ message, onDismiss }: MessageBannerProps) {
     progress.value = withTiming(1, { duration: message.durationMs }, (finished) => {
       if (finished) runOnJS(leave)();
     });
-  }, [enter, leave, message.durationMs, progress]);
+  }, [enter, leave, message.durationMs, message.id, progress]);
+
+  // O conteúdo da tela desce exatamente o quanto a faixa ocupa, no mesmo ritmo
+  useDerivedValue(() => {
+    shift.value = enter.value * height.value;
+  });
 
   const bannerStyle = useAnimatedStyle(() => ({
     opacity: enter.value,

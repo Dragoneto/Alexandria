@@ -1,5 +1,13 @@
-import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue } from 'react-native-reanimated';
 
 import { MessageBanner } from '@/components/message-banner';
 import { createMessageQueue, type Message } from '@/services/messages';
@@ -16,8 +24,12 @@ const MessagesContext = createContext<MessagesApi | null>(null);
 export function MessagesProvider({ children }: PropsWithChildren) {
   const queue = useMemo(() => createMessageQueue(), []);
   const [message, setMessage] = useState<Message | null>(null);
+  // Altura ocupada pela faixa: o conteúdo desce junto para nada ficar coberto
+  const shift = useSharedValue(0);
 
   useEffect(() => queue.subscribe(setMessage), [queue]);
+
+  const contentStyle = useAnimatedStyle(() => ({ paddingTop: shift.value }));
 
   const api = useMemo<MessagesApi>(
     () => ({
@@ -39,12 +51,12 @@ export function MessagesProvider({ children }: PropsWithChildren) {
 
   return (
     <MessagesContext.Provider value={api}>
-      {children}
+      <Animated.View style={[styles.content, contentStyle]}>{children}</Animated.View>
 
       {/* box-none deixa o toque passar para a tela onde não há faixa */}
       <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
         {message ? (
-          <MessageBanner key={message.id} message={message} onDismiss={queue.dismiss} />
+          <MessageBanner message={message} onDismiss={queue.dismiss} shift={shift} />
         ) : null}
       </View>
     </MessagesContext.Provider>
@@ -56,3 +68,7 @@ export function useMessages() {
   if (!context) throw new Error('useMessages precisa de MessagesProvider.');
   return context;
 }
+
+const styles = StyleSheet.create({
+  content: { flex: 1 },
+});
