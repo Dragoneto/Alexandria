@@ -6,6 +6,8 @@ export type UserProfile = Omit<StoredUser, 'token'>;
 type UserResponse = { user: { id: number; nome: string; email: string } };
 type LoginResponse = UserResponse & { token: string };
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Tamanho mínimo exigido pelo backend em /api/auth/reset-password. */
+export const MIN_PASSWORD_LENGTH = 8;
 
 function normalizeEmail(email: string) {
   const normalized = email.trim();
@@ -115,5 +117,29 @@ export async function forgotPassword(email: string): Promise<void> {
   });
   if (typeof response?.message !== 'string') {
     throw new ApiError('server', 'Resposta inválida ao solicitar recuperação de senha.');
+  }
+}
+
+export async function resetPassword(input: {
+  token: string;
+  password: string;
+  confirmation: string;
+}): Promise<void> {
+  const token = input.token.trim();
+  if (!token) throw new ApiError('validation', 'Cole o código que veio no link do e-mail.');
+  if (input.password.length < MIN_PASSWORD_LENGTH)
+    throw new ApiError(
+      'validation',
+      `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`,
+    );
+  if (input.password !== input.confirmation)
+    throw new ApiError('validation', 'As senhas não coincidem.');
+  const response = await apiRequest<{ message: string }>('/api/auth/reset-password', {
+    method: 'POST',
+    authenticated: false,
+    body: { token, senha: input.password },
+  });
+  if (typeof response?.message !== 'string') {
+    throw new ApiError('server', 'Resposta inválida ao redefinir a senha.');
   }
 }
