@@ -77,12 +77,13 @@ export async function restoreSession(): Promise<StoredUser | null> {
       await clearAuth(stored.token);
       return null;
     }
+    if (error instanceof ApiError && ['network', 'timeout', 'server'].includes(error.kind)) {
+      const current = await getAuth();
+      return current?.token === stored.token ? current : null;
+    }
     throw error;
   }
-
-
 }
-
 
 export async function updateProfile(input: { name: string; email: string }): Promise<UserProfile> {
   const name = input.name.trim();
@@ -100,7 +101,6 @@ export async function updateProfile(input: { name: string; email: string }): Pro
 
   return profile;
 }
-
 
 export function logoutUser(): Promise<void> {
   // O backend usa JWT sem endpoint de revogação; o logout remove a sessão deste dispositivo.

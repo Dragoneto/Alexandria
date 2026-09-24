@@ -100,10 +100,38 @@ test('401 ou usuário removido encerra a sessão durante restauração', async (
   }
 });
 
-test('falha de rede não apaga a sessão salva', async () => {
+test('falha de rede ou servidor fora do ar mantém o usuário logado com a sessão salva', async () => {
+  for (const failure of [
+    async () => {
+      throw new TypeError('Network request failed');
+    },
+    async () => json({ error: 'Erro interno do servidor' }, 500),
+  ]) {
+    const h = createServices();
+    await h.session.saveAuth(session);
+    h.fetch = failure;
+    assert.deepEqual(await h.auth.restoreSession(), session);
+    assert.deepEqual(await h.session.getAuth(), session);
+  }
+});
+
+test('restauração sem conexão não desfaz logout', async () => {
   const h = createServices();
   await h.session.saveAuth(session);
-  await assert.rejects(h.auth.restoreSession(), { kind: 'network' });
+  let fail;
+  h.fetch = () => new Promise((_, reject) => { fail = reject; });
+  const restoring = h.auth.restoreSession();
+  await new Promise(setImmediate);
+  await h.auth.logoutUser();
+  fail(new TypeError('Network request failed'));
+  assert.equal(await restoring, null);
+  assert.equal(await h.session.getAuth(), null);
+});
+
+test('configuração inválida continua mostrando erro na restauração', async () => {
+  const h = createServices({ env: { EXPO_PUBLIC_API_URL: '' } });
+  await h.session.saveAuth(session);
+  await assert.rejects(h.auth.restoreSession(), { kind: 'config' });
   assert.deepEqual(await h.session.getAuth(), session);
 });
 
