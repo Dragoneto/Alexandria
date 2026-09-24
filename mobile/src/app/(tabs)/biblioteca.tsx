@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Modal, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing, MaxContentWidth } from '@/constants/theme';
+import { useMessages } from '@/contexts/messages-context';
 import { useTheme } from '@/hooks/use-theme';
 
 const STATUS_LEITURA: Record<string, string> = {
@@ -79,6 +80,7 @@ const MOCK_ITEMS: BibliotecaItem[] = [
 
 export default function Biblioteca() {
   const theme = useTheme();
+  const { confirm, success } = useMessages();
   const [items, setItems] = useState(MOCK_ITEMS);
   const [filter, setFilter] = useState('TODOS');
   const [statusModalItemId, setStatusModalItemId] = useState<string | null>(null);
@@ -110,15 +112,18 @@ export default function Biblioteca() {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, favorito: !i.favorito } : i)));
   };
 
-  const handleRemove = (id: string, titulo: string) => {
-    Alert.alert('Remover livro', `Remover "${titulo}" da sua biblioteca?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: () => setItems((prev) => prev.filter((i) => i.id !== id)),
-      },
-    ]);
+  const handleRemove = async (id: string, titulo: string) => {
+    const confirmado = await confirm({
+      title: 'Remover livro',
+      text: `Remover "${titulo}" da sua biblioteca? Você pode adicionar de novo depois.`,
+      confirmLabel: 'Remover',
+      danger: true,
+    });
+
+    if (!confirmado) return;
+
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    success('Livro removido da biblioteca.');
   };
 
   return (
