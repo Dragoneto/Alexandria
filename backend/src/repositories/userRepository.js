@@ -134,6 +134,28 @@ async function update(id, { nome, email }) {
   });
 }
 
+async function updatePassword(id, senhaHash) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'UPDATE users SET senha_hash = $1 WHERE id = $2 RETURNING id, nome, email, criado_em',
+      [senhaHash, id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return serializeWrite(async () => {
+    const users = await readLocalUsers();
+    const index = users.findIndex((user) => user.id === Number(id));
+    if (index === -1) return null;
+    const user = { ...users[index], senha_hash: senhaHash };
+    const updatedUsers = [...users];
+    updatedUsers[index] = user;
+    await writeLocalUsers(updatedUsers);
+    const { senha_hash: _password, ...profile } = user;
+    return profile;
+  });
+}
+
 module.exports = {
   mode: usePostgres() ? 'postgres' : 'local-file',
   initialize,
@@ -141,4 +163,5 @@ module.exports = {
   findById,
   create,
   update,
+  updatePassword,
 };

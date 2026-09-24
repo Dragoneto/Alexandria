@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const users = require('./repositories/userRepository');
+const passwordResets = require('./repositories/passwordResetRepository');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -51,6 +52,7 @@ async function start() {
   }
 
   await users.initialize();
+  await passwordResets.initialize();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
     console.log(`💾 Persistência: ${users.mode}`);
@@ -58,6 +60,8 @@ async function start() {
     console.log(`   POST /api/auth/register  - Cadastrar usuário`);
     console.log(`   POST /api/auth/login     - Fazer login`);
     console.log(`   GET  /api/auth/profile   - Ver perfil (requer token)`);
+    console.log(`   POST /api/auth/forgot-password - Pedir link de redefinição`);
+    console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
   });
 }
 

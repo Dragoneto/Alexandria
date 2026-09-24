@@ -1,6 +1,22 @@
+const crypto = require('node:crypto');
+
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const users = require('../repositories/userRepository');
+const passwordResets = require('../repositories/passwordResetRepository');
+
+// Regras da redefinição de senha
+const SENHA_MINIMA = 8;
+const TTL_MINUTOS = Number(process.env.RESET_TOKEN_TTL_MINUTES) > 0
+  ? Number(process.env.RESET_TOKEN_TTL_MINUTES)
+  : 30;
+const RESET_URL_BASE = process.env.APP_RESET_URL || 'alexandriamobile://redefinir-senha';
+// Fora de produção o token volta na resposta: sem servidor de e-mail, é como se testa o fluxo
+const EXPOE_TOKEN = process.env.NODE_ENV !== 'production';
+// Mesma resposta para e-mail cadastrado ou não, para não revelar quem tem conta
+const MENSAGEM_NEUTRA =
+  'Se existir uma conta com esse e-mail, enviamos o link para criar uma nova senha.';
+const LINK_INVALIDO = 'Link inválido ou expirado. Peça um novo.';
 
 // ==========================================
 // CADASTRO - POST /api/auth/register
@@ -184,4 +200,100 @@ const updateProfile = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile };
+// ==========================================
+// PEDIR REDEFINIÇÃO - POST /api/auth/forgot-password
+// ==========================================
+const forgotPassword = async (req, res) => {
+  try {
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+
+    // 1. Validar o campo
+    if (!email) {
+      return res.status(400).json({
+        error: 'Email é obrigatório',
+      });
+    }
+
+    // 2. Buscar o usuário. Se não existir, a resposta é a mesma de quem existe
+    const usuario = await users.findByEmail(email);
+
+    if (!usuario) {
+      return res.status(200).json({ message: MENSAGEM_NEUTRA });
+    }
+
+    // 3. Gerar o token do link e guardar o pedido (o armazenamento só vê o hash)
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiraEm = new Date(Date.now() + TTL_MINUTOS * 60 * 1000);
+
+    await passwordResets.create({ userId: usuario.id, token, expiraEm });
+
+    const resetUrl = `${RESET_URL_BASE}?token=${token}`;
+
+    // 4. Enquanto não existe envio de e-mail, o link sai no log do servidor
+    console.log(`🔑 Link de redefinição para ${email} (vale ${TTL_MINUTOS} min): ${resetUrl}`);
+
+    // 5. Fora de produção o token volta na resposta, para dar para testar sem e-mail
+    return res.status(200).json({
+      message: MENSAGEM_NEUTRA,
+      ...(EXPOE_TOKEN ? { resetToken: token, resetUrl } : {}),
+    });
+
+  } catch (error) {
+    console.error('Erro ao pedir redefinição de senha:', error.message);
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+    });
+  }
+};
+
+// ==========================================
+// REDEFINIR SENHA - POST /api/auth/reset-password
+// ==========================================
+const resetPassword = async (req, res) => {
+  try {
+    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    const senha = typeof req.body?.senha === 'string' ? req.body.senha : '';
+
+    // 1. Validar os campos
+    if (!token) {
+      return res.status(400).json({ error: LINK_INVALIDO });
+    }
+
+    if (senha.length < SENHA_MINIMA) {
+      return res.status(400).json({
+        error: `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres`,
+      });
+    }
+
+    // 2. Conferir se o token existe, não venceu e ainda não foi usado
+    const pedido = await passwordResets.findValidByToken(token);
+
+    if (!pedido) {
+      return res.status(400).json({ error: LINK_INVALIDO });
+    }
+
+    // 3. Trocar a senha pelo hash da nova
+    const saltRounds = 10;
+    const senhaHash = await bcrypt.hash(senha, saltRounds);
+    const usuarioAtualizado = await users.updatePassword(pedido.user_id, senhaHash);
+
+    if (!usuarioAtualizado) {
+      return res.status(400).json({ error: LINK_INVALIDO });
+    }
+
+    // 4. Um link atendido derruba os outros pedidos abertos do mesmo usuário
+    await passwordResets.invalidateForUser(pedido.user_id);
+
+    return res.status(200).json({
+      message: 'Senha redefinida com sucesso!',
+    });
+
+  } catch (error) {
+    console.error('Erro ao redefinir senha:', error.message);
+    return res.status(500).json({
+      error: 'Erro interno do servidor',
+    });
+  }
+};
+
+module.exports = { register, login, getProfile, updateProfile, forgotPassword, resetPassword };

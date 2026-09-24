@@ -69,15 +69,20 @@ de `src/database/init.sql` no banco de desenvolvimento antes de `npm start`.
 | `loginUser()` | `POST /api/auth/login` | Envia `email`, `senha`; recebe `{ token, user }`. |
 | `getProfile()` | `GET /api/auth/profile` | Envia Bearer token; recebe `{ user }`. |
 | `forgotPassword()` | `POST /api/auth/forgot-password` | Envia `email`; espera `{ message }`. |
+| `resetPassword()` | `POST /api/auth/reset-password` | Envia `token`, `senha`; espera `{ message }`. |
 
 O serviço converte `user.nome` em `name` para as telas. Cadastro não autentica:
 o usuário confirma o popup e faz login. Todos os detalhes HTTP ficam em
 `src/services/api.ts`, incluindo timeout, JSON, autenticação e erros nos formatos
 `{ error }` ou `{ message, errors }`.
 
-**O backend desta branch ainda não implementa recuperação de senha.** A tela
-informa indisponibilidade em vez de simular envio de e-mail. O antigo `mock-api/`
-é uma demonstração isolada; não é usado pelo aplicativo nem pelos testes abaixo.
+A recuperação de senha responde sempre a mesma mensagem, para não revelar quem
+tem conta. Como ainda não há envio de e-mail, fora de produção o backend devolve
+`resetToken` e `resetUrl` na resposta e registra o link no próprio log. Esse link
+abre `alexandriamobile://redefinir-senha?token=...` no aparelho e
+`/redefinir-senha?token=...` no navegador. O token vale 30 minutos, serve uma vez
+só e é guardado com hash. O `mock-api/` reproduz as duas rotas para mexer no app
+sem subir o backend (`npm run mock-api`).
 
 ## Sessão e navegação
 
@@ -117,8 +122,10 @@ Para validar de ponta a ponta em um ambiente de desenvolvimento:
    não permite acessar as abas sem nova autenticação.
 6. Verificar indisponibilidade de rede e token expirado; tentar novamente após
    restaurar a conexão.
-7. Só considerar recuperação concluída quando houver endpoint e entrega real
-   de e-mail. Não usar o mock como evidência desse fluxo.
+7. Pedir o link em Esqueci a senha, copiar o token do log do backend, abrir
+   `/redefinir-senha?token=...`, criar a nova senha e entrar com ela. Conferir
+   que o mesmo link não funciona uma segunda vez. Só considerar o fluxo completo
+   quando houver entrega real de e-mail.
 
 ## Erro em `expo/tsconfig.base`
 
