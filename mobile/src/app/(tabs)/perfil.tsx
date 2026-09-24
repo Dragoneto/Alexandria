@@ -42,9 +42,11 @@ export default function PerfilScreen() {
           if (isMounted) {
             setProfile(response);
           }
-        } catch {
+        } catch (failure) {
           if (isMounted) {
-            setError('Não foi possível carregar o perfil agora.');
+            setError(
+              failure instanceof Error ? failure.message : 'Não foi possível carregar o perfil agora.',
+            );
           }
         } finally {
           if (isMounted) {
