@@ -12,22 +12,31 @@ Execute os comandos dentro de `mobile/`:
 npm ci
 ```
 
-Copie `.env.example` para `.env.local`. Defina `EXPO_PUBLIC_API_URL` com a URL
-do backend, sem `/api/auth` no final. A única leitura dessa variável no código
-fica em `src/constants/env.ts`. O arquivo local não deve ser versionado.
+O app lê `EXPO_PUBLIC_API_URL` em um só lugar, `src/constants/env.ts`, e o
+endereço vem de arquivos de ambiente versionados. Trocar de backend não exige
+editar código:
 
-| Ambiente | Backend local padrão |
+| Comando | Arquivo lido | Aponta para |
+| --- | --- | --- |
+| `npm start` | `.env.development` | backend local, `http://localhost:3000` |
+| `npm run start:railway` | `.env.production` | backend publicado no Railway |
+
+O link do Railway fica em `.env.production`, sem `/api` no final. Enquanto ele
+estiver vazio, `npm run start:railway` avisa e não sobe o app.
+
+Precisa de um endereço só seu, como o IP do computador para abrir no celular?
+Copie `.env.example` para `.env.local` e ajuste a URL. Esse arquivo vence os
+versionados, não entra no git e não interfere no `npm run start:railway`.
+
+| Ambiente | Backend local |
 | --- | --- |
 | Navegador ou simulador iOS | `http://localhost:3000` |
 | Emulador Android | `http://10.0.2.2:3000` |
 | Celular físico | `http://IP-DO-COMPUTADOR:3000` |
 
 `EXPO_PUBLIC_API_TIMEOUT` configura o limite de espera, em milissegundos; o padrão
-é 15000. Reinicie o Expo após mudar variáveis:
-
-```sh
-npx expo start -c
-```
+é 15000. Depois de mudar qualquer variável basta reiniciar o Expo: o cache do
+Metro não guarda esses valores.
 
 Não há fallback de URL nem sessão de demonstração. A Open Library não usa essa
 URL do backend: sua integração consulta diretamente a API pública oficial.
