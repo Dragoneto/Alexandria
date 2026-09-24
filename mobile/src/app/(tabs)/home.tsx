@@ -3,6 +3,8 @@ import { ScrollView, TextInput, TouchableOpacity, StyleSheet, View, Text } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
+import { Accent } from '@/constants/design-system';
+
 const GOLD = '#f4b860';
 const CYAN = '#5ce0d2';
 const BG = '#0a0e13';
@@ -208,7 +210,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   errorText: {
-    color: '#ff6b6b',
+    color: Accent.coral,
     fontSize: 13,
   },
 

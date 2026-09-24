@@ -84,6 +84,36 @@ abre `alexandriamobile://redefinir-senha?token=...` no aparelho e
 só e é guardado com hash. O `mock-api/` reproduz as duas rotas para mexer no app
 sem subir o backend (`npm run mock-api`).
 
+## Mensagens da interface
+
+Qualquer tela avisa o usuário pelo mesmo caminho:
+
+```tsx
+const { success, error, confirm } = useMessages();
+
+success('Perfil atualizado.');
+
+if (await confirm({ title: 'Remover livro', confirmLabel: 'Remover', danger: true })) {
+  // ...
+}
+```
+
+`success`, `info` e `warning` mostram a faixa por 2 segundos; `error`, por 4. A faixa
+aparece no topo, preenche a barra de contagem e sai sozinha — quem quiser dispensar antes
+é só tocar nela. Enquanto ela está na tela o conteúdo desce a altura dela, para nada ficar
+coberto. Só uma mensagem fica no ar por vez: a nova substitui a anterior.
+
+`confirm` devolve uma promessa com `true` ou `false` e abre o diálogo no centro da tela.
+`danger: true` pinta a ação de coral. O mesmo diálogo atende a confirmação de cadastro,
+com `cancelLabel: null` e um selo acima do título.
+
+A regra fica em `src/services/messages.ts` (testada no `npm test`), a ligação com o React
+em `src/contexts/messages-context.tsx`, e o visual em `src/components/message-banner.tsx` e
+`src/components/confirm-dialog.tsx`.
+
+Erro de campo de formulário **não** usa a faixa: ele continua no próprio `TextField`, parado
+ao lado do campo enquanto a pessoa corrige. A faixa é para resultado de ação.
+
 ## Sessão e navegação
 
 - Android/iOS: sessão armazenada em `expo-secure-store`.
