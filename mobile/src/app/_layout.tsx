@@ -7,6 +7,7 @@ import { ActionButton } from '@/components/action-button';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
+import { MessagesProvider } from '@/contexts/messages-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 export const ErrorBoundary = AppErrorBoundary;
@@ -58,9 +59,12 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
-      <AuthProvider>
-        <SessionRoutes />
-      </AuthProvider>
+      {/* Por fora do AuthProvider: a faixa vale também no login e no cadastro */}
+      <MessagesProvider>
+        <AuthProvider>
+          <SessionRoutes />
+        </AuthProvider>
+      </MessagesProvider>
     </ThemeProvider>
   );
 }

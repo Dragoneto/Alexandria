@@ -79,6 +79,7 @@ function createServices({ os = 'android', storage = new Map(), env = {} } = {}) 
   harness.books = load('@/services/open-library');
   harness.session = load('@/services/auth-storage');
   harness.config = load('@/constants/env');
+  harness.messages = load('@/services/messages');
   return harness;
 }
 

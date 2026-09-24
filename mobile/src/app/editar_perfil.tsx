@@ -5,31 +5,32 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
 import { TextField } from '@/components/text-field';
-import { Accent, DSFonts, Ink, ScreenInset, Space, TextColor } from '@/constants/design-system';
+import { DSFonts, Ink, ScreenInset, Space, TextColor } from '@/constants/design-system';
 import { useAuth } from '@/contexts/auth-context';
+import { useMessages } from '@/contexts/messages-context';
 import { updateProfile } from '@/services/auth';
 
 export default function EditarPerfilScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { success, error: showError } = useMessages();
 
   // Os campos começam preenchidos com os dados atuais do usuário
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
   const submitting = useRef(false);
 
   const handleSave = async () => {
     if (submitting.current) return;
     submitting.current = true;
     setSaving(true);
-    setError('');
     try {
       await updateProfile({ name, email });
+      success('Perfil atualizado.');
       router.back(); // volta para a tela de perfil
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'Não foi possível salvar.');
+      showError(failure instanceof Error ? failure.message : 'Não foi possível salvar.');
     } finally {
       submitting.current = false;
       setSaving(false);
@@ -76,11 +77,6 @@ export default function EditarPerfilScreen() {
             </View>
 
             <View style={styles.actions}>
-              {!!error && (
-                <Text accessibilityRole="alert" style={styles.error}>
-                  {error}
-                </Text>
-              )}
               <ActionButton label="Salvar alterações" onPress={handleSave} loading={saving} />
               <ActionButton label="Cancelar" variant="ghost" onPress={() => router.back()} />
             </View>
@@ -110,5 +106,4 @@ const styles = StyleSheet.create({
   },
   form: { marginTop: Space.eight, gap: Space.four },
   actions: { marginTop: Space.eight, gap: Space.four },
-  error: { fontFamily: DSFonts.ui, fontSize: 13, lineHeight: 20, color: Accent.coral },
 });
