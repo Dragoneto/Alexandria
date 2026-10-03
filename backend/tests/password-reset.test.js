@@ -95,6 +95,27 @@ test('senha curta não redefine', async () => {
   assert.match(res.body.error, /pelo menos 8 caracteres/);
 });
 
+test('senha sem letra ou sem número não redefine', async () => {
+  const { body } = await pedirLink('leitora@alexandria.com');
+
+  for (const senha of ['somenteletras', '123456789']) {
+    const res = await redefinir(body.resetToken, senha);
+    assert.equal(res.statusCode, 400);
+    assert.match(res.body.error, /com letra e número/);
+  }
+});
+
+test('cadastro recusa senha fraca e não cria a conta', async () => {
+  for (const senha of ['curta1', 'somenteletras', '123456789']) {
+    const res = fakeResponse();
+    await register({ body: { nome: 'Fraca', email: 'fraca@alexandria.com', senha } }, res);
+    assert.equal(res.statusCode, 400);
+    assert.match(res.body.error, /pelo menos 8 caracteres, com letra e número/);
+  }
+
+  assert.equal(await users.findByEmail('fraca@alexandria.com'), null);
+});
+
 test('token desconhecido não redefine', async () => {
   const res = await redefinir('nao-existe', 'senhaNova123');
 

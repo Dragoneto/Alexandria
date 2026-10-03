@@ -7,6 +7,8 @@ const passwordResets = require('../repositories/passwordResetRepository');
 
 // Regras da redefinição de senha
 const SENHA_MINIMA = 8;
+const SENHA_REGRA = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
+const SENHA_FRACA = `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres, com letra e número`;
 const TTL_MINUTOS = Number(process.env.RESET_TOKEN_TTL_MINUTES) > 0
   ? Number(process.env.RESET_TOKEN_TTL_MINUTES)
   : 30;
@@ -32,6 +34,10 @@ const register = async (req, res) => {
       return res.status(400).json({
         error: 'Todos os campos são obrigatórios (nome, email, senha)',
       });
+    }
+
+    if (!SENHA_REGRA.test(senha)) {
+      return res.status(400).json({ error: SENHA_FRACA });
     }
 
     // 2. Verificar se o email já está cadastrado
@@ -259,10 +265,8 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ error: LINK_INVALIDO });
     }
 
-    if (senha.length < SENHA_MINIMA) {
-      return res.status(400).json({
-        error: `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres`,
-      });
+    if (!SENHA_REGRA.test(senha)) {
+      return res.status(400).json({ error: SENHA_FRACA });
     }
 
     // 2. Conferir se o token existe, não venceu e ainda não foi usado

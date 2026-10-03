@@ -15,6 +15,12 @@ test('recusa antes de chamar a API o que o backend recusaria', async () => {
     h.auth.resetPassword({ token: 'token-do-link', password: 'curta12', confirmation: 'curta12' }),
     { kind: 'validation', message: /pelo menos 8 caracteres/ },
   );
+  for (const password of ['somenteletras', '123456789']) {
+    await assert.rejects(
+      h.auth.resetPassword({ token: 'token-do-link', password, confirmation: password }),
+      { kind: 'validation', message: /com letra e número/ },
+    );
+  }
   await assert.rejects(
     h.auth.resetPassword({
       token: 'token-do-link',
