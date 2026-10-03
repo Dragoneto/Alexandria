@@ -42,6 +42,7 @@ const QUALITY_OPTIONS: { label: string; value: BookSearchQuality; detail: string
   { label: 'Com capa', value: 'curated', detail: 'Capa e autoria disponíveis' },
   { label: 'Amplos', value: 'all', detail: 'Todos os resultados válidos' },
 ];
+const SEARCH_DEBOUNCE_MS = 500;
 
 function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
@@ -103,6 +104,13 @@ export default function Explorar() {
   }, [initialQuery]);
 
   useEffect(() => {
+    const normalized = query.trim();
+    if (normalized.length < 2) return;
+    const timer = setTimeout(() => setSubmittedQuery(normalized), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
     if (!submittedQuery) return;
     const controller = new AbortController();
     loadMoreControllerRef.current?.abort();
@@ -140,6 +148,19 @@ export default function Explorar() {
     void runSearch();
     return () => controller.abort();
   }, [submittedQuery, category, order, quality, refresh]);
+
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    setError('');
+    if (value.trim()) return;
+    loadMoreControllerRef.current?.abort();
+    setSubmittedQuery('');
+    setBooks([]);
+    setTotal(0);
+    setPage(1);
+    setHasMore(false);
+    setLoading(false);
+  };
 
   const handleSearch = () => {
     const normalized = query.trim();
@@ -230,13 +251,9 @@ export default function Explorar() {
                   placeholder="Ex.: Machado de Assis"
                   placeholderTextColor={theme.textMuted}
                   value={query}
-                  onChangeText={(value) => {
-                    setQuery(value);
-                    setError('');
-                  }}
+                  onChangeText={handleQueryChange}
                   onSubmitEditing={handleSearch}
                   returnKeyType="search"
-                  editable={!loading}
                 />
                 <TouchableOpacity
                   accessibilityRole="button"
