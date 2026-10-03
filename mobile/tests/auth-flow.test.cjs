@@ -11,12 +11,12 @@ for (const os of ['android', 'web']) {
       assert.equal(options.headers.Accept, 'application/json');
       if (url.endsWith('/register')) {
         assert.equal(options.headers.Authorization, undefined);
-        assert.deepEqual(JSON.parse(options.body), { nome: 'Davi', email: user.email, senha: 'senha-teste' });
+        assert.deepEqual(JSON.parse(options.body), { nome: 'Davi', email: user.email, senha: 'senha-teste1' });
         return json({ user }, 201);
       }
       if (url.endsWith('/login')) {
         assert.equal(options.headers.Authorization, undefined);
-        assert.deepEqual(JSON.parse(options.body), { email: user.email, senha: 'senha-teste' });
+        assert.deepEqual(JSON.parse(options.body), { email: user.email, senha: 'senha-teste1' });
         return json({ user, token: session.token });
       }
       assert.equal(url, 'http://localhost:3000/api/auth/profile');
@@ -24,9 +24,9 @@ for (const os of ['android', 'web']) {
       assert.equal(options.method, 'GET');
       return json({ user });
     };
-    assert.deepEqual(await h.auth.registerUser({ name: ' Davi ', email: ` ${user.email} `, password: 'senha-teste', confirmation: 'senha-teste' }), { id: 7, name: 'Davi', email: user.email });
+    assert.deepEqual(await h.auth.registerUser({ name: ' Davi ', email: ` ${user.email} `, password: 'senha-teste1', confirmation: 'senha-teste1' }), { id: 7, name: 'Davi', email: user.email });
     assert.equal(await h.session.getAuth(), null);
-    assert.deepEqual(await h.auth.loginUser(user.email, 'senha-teste'), session);
+    assert.deepEqual(await h.auth.loginUser(user.email, 'senha-teste1'), session);
     assert.deepEqual(await h.auth.getProfile(), { id: 7, name: 'Davi', email: user.email });
     const reopened = createServices({ os, storage: h.storage });
     reopened.fetch = h.fetch;
@@ -43,10 +43,20 @@ for (const os of ['android', 'web']) {
 test('validação impede cadastro inconsistente e login vazio', async () => {
   const h = createServices();
   await assert.rejects(h.auth.registerUser({ name: ' ', email: user.email, password: 'a', confirmation: 'a' }), { kind: 'validation' });
-  await assert.rejects(h.auth.registerUser({ name: 'Davi', email: user.email, password: 'a', confirmation: 'b' }), /senhas não coincidem/);
+  await assert.rejects(h.auth.registerUser({ name: 'Davi', email: user.email, password: 'senha123', confirmation: 'senha124' }), /senhas não coincidem/);
+  for (const password of ['semnumero', '12345678', 'abc123', 'ação123']) {
+    await assert.rejects(h.auth.registerUser({ name: 'Davi', email: user.email, password, confirmation: password }), { kind: 'validation', message: /pelo menos 8 caracteres, com letra e número/ });
+  }
   await assert.rejects(h.auth.loginUser('invalido', 'senha'), { kind: 'validation' });
   await assert.rejects(h.auth.loginUser(user.email, ''), { kind: 'validation' });
   assert.equal(h.requests.length, 0);
+});
+
+test('cadastro aceita senha com letra acentuada e número', async () => {
+  const h = createServices();
+  h.fetch = async () => json({ user }, 201);
+  await h.auth.registerUser({ name: 'Davi', email: user.email, password: 'ação1234', confirmation: 'ação1234' });
+  assert.equal(h.requests.length, 1);
 });
 
 test('senha incorreta e usuário duplicado mostram erros sem criar sessão', async () => {
@@ -55,7 +65,7 @@ test('senha incorreta e usuário duplicado mostram erros sem criar sessão', asy
   await assert.rejects(h.auth.loginUser(user.email, 'incorreta'), { status: 401, message: 'Email ou senha incorretos' });
   assert.equal(await h.session.getAuth(), null);
   h.fetch = async () => json({ error: 'Este email já está cadastrado' }, 409);
-  await assert.rejects(h.auth.registerUser({ name: 'Davi', email: user.email, password: 'a', confirmation: 'a' }), { kind: 'validation', status: 409 });
+  await assert.rejects(h.auth.registerUser({ name: 'Davi', email: user.email, password: 'senha123', confirmation: 'senha123' }), { kind: 'validation', status: 409 });
 });
 
 test('login recusa respostas sem token, com token mock ou usuário inválido', async () => {

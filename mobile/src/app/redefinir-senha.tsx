@@ -6,7 +6,7 @@ import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { ApiError, MIN_PASSWORD_LENGTH, resetPassword } from '@/services/auth';
+import { ApiError, PASSWORD_HINT, resetPassword } from '@/services/auth';
 
 type Status = 'idle' | 'sending' | 'done';
 
@@ -110,7 +110,8 @@ export default function ResetPasswordScreen() {
         <TextField
           label="Nova senha"
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-          placeholder={`Pelo menos ${MIN_PASSWORD_LENGTH} caracteres`}
+          placeholder="Escolha a nova senha"
+          hint={PASSWORD_HINT}
           value={password}
           onChangeText={handleChange(setPassword)}
           editable={status !== 'sending'}

@@ -7,7 +7,7 @@ import { AuthShell } from '@/components/auth-shell';
 import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
-import { registerUser } from '@/services/auth';
+import { PASSWORD_HINT, registerUser } from '@/services/auth';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -75,6 +75,7 @@ export default function SignUpScreen() {
           editable={!loading}
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Crie uma senha"
+          hint={PASSWORD_HINT}
           value={password}
           onChangeText={setPassword}
           secure

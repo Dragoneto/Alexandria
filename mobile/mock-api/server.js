@@ -23,6 +23,7 @@ const RESET_URL_BASE = 'alexandriamobile://redefinir-senha';
 const FORGOT_PASSWORD_PATH = '/api/auth/forgot-password';
 const RESET_PASSWORD_PATH = '/api/auth/reset-password';
 const SENHA_MINIMA = 8;
+const SENHA_REGRA = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
 const TTL_MS = 30 * 60 * 1000;
 
 // Mesmos textos do authController, para o app ver aqui o que veria em produção
@@ -121,10 +122,12 @@ function resetPassword(body) {
     return { status: 400, body: { error: LINK_INVALIDO } };
   }
 
-  if (senha.length < SENHA_MINIMA) {
+  if (!SENHA_REGRA.test(senha)) {
     return {
       status: 400,
-      body: { error: `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres` },
+      body: {
+        error: `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres, com letra e número`,
+      },
     };
   }
 

@@ -8,11 +8,21 @@ type LoginResponse = UserResponse & { token: string };
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** Tamanho mínimo exigido pelo backend em /api/auth/reset-password. */
 export const MIN_PASSWORD_LENGTH = 8;
+const PASSWORD_PATTERN = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
+export const PASSWORD_HINT = `Mínimo de ${MIN_PASSWORD_LENGTH} caracteres, com letra e número.`;
 
 function normalizeEmail(email: string) {
   const normalized = email.trim();
   if (!EMAIL_PATTERN.test(normalized)) throw new ApiError('validation', 'Digite um e-mail válido.');
   return normalized;
+}
+
+function validatePassword(password: string) {
+  if (!PASSWORD_PATTERN.test(password))
+    throw new ApiError(
+      'validation',
+      `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, com letra e número.`,
+    );
 }
 
 function profileFrom(response: UserResponse): UserProfile {
@@ -37,6 +47,7 @@ export async function registerUser(input: {
 }) {
   if (!input.name.trim() || !input.password)
     throw new ApiError('validation', 'Preencha todos os campos.');
+  validatePassword(input.password);
   if (input.password !== input.confirmation)
     throw new ApiError('validation', 'As senhas não coincidem.');
   const response = await apiRequest<UserResponse>('/api/auth/register', {
@@ -127,11 +138,7 @@ export async function resetPassword(input: {
 }): Promise<void> {
   const token = input.token.trim();
   if (!token) throw new ApiError('validation', 'Cole o código que veio no link do e-mail.');
-  if (input.password.length < MIN_PASSWORD_LENGTH)
-    throw new ApiError(
-      'validation',
-      `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`,
-    );
+  validatePassword(input.password);
   if (input.password !== input.confirmation)
     throw new ApiError('validation', 'As senhas não coincidem.');
   const response = await apiRequest<{ message: string }>('/api/auth/reset-password', {

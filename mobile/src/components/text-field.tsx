@@ -21,9 +21,17 @@ type TextFieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
   /** Ativa o campo de senha com botão de mostrar/ocultar. */
   secure?: boolean;
   error?: string;
+  hint?: string;
 };
 
-export function TextField({ label, icon, secure = false, error, ...inputProps }: TextFieldProps) {
+export function TextField({
+  label,
+  icon,
+  secure = false,
+  error,
+  hint,
+  ...inputProps
+}: TextFieldProps) {
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
@@ -62,35 +70,36 @@ export function TextField({ label, icon, secure = false, error, ...inputProps }:
         />
 
         {secure && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={revealed ? 'Ocultar senha' : 'Mostrar senha'}
-              accessibilityState={{ selected: revealed }}
-              hitSlop={Space.one}
-              onPress={() => setRevealed((current) => !current)}
-              style={({ pressed }) => [
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Ocultar senha' : 'Mostrar senha'}
+            accessibilityState={{ selected: revealed }}
+            hitSlop={Space.one}
+            onPress={() => setRevealed((current) => !current)}
+            style={({ pressed }) => [
               styles.revealButton,
               revealed && styles.revealButtonActive,
               pressed && styles.revealButtonPressed,
-              ]}>
+            ]}>
             <SymbolView
-            name={
-            revealed
-              ? { ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }
-              : { ios: 'eye', android: 'visibility', web: 'visibility' }
-            }
-           size={18}
-           tintColor={revealed ? Mint.mint400 : TextColor.secondary}
-         />
-        </Pressable>
-       )}
-
+              name={
+                revealed
+                  ? { ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }
+                  : { ios: 'eye', android: 'visibility', web: 'visibility' }
+              }
+              size={18}
+              tintColor={revealed ? Mint.mint400 : TextColor.secondary}
+            />
+          </Pressable>
+        )}
       </View>
 
       {error ? (
         <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={styles.error}>
           {error}
         </Text>
+      ) : hint ? (
+        <Text style={styles.hint}>{hint}</Text>
       ) : null}
     </View>
   );
@@ -160,5 +169,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '500',
     color: Accent.coral,
+  },
+  hint: {
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: TextColor.muted,
   },
 });
