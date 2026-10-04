@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- Data de criação automática
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS foto TEXT;
+
 -- Pedidos de redefinição de senha
 CREATE TABLE IF NOT EXISTS password_resets (
   id SERIAL PRIMARY KEY,                                        -- ID auto-incrementado

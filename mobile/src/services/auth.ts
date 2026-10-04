@@ -115,6 +115,34 @@ export async function updateProfile(input: { name: string; email: string }): Pro
   return profile;
 }
 
+type PhotoResponse = { foto: string | null };
+const PHOTO_PATH = '/api/auth/profile/photo';
+
+function photoFrom(response: PhotoResponse): string | null {
+  const photo = response?.foto;
+  if (photo === null) return null;
+  if (typeof photo === 'string' && photo.startsWith('data:image/')) return photo;
+  throw new ApiError('server', 'Foto de perfil inválida recebida do servidor.');
+}
+
+export async function getProfilePhoto(): Promise<string | null> {
+  return photoFrom(await apiRequest<PhotoResponse>(PHOTO_PATH));
+}
+
+export async function saveProfilePhoto(base64Jpeg: string): Promise<string | null> {
+  if (!base64Jpeg) throw new ApiError('validation', 'Não foi possível ler a foto escolhida.');
+  return photoFrom(
+    await apiRequest<PhotoResponse>(PHOTO_PATH, {
+      method: 'PUT',
+      body: { foto: `data:image/jpeg;base64,${base64Jpeg}` },
+    }),
+  );
+}
+
+export async function removeProfilePhoto(): Promise<void> {
+  await apiRequest<PhotoResponse>(PHOTO_PATH, { method: 'DELETE' });
+}
+
 export function logoutUser(): Promise<void> {
   // O backend usa JWT sem endpoint de revogação; o logout remove a sessão deste dispositivo.
   return clearAuth();
