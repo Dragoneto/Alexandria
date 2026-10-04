@@ -43,6 +43,8 @@ const QUALITY_OPTIONS: { label: string; value: BookSearchQuality; detail: string
   { label: 'Amplos', value: 'all', detail: 'Todos os resultados válidos' },
 ];
 const SEARCH_DEBOUNCE_MS = 500;
+const LOAD_MORE_THRESHOLD = 600;
+const MAX_EMPTY_PAGES = 3;
 
 function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
@@ -69,9 +71,11 @@ export default function Explorar() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [loadMoreError, setLoadMoreError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const inputRef = useRef<TextInput>(null);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
+  const scrollMetricsRef = useRef({ offset: 0, viewport: 0, content: 0 });
   const activeSearchKey = `${submittedQuery}\u0000${category}\u0000${order}\u0000${quality}`;
   const activeSearchKeyRef = useRef(activeSearchKey);
   const lastParamQueryRef = useRef(initialQuery);
@@ -121,6 +125,7 @@ export default function Explorar() {
       if (controller.signal.aborted) return;
       setLoading(true);
       setError('');
+      setLoadMoreError('');
       try {
         const result = await searchBooks({
           query: submittedQuery,
@@ -160,6 +165,7 @@ export default function Explorar() {
     setPage(1);
     setHasMore(false);
     setLoading(false);
+    setLoadMoreError('');
   };
 
   const handleSearch = () => {
@@ -175,37 +181,51 @@ export default function Explorar() {
   };
 
   const loadMore = async () => {
-    if (!submittedQuery || loadingMore || !hasMore) return;
+    if (!submittedQuery || !hasMore || loadMoreControllerRef.current) return;
     const requestedSearchKey = activeSearchKey;
     const controller = new AbortController();
-    loadMoreControllerRef.current?.abort();
     loadMoreControllerRef.current = controller;
     setLoadingMore(true);
-    setError('');
+    setLoadMoreError('');
     try {
-      const result = await searchBooks({
-        query: submittedQuery,
-        category: category === 'Todos' ? undefined : category,
-        order,
-        quality,
-        page: page + 1,
-        signal: controller.signal,
-      });
-      if (requestedSearchKey !== activeSearchKeyRef.current) return;
+      const known = new Set(books.map((book) => book.id));
+      const fresh: BookSearchItem[] = [];
+      let nextPage = page + 1;
+      let more = true;
+      for (let attempt = 0; attempt < MAX_EMPTY_PAGES && more && !fresh.length; attempt += 1) {
+        const result = await searchBooks({
+          query: submittedQuery,
+          category: category === 'Todos' ? undefined : category,
+          order,
+          quality,
+          page: nextPage,
+          signal: controller.signal,
+        });
+        if (requestedSearchKey !== activeSearchKeyRef.current) return;
+        fresh.push(...result.books.filter((book) => !known.has(book.id)));
+        more = result.hasMore;
+        nextPage = result.page + 1;
+      }
       setBooks((current) => {
-        const known = new Set(current.map((book) => book.id));
-        return [...current, ...result.books.filter((book) => !known.has(book.id))];
+        const ids = new Set(current.map((book) => book.id));
+        return [...current, ...fresh.filter((book) => !ids.has(book.id))];
       });
-      setPage(result.page);
-      setHasMore(result.hasMore);
+      setPage(nextPage - 1);
+      setHasMore(more);
     } catch (failure) {
-      if (!controller.signal.aborted) setError(errorMessage(failure));
+      if (!controller.signal.aborted) setLoadMoreError(errorMessage(failure));
     } finally {
       if (loadMoreControllerRef.current === controller) {
         loadMoreControllerRef.current = null;
         setLoadingMore(false);
       }
     }
+  };
+
+  const loadMoreIfNearEnd = () => {
+    const { offset, viewport, content } = scrollMetricsRef.current;
+    const nearEnd = viewport > 0 && offset + viewport >= content - LOAD_MORE_THRESHOLD;
+    if (nearEnd && hasMore && !loading && !loadMoreError) void loadMore();
   };
 
   const clearFilters = () => {
@@ -227,7 +247,24 @@ export default function Explorar() {
       <SafeAreaView style={styles.safe}>
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled">
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={100}
+          onScroll={({ nativeEvent }) => {
+            scrollMetricsRef.current = {
+              offset: nativeEvent.contentOffset.y,
+              viewport: nativeEvent.layoutMeasurement.height,
+              content: nativeEvent.contentSize.height,
+            };
+            loadMoreIfNearEnd();
+          }}
+          onLayout={({ nativeEvent }) => {
+            scrollMetricsRef.current.viewport = nativeEvent.layout.height;
+            loadMoreIfNearEnd();
+          }}
+          onContentSizeChange={(_, height) => {
+            scrollMetricsRef.current.content = height;
+            loadMoreIfNearEnd();
+          }}>
           <View style={styles.content}>
             <ThemedText themeColor="accent" style={styles.eyebrow}>
               Explorar
@@ -468,20 +505,31 @@ export default function Explorar() {
                   ))}
                 </View>
 
-                {hasMore && (
-                  <TouchableOpacity
-                    disabled={loadingMore}
-                    onPress={loadMore}
-                    style={[styles.loadMoreButton, { borderColor: theme.accent }]}>
-                    {loadingMore ? (
-                      <ActivityIndicator color={theme.accent} />
-                    ) : (
-                      <ThemedText themeColor="accent" style={styles.loadMoreText}>
-                        Carregar mais
+                {loadingMore ? (
+                  <ActivityIndicator
+                    accessibilityLabel="Carregando mais livros"
+                    color={theme.accent}
+                    style={styles.listFooter}
+                  />
+                ) : loadMoreError ? (
+                  <View style={styles.listFooter}>
+                    <ThemedText themeColor="danger" style={styles.footerError}>
+                      {loadMoreError}
+                    </ThemedText>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      onPress={() => void loadMore()}
+                      style={[styles.retryButton, { borderColor: theme.accent }]}>
+                      <ThemedText themeColor="accent" style={styles.retryText}>
+                        Tentar novamente
                       </ThemedText>
-                    )}
-                  </TouchableOpacity>
-                )}
+                    </TouchableOpacity>
+                  </View>
+                ) : !hasMore && !loading && books.length > 0 ? (
+                  <ThemedText themeColor="textMuted" style={styles.endText}>
+                    Você chegou ao fim dos resultados.
+                  </ThemedText>
+                ) : null}
               </>
             )}
 
@@ -601,14 +649,16 @@ const styles = StyleSheet.create({
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   cardDescription: { fontSize: 13, lineHeight: 20 },
   detailsLink: { fontSize: 13, fontWeight: '800', paddingVertical: 8 },
-  loadMoreButton: {
+  listFooter: { marginTop: Spacing.four, gap: Spacing.two },
+  footerError: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
+  retryButton: {
     minHeight: 48,
-    marginTop: Spacing.four,
     borderWidth: 1,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  loadMoreText: { fontSize: 14, fontWeight: '800' },
+  retryText: { fontSize: 14, fontWeight: '800' },
+  endText: { marginTop: Spacing.four, fontSize: 13, textAlign: 'center' },
   attribution: { marginTop: Spacing.four, fontSize: 11, lineHeight: 17, textAlign: 'center' },
 });
