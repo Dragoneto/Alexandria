@@ -17,11 +17,13 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
+  describeSearchError,
   OpenLibraryError,
   searchBooks,
   type BookSearchItem,
   type BookSearchOrder,
   type BookSearchQuality,
+  type SearchErrorView,
 } from '@/services/open-library';
 
 const CATEGORY_OPTIONS = [
@@ -50,11 +52,6 @@ function firstParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof OpenLibraryError) return error.message;
-  return 'Não foi possível buscar livros agora.';
-}
-
 export default function Explorar() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ q?: string | string[] }>();
@@ -71,6 +68,7 @@ export default function Explorar() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
+  const [searchFailure, setSearchFailure] = useState<SearchErrorView | null>(null);
   const [loadMoreError, setLoadMoreError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const inputRef = useRef<TextInput>(null);
@@ -125,6 +123,7 @@ export default function Explorar() {
       if (controller.signal.aborted) return;
       setLoading(true);
       setError('');
+      setSearchFailure(null);
       setLoadMoreError('');
       try {
         const result = await searchBooks({
@@ -144,7 +143,10 @@ export default function Explorar() {
           setBooks([]);
           setTotal(0);
           setHasMore(false);
-          setError(errorMessage(failure));
+          // Termo inválido é erro do campo; rede, timeout e servidor viram o cartão
+          if (failure instanceof OpenLibraryError && failure.kind === 'validation')
+            setError(failure.message);
+          else setSearchFailure(describeSearchError(failure));
         }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -213,7 +215,7 @@ export default function Explorar() {
       setPage(nextPage - 1);
       setHasMore(more);
     } catch (failure) {
-      if (!controller.signal.aborted) setLoadMoreError(errorMessage(failure));
+      if (!controller.signal.aborted) setLoadMoreError(describeSearchError(failure).message);
     } finally {
       if (loadMoreControllerRef.current === controller) {
         loadMoreControllerRef.current = null;
@@ -422,6 +424,25 @@ export default function Explorar() {
                 <ThemedText themeColor="textSecondary">
                   Digite um título, autor ou assunto para consultar a Open Library.
                 </ThemedText>
+              </ThemedView>
+            ) : searchFailure ? (
+              <ThemedView
+                type="backgroundElement"
+                style={styles.emptyCard}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite">
+                <ThemedText type="subtitle" style={styles.emptyTitle}>
+                  {searchFailure.title}
+                </ThemedText>
+                <ThemedText themeColor="textSecondary">{searchFailure.message}</ThemedText>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => setRefresh((value) => value + 1)}
+                  style={[styles.retryButton, { borderColor: theme.accent }]}>
+                  <ThemedText themeColor="accent" style={styles.retryText}>
+                    Tentar novamente
+                  </ThemedText>
+                </TouchableOpacity>
               </ThemedView>
             ) : !loading && !error && books.length === 0 ? (
               <ThemedView type="backgroundElement" style={styles.emptyCard}>
