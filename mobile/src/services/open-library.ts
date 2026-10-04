@@ -49,6 +49,36 @@ export class OpenLibraryError extends Error {
   }
 }
 
+export type SearchErrorView = { title: string; message: string };
+
+const SEARCH_ERROR_VIEWS: Partial<Record<OpenLibraryErrorKind, SearchErrorView>> = {
+  network: {
+    title: 'Não foi possível conectar',
+    message: 'Confira sua conexão com a internet e tente de novo.',
+  },
+  timeout: {
+    title: 'A busca demorou demais',
+    message: 'A Open Library está demorando para responder. Tente de novo em instantes.',
+  },
+  server: {
+    title: 'A Open Library não respondeu',
+    message: 'O serviço de livros está instável agora. Tente de novo em alguns minutos.',
+  },
+};
+
+const GENERIC_SEARCH_ERROR: SearchErrorView = {
+  title: 'Não foi possível buscar livros',
+  message: 'Tente de novo em instantes.',
+};
+
+/** Texto da falha para a tela. Termo inválido não passa por aqui: é erro do campo de busca. */
+export function describeSearchError(error: unknown): SearchErrorView {
+  if (error instanceof OpenLibraryError) {
+    return SEARCH_ERROR_VIEWS[error.kind] ?? GENERIC_SEARCH_ERROR;
+  }
+  return GENERIC_SEARCH_ERROR;
+}
+
 type SearchDocument = {
   key?: unknown;
   title?: unknown;

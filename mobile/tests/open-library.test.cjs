@@ -125,3 +125,41 @@ test('respeita cancelamento da tela sem converter em erro de rede', async () => 
   controller.abort();
   await assert.rejects(search, { name: 'AbortError' });
 });
+
+test('falha de conexão pede para conferir a internet', () => {
+  const { OpenLibraryError, describeSearchError } = createServices().books;
+
+  assert.deepEqual(describeSearchError(new OpenLibraryError('network', 'offline')), {
+    title: 'Não foi possível conectar',
+    message: 'Confira sua conexão com a internet e tente de novo.',
+  });
+});
+
+test('timeout explica que a Open Library está lenta', () => {
+  const { OpenLibraryError, describeSearchError } = createServices().books;
+
+  assert.deepEqual(describeSearchError(new OpenLibraryError('timeout', 'lenta')), {
+    title: 'A busca demorou demais',
+    message: 'A Open Library está demorando para responder. Tente de novo em instantes.',
+  });
+});
+
+test('erro do servidor avisa que o serviço está instável', () => {
+  const { OpenLibraryError, describeSearchError } = createServices().books;
+
+  assert.deepEqual(describeSearchError(new OpenLibraryError('server', 'HTTP 503', 503)), {
+    title: 'A Open Library não respondeu',
+    message: 'O serviço de livros está instável agora. Tente de novo em alguns minutos.',
+  });
+});
+
+test('falha desconhecida cai na mensagem genérica', () => {
+  const { describeSearchError } = createServices().books;
+  const generica = {
+    title: 'Não foi possível buscar livros',
+    message: 'Tente de novo em instantes.',
+  };
+
+  assert.deepEqual(describeSearchError(new Error('qualquer coisa')), generica);
+  assert.deepEqual(describeSearchError('nem é um erro'), generica);
+});
