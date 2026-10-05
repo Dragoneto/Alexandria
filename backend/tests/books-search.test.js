@@ -91,7 +91,7 @@ test('busca devolve os livros convertidos e o total', async () => {
       title: 'Dom Casmurro',
       authors: ['Machado de Assis'],
       category: 'Catálogo geral',
-      coverUrl: 'https://covers.openlibrary.org/b/id/987-M.jpg',
+      coverUrl: 'https://covers.openlibrary.org/b/id/987-M.jpg?default=false',
       firstPublishYear: 1899,
       editionCount: 12,
       languages: ['por'],

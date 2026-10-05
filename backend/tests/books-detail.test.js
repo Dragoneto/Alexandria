@@ -103,7 +103,7 @@ test('detalhe com descrição em texto puro', async () => {
       authors: ['Machado de Assis'],
       description: 'Bentinho conta a própria história.',
       categories: ['Ficção', 'Ciúme', 'Brasil', 'Romance', 'Século XIX'],
-      coverUrl: 'https://covers.openlibrary.org/b/id/555-L.jpg',
+      coverUrl: 'https://covers.openlibrary.org/b/id/555-L.jpg?default=false',
       openLibraryUrl: 'https://openlibrary.org/works/OL100W',
     },
   });
