@@ -2,6 +2,8 @@ const { mapSearchDocuments, mapWorkDetail } = require('../services/bookMapper');
 const openLibrary = require('../services/openLibrary');
 
 const TERMO_MINIMO = 2;
+const LIMITE_PADRAO = 10;
+const LIMITE_MAXIMO = 20;
 const ID_OBRA = /^OL\d+W$/;
 // Categorias do app e o assunto equivalente na Open Library
 const CATEGORY_SUBJECTS = new Map([
@@ -18,6 +20,13 @@ function textParam(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+// Ausente usa o padrão; presente e fora do formato retorna null
+function positiveIntParam(value, fallback) {
+  if (value === undefined) return fallback;
+  const number = typeof value === 'string' && /^\d{1,6}$/.test(value.trim()) ? Number(value) : 0;
+  return number > 0 ? number : null;
+}
+
 function responderFalha(res, error, contexto) {
   if (error instanceof openLibrary.OpenLibraryError) {
     return res.status(STATUS_POR_FALHA[error.kind] ?? 502).json({ error: error.message });
@@ -27,7 +36,7 @@ function responderFalha(res, error, contexto) {
 }
 
 // ==========================================
-// BUSCA - GET /api/books/search?q=&category=&order=
+// BUSCA - GET /api/books/search?q=&category=&order=&page=&limit=
 // ==========================================
 const search = async (req, res) => {
   try {
@@ -41,15 +50,28 @@ const search = async (req, res) => {
       return res.status(400).json({ error: 'Categoria inválida' });
     }
 
+    const page = positiveIntParam(req.query?.page, 1);
+    const requestedLimit = positiveIntParam(req.query?.limit, LIMITE_PADRAO);
+    if (!page || !requestedLimit) {
+      return res.status(400).json({ error: 'Página e tamanho devem ser números inteiros positivos' });
+    }
+    const limit = Math.min(requestedLimit, LIMITE_MAXIMO);
+
+    // A Open Library já pagina: página e tamanho seguem direto para ela
     const { docs, total } = await openLibrary.searchWorks({
       query,
       subject: CATEGORY_SUBJECTS.get(category),
       sort: req.query?.order === 'newest' ? 'new' : undefined,
+      page,
+      limit,
     });
 
     return res.json({
       books: mapSearchDocuments(docs, category || undefined),
       total,
+      page,
+      limit,
+      hasMore: page * limit < total,
     });
   } catch (error) {
     return responderFalha(res, error, 'Erro na busca de livros');

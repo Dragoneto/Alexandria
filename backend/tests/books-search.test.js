@@ -103,6 +103,8 @@ test('busca devolve os livros convertidos e o total', async () => {
   assert.equal(url.origin + url.pathname, 'https://openlibrary.org/search.json');
   assert.equal(url.searchParams.get('q'), 'dom casmurro');
   assert.equal(url.searchParams.get('sort'), null);
+  assert.equal(url.searchParams.get('page'), '1');
+  assert.equal(url.searchParams.get('limit'), '10');
   assert.match(url.searchParams.get('fields'), /cover_edition_key/);
   assert.ok(options.headers['User-Agent']);
 });
@@ -113,9 +115,54 @@ test('categoria e ordenação viram assunto e sort da Open Library', async () =>
   const res = await buscar({ q: 'tolkien', category: 'Fantasia', order: 'newest' });
 
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { books: [], total: 0 });
+  assert.deepEqual(res.body, { books: [], total: 0, page: 1, limit: 10, hasMore: false });
   assert.equal(chamadas[0].url.searchParams.get('q'), 'tolkien subject:fantasy');
   assert.equal(chamadas[0].url.searchParams.get('sort'), 'new');
+});
+
+test('página e tamanho são repassados para a Open Library', async () => {
+  simularOpenLibrary(() => respostaJson({ numFound: 45, docs: [] }));
+
+  const res = await buscar({ q: 'livro', page: '3', limit: '15' });
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(chamadas[0].url.searchParams.get('page'), '3');
+  assert.equal(chamadas[0].url.searchParams.get('limit'), '15');
+  assert.equal(res.body.page, 3);
+  assert.equal(res.body.limit, 15);
+  assert.equal(res.body.hasMore, false);
+});
+
+test('hasMore indica se ainda há resultados depois da página', async () => {
+  simularOpenLibrary(() => respostaJson({ numFound: 45, docs: [] }));
+  assert.equal((await buscar({ q: 'livro', page: '2', limit: '15' })).body.hasMore, true);
+  assert.equal((await buscar({ q: 'livro', page: '4', limit: '15' })).body.hasMore, false);
+});
+
+test('tamanho acima do máximo é limitado a 20', async () => {
+  simularOpenLibrary(() => respostaJson({ numFound: 500, docs: [] }));
+  const res = await buscar({ q: 'livro', limit: '100' });
+  assert.equal(res.body.limit, 20);
+  assert.equal(chamadas[0].url.searchParams.get('limit'), '20');
+});
+
+test('página ou tamanho fora do formato são recusados', async () => {
+  simularOpenLibrary(() => respostaJson({ docs: [] }));
+  const invalidos = [
+    { page: '0' },
+    { page: '-1' },
+    { page: '1.5' },
+    { page: 'abc' },
+    { page: '' },
+    { page: ['1', '2'] },
+    { limit: '0' },
+    { limit: 'dez' },
+  ];
+  for (const parametros of invalidos) {
+    const res = await buscar({ q: 'livro', ...parametros });
+    assert.equal(res.statusCode, 400, JSON.stringify(parametros));
+  }
+  assert.equal(chamadas.length, 0);
 });
 
 test('total inválido cai para a quantidade de documentos', async () => {

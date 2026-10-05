@@ -8,7 +8,6 @@ const USER_AGENT = 'Alexandria/1.0 (projeto academico)';
 // Menor que o timeout do app (15s), para o erro chegar com mensagem própria
 const TIMEOUT_MS = 8000;
 const AUTHOR_TIMEOUT_MS = 4000;
-const SEARCH_LIMIT = 10;
 const MAX_AUTHORS = 3;
 
 class OpenLibraryError extends Error {
@@ -60,14 +59,17 @@ async function getJson(path, timeoutMs = TIMEOUT_MS) {
  * @param {string} options.query      termo já validado
  * @param {string} [options.subject]  assunto da Open Library (ex.: fantasy)
  * @param {string} [options.sort]     ordenação da Open Library (ex.: new)
+ * @param {number} options.page       página, a partir de 1
+ * @param {number} options.limit      resultados por página
  * @returns {Promise<{ docs: unknown[], total: number }>}
  */
-async function searchWorks({ query, subject, sort }) {
+async function searchWorks({ query, subject, sort, page, limit }) {
   const parameters = new URLSearchParams({
     q: subject ? `${query} subject:${subject}` : query,
     fields: SEARCH_FIELDS,
     lang: 'pt',
-    limit: String(SEARCH_LIMIT),
+    page: String(page),
+    limit: String(limit),
   });
   if (sort) parameters.set('sort', sort);
 
