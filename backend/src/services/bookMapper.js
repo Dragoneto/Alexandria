@@ -102,7 +102,7 @@ function mapWorkDetail(work, authorNames) {
     title,
     authors: stringArray(authorNames, MAX_AUTHORS),
     description: normalizeDescription(work.description),
-    categories: stringArray(work.subjects, MAX_CATEGORIES),
+    categories: [...new Set(stringArray(work.subjects))].slice(0, MAX_CATEGORIES),
     coverUrl: buildCoverUrl({ coverId: firstCoverId(work.covers) }, 'L'),
     openLibraryUrl: `${OPEN_LIBRARY_URL}${key}`,
   };

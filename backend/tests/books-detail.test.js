@@ -89,7 +89,7 @@ test('detalhe com descrição em texto puro', async () => {
     '/works/OL100W.json': obra({
       description: 'Bentinho conta a própria história.',
       covers: [-1, 555, 777],
-      subjects: ['Ficção', ' Ciúme ', 3, 'Brasil', 'Romance', 'Século XIX', 'Literatura'],
+      subjects: ['Ficção', ' Ciúme ', 3, 'Ficção', 'Brasil', 'Romance', 'Século XIX', 'Literatura'],
     }),
   });
 
