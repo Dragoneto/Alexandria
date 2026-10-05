@@ -454,6 +454,16 @@ export default function Explorar() {
                   </ThemedText>
                 </TouchableOpacity>
               </ThemedView>
+            ) : loading ? (
+              <ThemedView
+                type="backgroundElement"
+                style={styles.emptyCard}
+                accessibilityLiveRegion="polite">
+                <ActivityIndicator accessibilityLabel="Buscando livros" color={theme.accent} />
+                <ThemedText themeColor="textSecondary">
+                  Buscando “{submittedQuery}” na Open Library…
+                </ThemedText>
+              </ThemedView>
             ) : !loading && !error && books.length === 0 ? (
               <EmptyState
                 title="Nenhum livro encontrado"
