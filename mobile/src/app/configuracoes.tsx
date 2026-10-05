@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ActionButton } from '@/components/action-button';
+import { logoutUser } from '@/services/auth';
 
 import {
   Accent,
@@ -47,6 +50,21 @@ const OPCOES = [
 
 export default function ConfiguracoesScreen() {
   const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logoutUser();
+      router.replace('/login');
+    } catch {
+      setError('Não foi possível sair da conta. Tente novamente.');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.tela}>
@@ -96,7 +114,19 @@ export default function ConfiguracoesScreen() {
                 tintColor={TextColor.muted}
               />
             </Pressable>
+            
           ))}
+          
+        </View>
+
+         <View style={styles.sair}>
+          <ActionButton
+            label="Sair da conta"
+            variant="ghost"
+            onPress={handleLogout}
+            loading={loggingOut}
+          />
+          {!!error && <Text style={styles.erro}>{error}</Text>}
         </View>
 
         <Text style={styles.rodape}>Alexandria · versão 1.0</Text>
@@ -163,6 +193,18 @@ const styles = StyleSheet.create({
   textos: { flex: 1 },
   opcaoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
   opcaoDescricao: { marginTop: 2, fontFamily: DSFonts.ui, fontSize: 13, color: TextColor.secondary },
+
+  sair: {
+  marginTop: Space.eight,
+  },
+
+  erro: {
+    marginTop: Space.three,
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    color: '#ff7b72',
+    textAlign: 'center',
+  },
 
   rodape: {
     marginTop: Space.eight,
