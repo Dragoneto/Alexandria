@@ -45,7 +45,6 @@ const QUALITY_OPTIONS: { label: string; value: BookSearchQuality; detail: string
   { label: 'Com capa', value: 'curated', detail: 'Capa e autoria disponíveis' },
   { label: 'Amplos', value: 'all', detail: 'Todos os resultados válidos' },
 ];
-const SEARCH_DEBOUNCE_MS = 500;
 const LOAD_MORE_THRESHOLD = 600;
 const MAX_EMPTY_PAGES = 3;
 
@@ -106,13 +105,6 @@ export default function Explorar() {
       setSubmittedQuery(initialQuery);
     });
   }, [initialQuery]);
-
-  useEffect(() => {
-    const normalized = query.trim();
-    if (normalized.length < 2) return;
-    const timer = setTimeout(() => setSubmittedQuery(normalized), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [query]);
 
   useEffect(() => {
     if (!submittedQuery) return;
