@@ -32,6 +32,14 @@
       ],
       "expo-secure-store",
       "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Alexandria usa suas fotos para você escolher a foto de perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-web-browser"
     ],
     "experiments": {

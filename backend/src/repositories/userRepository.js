@@ -29,6 +29,11 @@ async function writeLocalUsers(users) {
   await fs.rename(temporaryFile, localFile);
 }
 
+function publicProfile(user) {
+  const { senha_hash: _password, foto: _photo, ...profile } = user;
+  return profile;
+}
+
 function serializeWrite(operation) {
   const next = pendingWrite.then(operation, operation);
   pendingWrite = next.catch(() => {});
@@ -46,6 +51,7 @@ async function initialize() {
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS foto TEXT');
     return;
   }
 
@@ -74,8 +80,38 @@ async function findById(id) {
   const users = await readLocalUsers();
   const user = users.find((candidate) => candidate.id === Number(id));
   if (!user) return null;
-  const { senha_hash: _password, ...profile } = user;
-  return profile;
+  return publicProfile(user);
+}
+
+async function findPhoto(id) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT foto FROM users WHERE id = $1', [id]);
+    return result.rows[0] ? { foto: result.rows[0].foto ?? null } : null;
+  }
+
+  const users = await readLocalUsers();
+  const user = users.find((candidate) => candidate.id === Number(id));
+  return user ? { foto: user.foto ?? null } : null;
+}
+
+async function updatePhoto(id, foto) {
+  if (usePostgres()) {
+    const result = await pool.query('UPDATE users SET foto = $1 WHERE id = $2 RETURNING id', [
+      foto,
+      id,
+    ]);
+    return result.rowCount > 0;
+  }
+
+  return serializeWrite(async () => {
+    const users = await readLocalUsers();
+    const index = users.findIndex((user) => user.id === Number(id));
+    if (index === -1) return false;
+    const updatedUsers = [...users];
+    updatedUsers[index] = { ...users[index], foto };
+    await writeLocalUsers(updatedUsers);
+    return true;
+  });
 }
 
 async function create({ nome, email, senhaHash }) {
@@ -102,8 +138,7 @@ async function create({ nome, email, senhaHash }) {
       criado_em: new Date().toISOString(),
     };
     await writeLocalUsers([...users, user]);
-    const { senha_hash: _password, ...profile } = user;
-    return profile;
+    return publicProfile(user);
   });
 }
 
@@ -129,8 +164,7 @@ async function update(id, { nome, email }) {
     const updatedUsers = [...users];
     updatedUsers[index] = user;
     await writeLocalUsers(updatedUsers);
-    const { senha_hash: _password, ...profile } = user;
-    return profile;
+    return publicProfile(user);
   });
 }
 
@@ -151,8 +185,7 @@ async function updatePassword(id, senhaHash) {
     const updatedUsers = [...users];
     updatedUsers[index] = user;
     await writeLocalUsers(updatedUsers);
-    const { senha_hash: _password, ...profile } = user;
-    return profile;
+    return publicProfile(user);
   });
 }
 
@@ -161,6 +194,8 @@ module.exports = {
   initialize,
   findByEmail,
   findById,
+  findPhoto,
+  updatePhoto,
   create,
   update,
   updatePassword,
