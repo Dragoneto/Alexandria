@@ -19,7 +19,6 @@ import {
 import {
   getProfile,
   getProfilePhoto,
-  logoutUser,
   removeProfilePhoto,
   saveProfilePhoto,
 } from '@/services/auth';
@@ -63,7 +62,6 @@ export default function PerfilScreen() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [loggingOut, setLoggingOut] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState('');
@@ -142,19 +140,6 @@ export default function PerfilScreen() {
       );
     } finally {
       setPhotoBusy(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    if (loggingOut) return;
-    setLoggingOut(true);
-    try {
-      await logoutUser();
-      router.replace('/login');
-    } catch {
-      setError('Não foi possível sair da conta. Tente novamente.');
-    } finally {
-      setLoggingOut(false);
     }
   };
 
@@ -247,15 +232,7 @@ export default function PerfilScreen() {
               label="Configurações"
               variant="ghost"
               onPress={() => router.push('/configuracoes')}
-            />
-            <ActionButton label="Editar perfil" onPress={() => router.push('/editar_perfil')} />
-            <ActionButton
-              label="Sair da conta"
-              variant="ghost"
-              onPress={handleLogout}
-              loading={loggingOut}
-            />
-           
+            />         
 
           </View>
         </View>
