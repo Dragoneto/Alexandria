@@ -137,6 +137,50 @@ test('respeita cancelamento da tela sem converter em erro de rede', async () => 
   await assert.rejects(canceladaDurante, { name: 'AbortError' });
 });
 
+const detail = {
+  id: 'OL27448W',
+  title: 'The Lord of the Rings',
+  authors: ['J.R.R. Tolkien'],
+  description: null,
+  categories: ['Fantasy'],
+  coverUrl: 'https://covers.openlibrary.org/b/id/14625765-L.jpg',
+  openLibraryUrl: 'https://openlibrary.org/works/OL27448W',
+};
+
+test('detalhe busca o livro no backend e aceita livro sem sinopse', async () => {
+  const h = await loggedServices();
+  h.fetch = async (url, options) => {
+    assert.equal(url, 'http://localhost:3000/api/books/OL27448W');
+    assert.equal(options.headers.Authorization, `Bearer ${session.token}`);
+    return json({ book: detail });
+  };
+  assert.deepEqual(await h.books.getBookDetail('OL27448W'), detail);
+});
+
+test('detalhe recusa identificador inválido sem chamar a rede', async () => {
+  const h = await loggedServices();
+  for (const id of ['', 'abc', 'OL1A', '../OL1W']) {
+    await assert.rejects(h.books.getBookDetail(id), { kind: 'notFound' });
+  }
+  assert.equal(h.requests.length, 0);
+});
+
+test('detalhe traduz livro inexistente e falhas do backend', async () => {
+  const h = await loggedServices();
+  h.fetch = async () => json({ error: 'Livro não encontrado na Open Library.' }, 404);
+  await assert.rejects(h.books.getBookDetail('OL1W'), { kind: 'notFound', status: 404 });
+  h.fetch = async () => json({ error: 'A Open Library demorou para responder.' }, 504);
+  await assert.rejects(h.books.getBookDetail('OL1W'), { kind: 'timeout' });
+  h.fetch = async () => json({ error: 'indisponível' }, 502);
+  await assert.rejects(h.books.getBookDetail('OL1W'), { kind: 'server' });
+  h.fetch = async () => json({ livro: detail });
+  await assert.rejects(h.books.getBookDetail('OL1W'), { kind: 'server' });
+  h.fetch = async () => {
+    throw new Error('offline');
+  };
+  await assert.rejects(h.books.getBookDetail('OL1W'), { kind: 'network' });
+});
+
 test('falha de conexão pede para conferir a internet', () => {
   const { OpenLibraryError, describeSearchError } = createServices().books;
 

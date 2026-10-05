@@ -1,6 +1,7 @@
 import { ApiError, apiRequest } from '@/services/api';
 
 const SEARCH_PATH = '/api/books/search';
+const BOOK_ID = /^OL\d+W$/;
 const MAX_RESULTS_PER_PAGE = 20;
 
 export type BookSearchOrder = 'relevance' | 'newest';
@@ -36,7 +37,18 @@ export type BookSearchResult = {
   hasMore: boolean;
 };
 
-export type OpenLibraryErrorKind = 'validation' | 'network' | 'timeout' | 'server';
+export type BookDetail = {
+  id: string;
+  title: string;
+  authors: string[];
+  /** Sinopse; muitos livros da Open Library não têm. */
+  description: string | null;
+  categories: string[];
+  coverUrl: string | null;
+  openLibraryUrl: string;
+};
+
+export type OpenLibraryErrorKind = 'validation' | 'network' | 'timeout' | 'server' | 'notFound';
 
 export class OpenLibraryError extends Error {
   constructor(
@@ -84,7 +96,7 @@ function positiveInteger(value: unknown, fallback: number): number {
 }
 
 // Falhas que a tela sabe explicar viram OpenLibraryError; sessão e configuração seguem como vieram
-function toSearchError(error: unknown): unknown {
+function toBookError(error: unknown): unknown {
   if (!(error instanceof ApiError)) return error;
   if (error.kind === 'validation' || error.kind === 'network') {
     return new OpenLibraryError(error.kind, error.message, error.status);
@@ -114,7 +126,7 @@ export async function searchBooks(options: BookSearchOptions): Promise<BookSearc
       signal: options.signal,
     });
   } catch (error) {
-    throw toSearchError(error);
+    throw toBookError(error);
   }
   if (!result || !Array.isArray(result.books)) {
     throw new OpenLibraryError('server', 'O servidor retornou uma resposta inválida.');
@@ -125,4 +137,22 @@ export async function searchBooks(options: BookSearchOptions): Promise<BookSearc
       ? result.books.filter((book) => book.coverUrl && book.authors.length > 0)
       : result.books;
   return { ...result, books };
+}
+
+export async function getBookDetail(id: string, signal?: AbortSignal): Promise<BookDetail> {
+  if (!BOOK_ID.test(id)) throw new OpenLibraryError('notFound', 'Livro não encontrado.');
+
+  let result: { book?: BookDetail };
+  try {
+    result = await apiRequest<{ book?: BookDetail }>(`/api/books/${id}`, { signal });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw new OpenLibraryError('notFound', error.message, 404);
+    }
+    throw toBookError(error);
+  }
+  if (!result?.book || typeof result.book.title !== 'string') {
+    throw new OpenLibraryError('server', 'O servidor retornou uma resposta inválida.');
+  }
+  return result.book;
 }
