@@ -7,6 +7,9 @@ const {
   updateProfile,
   forgotPassword,
   resetPassword,
+  getPhoto,
+  updatePhoto,
+  deletePhoto,
 } = require('../controllers/authController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -19,5 +22,8 @@ router.put('/profile', authMiddleware, updateProfile);  // PUT /api/auth/profile
 
 // Rotas protegidas (precisa de token JWT)
 router.get('/profile', authMiddleware, getProfile);  // GET /api/auth/profile
+router.get('/profile/photo', authMiddleware, getPhoto);
+router.put('/profile/photo', authMiddleware, updatePhoto);
+router.delete('/profile/photo', authMiddleware, deletePhoto);
 
 module.exports = router;

@@ -19,6 +19,8 @@ const EXPOE_TOKEN = process.env.NODE_ENV !== 'production';
 const MENSAGEM_NEUTRA =
   'Se existir uma conta com esse e-mail, enviamos o link para criar uma nova senha.';
 const LINK_INVALIDO = 'Link inválido ou expirado. Peça um novo.';
+const FOTO_FORMATO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+const FOTO_TAMANHO_MAXIMO = 300 * 1024;
 
 // ==========================================
 // CADASTRO - POST /api/auth/register
@@ -300,4 +302,69 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile, forgotPassword, resetPassword };
+const getPhoto = async (req, res) => {
+  try {
+    const resultado = await users.findPhoto(req.user.id);
+
+    if (!resultado) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    return res.status(200).json({ foto: resultado.foto });
+  } catch (error) {
+    console.error('Erro ao buscar foto de perfil:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+const updatePhoto = async (req, res) => {
+  try {
+    const foto = typeof req.body?.foto === 'string' ? req.body.foto : '';
+
+    if (!FOTO_FORMATO.test(foto)) {
+      return res.status(400).json({ error: 'Envie uma imagem JPG, PNG ou WebP' });
+    }
+
+    if (foto.length > FOTO_TAMANHO_MAXIMO) {
+      return res.status(413).json({ error: 'A foto é grande demais' });
+    }
+
+    const atualizado = await users.updatePhoto(req.user.id, foto);
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    return res.status(200).json({ message: 'Foto de perfil atualizada!', foto });
+  } catch (error) {
+    console.error('Erro ao salvar foto de perfil:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+const deletePhoto = async (req, res) => {
+  try {
+    const atualizado = await users.updatePhoto(req.user.id, null);
+
+    if (!atualizado) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    return res.status(200).json({ message: 'Foto de perfil removida!', foto: null });
+  } catch (error) {
+    console.error('Erro ao remover foto de perfil:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  getProfile,
+  updateProfile,
+  forgotPassword,
+  resetPassword,
+  getPhoto,
+  updatePhoto,
+  deletePhoto,
+};
