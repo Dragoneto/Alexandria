@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ScrollView, TextInput, TouchableOpacity, StyleSheet, View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Image } from 'expo-image';
+
+import { getProfile, getProfilePhoto } from '@/services/auth';
 
 const GOLD = '#f4b860';
 const CYAN = '#5ce0d2';
@@ -16,6 +19,31 @@ const TEXT_MUTED = '#94a3b8';
 export default function HomeScreen() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
+  const [profileName, setProfileName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      Promise.all([getProfile(), getProfilePhoto().catch(() => null)])
+        .then(([profile, savedPhoto]) => {
+          if (!active) return;
+          setProfileName(profile?.name?.trim() ?? '');
+          setProfileEmail(profile?.email?.trim() ?? '');
+          setPhoto(savedPhoto);
+        })
+        .catch(() => {
+          // A home continua utilizável sem os dados do perfil.
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  const displayName = profileName || profileEmail;
+  const avatarInitial = (displayName || '?').charAt(0).toUpperCase();
   const [error, setError] = useState('');
 
   const handleSearch = () => {
@@ -35,6 +63,28 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
         <SafeAreaView style={styles.safe}>
+          {/* ── PERFIL ── */}
+          <TouchableOpacity
+            style={styles.profileRow}
+            onPress={() => router.push('/perfil' as any)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir meu perfil">
+            <View style={styles.avatar}>
+              {photo ? (
+                <Image source={{ uri: photo }} style={styles.avatarImage} contentFit="cover" />
+              ) : (
+                <Text style={styles.avatarLabel}>{avatarInitial}</Text>
+              )}
+            </View>
+            <View style={styles.profileText}>
+              <Text style={styles.profileGreeting}>Olá,</Text>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {displayName || 'leitor'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
           {/* ── HERO ── */}
           <View style={styles.hero}>
             <Text style={styles.kicker}>Alexandria</Text>
@@ -142,6 +192,46 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingBottom: 40,
+  },
+
+  // Perfil
+  profileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingTop: 16,
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: CYAN,
+    backgroundColor: CARD_BG,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarLabel: {
+    color: CYAN,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  profileText: {
+    flex: 1,
+  },
+  profileGreeting: {
+    color: TEXT_MUTED,
+    fontSize: 12,
+  },
+  profileName: {
+    color: WHITE,
+    fontSize: 16,
+    fontWeight: '700',
   },
 
   // Hero
