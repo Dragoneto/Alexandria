@@ -172,6 +172,11 @@ export default function Explorar() {
     setLoadMoreError('');
   };
 
+  const handleClearQuery = () => {
+    handleQueryChange('');
+    inputRef.current?.focus();
+  };
+
   const handleSearch = () => {
     const normalized = query.trim();
     if (normalized.length < 2) {
@@ -285,17 +290,38 @@ export default function Explorar() {
                 Buscar por título, autor ou assunto
               </ThemedText>
               <View style={styles.inputRow}>
-                <TextInput
-                  ref={inputRef}
-                  accessibilityLabel="Busca de livros"
-                  style={[styles.input, { borderColor: theme.border, color: theme.text }]}
-                  placeholder="Ex.: Machado de Assis"
-                  placeholderTextColor={theme.textMuted}
-                  value={query}
-                  onChangeText={handleQueryChange}
-                  onSubmitEditing={handleSearch}
-                  returnKeyType="search"
-                />
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    ref={inputRef}
+                    accessibilityLabel="Busca de livros"
+                    style={[
+                      styles.input,
+                      {
+                        borderColor: theme.border,
+                        color: theme.text,
+                        paddingRight: query ? 40 : 14,
+                      },
+                    ]}
+                    placeholder="Ex.: Machado de Assis"
+                    placeholderTextColor={theme.textMuted}
+                    value={query}
+                    onChangeText={handleQueryChange}
+                    onSubmitEditing={handleSearch}
+                    returnKeyType="search"
+                  />
+                  {!!query && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Limpar busca"
+                      onPress={handleClearQuery}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      style={styles.clearInputButton}>
+                      <ThemedText themeColor="textMuted" style={styles.clearInputIcon}>
+                        ✕
+                      </ThemedText>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <TouchableOpacity
                   accessibilityRole="button"
                   disabled={loading}
@@ -618,12 +644,26 @@ const styles = StyleSheet.create({
   },
   searchLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   inputRow: { gap: Spacing.two },
+  inputContainer: { position: 'relative', justifyContent: 'center' },
   input: {
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+  },
+  clearInputButton: {
+    position: 'absolute',
+    right: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearInputIcon: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   searchButton: { minHeight: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   searchButtonText: { fontWeight: '800', fontSize: 14 },
