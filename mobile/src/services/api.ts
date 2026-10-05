@@ -19,6 +19,8 @@ type RequestOptions = {
   body?: unknown;
   authenticated?: boolean;
   timeoutMs?: number;
+  /** Cancelamento pedido por quem chamou; a requisição rejeita com o erro original do abort. */
+  signal?: AbortSignal;
 };
 
 function errorBody(value: unknown) {
@@ -56,6 +58,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError('auth', 'Entre na sua conta para continuar.', 401);
   const timeoutMs = options.timeoutMs ?? config.timeoutMs;
   const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(options.signal?.reason);
+  options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+  if (options.signal?.aborted) abortFromCaller();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`${config.baseUrl}${path}`, {
@@ -100,10 +105,12 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     return data as T;
   } catch (error) {
     if (error instanceof ApiError) throw error;
+    if (options.signal?.aborted) throw error;
     if (controller.signal.aborted)
       throw new ApiError('timeout', 'O servidor demorou para responder. Tente novamente.');
     throw new ApiError('network', 'Não foi possível conectar ao servidor. Verifique sua conexão.');
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener('abort', abortFromCaller);
   }
 }
