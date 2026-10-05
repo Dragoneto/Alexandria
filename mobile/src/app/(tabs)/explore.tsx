@@ -1,10 +1,8 @@
-import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   ActivityIndicator,
-  Linking,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -13,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BookCard } from '@/components/book-card';
 import { EmptyState } from '@/components/empty_state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -56,6 +55,7 @@ function firstParam(value: string | string[] | undefined): string {
 
 export default function Explorar() {
   const theme = useTheme();
+  const router = useRouter();
   const params = useLocalSearchParams<{ q?: string | string[] }>();
   const initialQuery = firstParam(params.q).trim();
   const [query, setQuery] = useState(initialQuery);
@@ -243,12 +243,8 @@ export default function Explorar() {
     setQuality('precise');
   };
 
-  const openBook = async (book: BookSearchItem) => {
-    try {
-      await Linking.openURL(book.openLibraryUrl);
-    } catch {
-      setError('Não foi possível abrir a página da obra.');
-    }
+  const openBook = (book: BookSearchItem) => {
+    router.push({ pathname: '/livro/[id]', params: { id: book.id } });
   };
 
   return (
@@ -521,60 +517,7 @@ export default function Explorar() {
 
               <View style={styles.grid}>
                 {books.map((book) => (
-                  <ThemedView key={book.id} type="backgroundElement" style={styles.card}>
-                    {book.coverUrl ? (
-                      <Image
-                        source={{ uri: book.coverUrl }}
-                        style={styles.cover}
-                        contentFit="contain"
-                        accessibilityLabel={`Capa de ${book.title}`}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.coverPlaceholder,
-                          { backgroundColor: theme.backgroundSelected },
-                        ]}>
-                        <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
-                          {book.title}
-                        </ThemedText>
-                      </View>
-                    )}
-                    <View style={styles.cardBody}>
-                      <View
-                        style={[
-                          styles.categoryBadge,
-                          { backgroundColor: 'rgba(100,255,218,0.08)' },
-                        ]}>
-                        <ThemedText themeColor="accent" style={styles.categoryText}>
-                          {book.category}
-                        </ThemedText>
-                      </View>
-                      <ThemedText style={styles.cardTitle} numberOfLines={2}>
-                        {book.title}
-                      </ThemedText>
-                      <ThemedText
-                        themeColor="textSecondary"
-                        style={styles.cardAuthor}
-                        numberOfLines={2}>
-                        {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
-                      </ThemedText>
-                      <ThemedText themeColor="textMuted" style={styles.cardDescription}>
-                        {book.firstPublishYear
-                          ? `Primeira publicação: ${book.firstPublishYear}`
-                          : 'Ano não informado'}
-                        {' · '}
-                        {book.editionCount} edição(ões)
-                      </ThemedText>
-                      <TouchableOpacity
-                        accessibilityRole="link"
-                        onPress={() => void openBook(book)}>
-                        <ThemedText themeColor="accent" style={styles.detailsLink}>
-                          Ver na Open Library
-                        </ThemedText>
-                      </TouchableOpacity>
-                    </View>
-                  </ThemedView>
+                  <BookCard key={book.id} book={book} onPress={openBook} />
                 ))}
               </View>
 
@@ -715,27 +658,6 @@ const styles = StyleSheet.create({
   resultsCaption: { fontSize: 13, lineHeight: 19 },
   resultsCount: { fontSize: 12, marginTop: 4 },
   grid: { marginTop: Spacing.three, gap: Spacing.three },
-  card: { borderRadius: 16, overflow: 'hidden' },
-  cover: { width: '100%', height: 220, backgroundColor: 'rgba(0,0,0,0.14)' },
-  coverPlaceholder: {
-    height: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.three,
-  },
-  coverPlaceholderText: { fontWeight: '800', textAlign: 'center' },
-  cardBody: { padding: Spacing.three, gap: 8 },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  categoryText: { fontSize: 11, fontWeight: '800' },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
-  cardAuthor: { fontSize: 13, fontWeight: '700' },
-  cardDescription: { fontSize: 13, lineHeight: 20 },
-  detailsLink: { fontSize: 13, fontWeight: '800', paddingVertical: 8 },
   listFooter: { marginTop: Spacing.four, gap: Spacing.two },
   footerError: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
   retryButton: {
