@@ -7,6 +7,7 @@ const { buildCoverUrl } = require('./bookCover');
 const OPEN_LIBRARY_URL = 'https://openlibrary.org';
 const MAX_AUTHORS = 3;
 const MAX_LANGUAGES = 5;
+const MAX_CATEGORIES = 5;
 
 // Campos a pedir à Open Library em /search.json (parâmetro `fields`).
 const SEARCH_FIELDS = [
@@ -74,4 +75,43 @@ function mapSearchDocuments(documents, selectedCategory) {
     .filter(Boolean);
 }
 
-module.exports = { SEARCH_FIELDS, mapSearchDocument, mapSearchDocuments };
+// A Open Library devolve a descrição ora como texto puro, ora como
+// { type, value }. Sem descrição utilizável, retorna null (#31).
+function normalizeDescription(value) {
+  const text = value && typeof value === 'object' ? value.value : value;
+  return typeof text === 'string' && text.trim() ? text.trim() : null;
+}
+
+function firstCoverId(covers) {
+  return Array.isArray(covers) ? covers.find((id) => Number.isInteger(id) && id > 0) : undefined;
+}
+
+/**
+ * Converte uma obra de /works/{id}.json no detalhe de livro da API.
+ * Retorna null se a obra não tiver chave ou título válidos.
+ */
+function mapWorkDetail(work, authorNames) {
+  if (!work || typeof work !== 'object') return null;
+
+  const key = normalizeKey(work.key);
+  const title = typeof work.title === 'string' ? work.title.trim() : '';
+  if (!key || !title) return null;
+
+  return {
+    id: key.slice('/works/'.length),
+    title,
+    authors: stringArray(authorNames, MAX_AUTHORS),
+    description: normalizeDescription(work.description),
+    categories: stringArray(work.subjects, MAX_CATEGORIES),
+    coverUrl: buildCoverUrl({ coverId: firstCoverId(work.covers) }, 'L'),
+    openLibraryUrl: `${OPEN_LIBRARY_URL}${key}`,
+  };
+}
+
+module.exports = {
+  SEARCH_FIELDS,
+  mapSearchDocument,
+  mapSearchDocuments,
+  mapWorkDetail,
+  normalizeDescription,
+};

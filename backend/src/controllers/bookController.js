@@ -1,7 +1,8 @@
-const { mapSearchDocuments } = require('../services/bookMapper');
+const { mapSearchDocuments, mapWorkDetail } = require('../services/bookMapper');
 const openLibrary = require('../services/openLibrary');
 
 const TERMO_MINIMO = 2;
+const ID_OBRA = /^OL\d+W$/;
 // Categorias do app e o assunto equivalente na Open Library
 const CATEGORY_SUBJECTS = new Map([
   ['Fantasia', 'fantasy'],
@@ -11,7 +12,7 @@ const CATEGORY_SUBJECTS = new Map([
   ['Biografia', 'biography'],
   ['Mistério', 'mystery'],
 ]);
-const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502 };
+const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502, not_found: 404 };
 
 function textParam(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -55,4 +56,26 @@ const search = async (req, res) => {
   }
 };
 
-module.exports = { search };
+// ==========================================
+// DETALHE - GET /api/books/:id
+// ==========================================
+const detail = async (req, res) => {
+  try {
+    const id = textParam(req.params?.id);
+    if (!ID_OBRA.test(id)) {
+      return res.status(400).json({ error: 'Identificador de livro inválido' });
+    }
+
+    const work = await openLibrary.getWork(id);
+    const book = mapWorkDetail(work, await openLibrary.getAuthorNames(work));
+    if (!book) {
+      return res.status(404).json({ error: 'Livro não encontrado na Open Library.' });
+    }
+
+    return res.json({ book });
+  } catch (error) {
+    return responderFalha(res, error, 'Erro no detalhe do livro');
+  }
+};
+
+module.exports = { search, detail };

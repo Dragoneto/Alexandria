@@ -68,6 +68,7 @@ async function start() {
     console.log(`   POST /api/auth/forgot-password - Pedir link de redefinição`);
     console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
     console.log(`   GET  /api/books/search   - Buscar livros (requer token)`);
+    console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
   });
 }
 

@@ -7,14 +7,17 @@ const OPEN_LIBRARY_URL = 'https://openlibrary.org';
 const USER_AGENT = 'Alexandria/1.0 (projeto academico)';
 // Menor que o timeout do app (15s), para o erro chegar com mensagem própria
 const TIMEOUT_MS = 8000;
+const AUTHOR_TIMEOUT_MS = 4000;
 const SEARCH_LIMIT = 10;
+const MAX_AUTHORS = 3;
 
 class OpenLibraryError extends Error {
-  /** @param {'timeout'|'unavailable'|'invalid'} kind */
-  constructor(kind, message) {
+  /** @param {'timeout'|'unavailable'|'invalid'|'not_found'} kind */
+  constructor(kind, message, status) {
     super(message);
     this.name = 'OpenLibraryError';
     this.kind = kind;
+    this.status = status;
   }
 }
 
@@ -38,6 +41,7 @@ async function getJson(path, timeoutMs = TIMEOUT_MS) {
     throw new OpenLibraryError(
       'unavailable',
       `A Open Library não conseguiu responder (HTTP ${response.status}).`,
+      response.status,
     );
   }
 
@@ -79,4 +83,53 @@ async function searchWorks({ query, subject, sort }) {
   };
 }
 
-module.exports = { OpenLibraryError, searchWorks };
+async function getWorkJson(id) {
+  try {
+    return await getJson(`/works/${id}.json`);
+  } catch (error) {
+    if (error.status === 404) {
+      throw new OpenLibraryError('not_found', 'Livro não encontrado na Open Library.', 404);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Lê a obra em /works/{id}.json como veio. Obras unificadas respondem com um
+ * redirecionamento para a obra que ficou; nesse caso devolve a obra de destino.
+ *
+ * @param {string} id  identificador já validado (ex.: OL27448W)
+ */
+async function getWork(id) {
+  const work = await getWorkJson(id);
+  const target =
+    work?.type?.key === '/type/redirect' && typeof work.location === 'string'
+      ? /^\/works\/(OL\d+W)$/.exec(work.location)?.[1]
+      : null;
+  return target && target !== id ? getWorkJson(target) : work;
+}
+
+function authorKeys(work) {
+  if (!Array.isArray(work?.authors)) return [];
+  const keys = work.authors
+    .map((entry) => (typeof entry?.author === 'string' ? entry.author : entry?.author?.key))
+    .filter((key) => typeof key === 'string' && /^\/authors\/OL\d+A$/.test(key));
+  return [...new Set(keys)].slice(0, MAX_AUTHORS);
+}
+
+/** Nomes dos autores da obra. Autor que falhar fica de fora, sem derrubar o detalhe. */
+async function getAuthorNames(work) {
+  const names = await Promise.all(
+    authorKeys(work).map(async (key) => {
+      try {
+        const author = await getJson(`${key}.json`, AUTHOR_TIMEOUT_MS);
+        return typeof author?.name === 'string' ? author.name.trim() : '';
+      } catch {
+        return '';
+      }
+    }),
+  );
+  return names.filter(Boolean);
+}
+
+module.exports = { OpenLibraryError, searchWorks, getWork, getAuthorNames };
