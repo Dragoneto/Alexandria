@@ -95,6 +95,21 @@ function positiveInteger(value: unknown, fallback: number): number {
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
 }
 
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+// As telas leem estes campos sem conferir; item fora do formato fica de fora
+function isBookItem(value: unknown): value is BookSearchItem {
+  if (!value || typeof value !== 'object') return false;
+  const book = value as Partial<BookSearchItem>;
+  return (
+    typeof book.id === 'string' && typeof book.title === 'string' && Array.isArray(book.authors)
+  );
+}
+
 // Falhas que a tela sabe explicar viram OpenLibraryError; sessão e configuração seguem como vieram
 function toBookError(error: unknown): unknown {
   if (!(error instanceof ApiError)) return error;
@@ -132,27 +147,47 @@ export async function searchBooks(options: BookSearchOptions): Promise<BookSearc
     throw new OpenLibraryError('server', 'O servidor retornou uma resposta inválida.');
   }
 
+  const valid = result.books.filter(isBookItem);
   const books =
     options.quality === 'curated'
-      ? result.books.filter((book) => book.coverUrl && book.authors.length > 0)
-      : result.books;
-  return { ...result, books };
+      ? valid.filter((book) => book.coverUrl && book.authors.length > 0)
+      : valid;
+  return {
+    books,
+    total: Number.isSafeInteger(result.total) && result.total >= 0 ? result.total : books.length,
+    page,
+    limit,
+    hasMore: result.hasMore === true,
+  };
 }
 
 export async function getBookDetail(id: string, signal?: AbortSignal): Promise<BookDetail> {
   if (!BOOK_ID.test(id)) throw new OpenLibraryError('notFound', 'Livro não encontrado.');
 
-  let result: { book?: BookDetail };
+  let result: { book?: Partial<BookDetail> };
   try {
-    result = await apiRequest<{ book?: BookDetail }>(`/api/books/${id}`, { signal });
+    result = await apiRequest<{ book?: Partial<BookDetail> }>(`/api/books/${id}`, { signal });
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
       throw new OpenLibraryError('notFound', error.message, 404);
     }
     throw toBookError(error);
   }
-  if (!result?.book || typeof result.book.title !== 'string') {
+  const book = result?.book;
+  if (!book || typeof book.id !== 'string' || typeof book.title !== 'string') {
     throw new OpenLibraryError('server', 'O servidor retornou uma resposta inválida.');
   }
-  return result.book;
+  return {
+    id: book.id,
+    title: book.title,
+    authors: stringArray(book.authors),
+    description:
+      typeof book.description === 'string' && book.description.trim() ? book.description : null,
+    categories: stringArray(book.categories),
+    coverUrl: typeof book.coverUrl === 'string' ? book.coverUrl : null,
+    openLibraryUrl:
+      typeof book.openLibraryUrl === 'string'
+        ? book.openLibraryUrl
+        : `https://openlibrary.org/works/${book.id}`,
+  };
 }

@@ -109,6 +109,19 @@ test('valida termo curto e traduz as falhas do backend', async () => {
   await assert.rejects(h.books.searchBooks({ query: 'livro' }), { kind: 'network' });
 });
 
+test('resposta fora do formato não chega quebrada na tela', async () => {
+  const h = await loggedServices();
+  h.fetch = async () =>
+    json({ books: [book, null, 'texto', { id: 'OL9W' }, { ...book, id: 'OL8W', authors: 'x' }] });
+  assert.deepEqual(await h.books.searchBooks({ query: 'livro', page: 2 }), {
+    books: [book],
+    total: 1,
+    page: 2,
+    limit: 10,
+    hasMore: false,
+  });
+});
+
 test('sem sessão a busca falha como erro de autenticação, sem chamar a rede', async () => {
   const h = createServices();
   await assert.rejects(h.books.searchBooks({ query: 'livro' }), { name: 'ApiError', kind: 'auth' });
@@ -155,6 +168,20 @@ test('detalhe busca o livro no backend e aceita livro sem sinopse', async () => 
     return json({ book: detail });
   };
   assert.deepEqual(await h.books.getBookDetail('OL27448W'), detail);
+});
+
+test('detalhe com campos faltando chega completo para a tela', async () => {
+  const h = await loggedServices();
+  h.fetch = async () => json({ book: { id: 'OL1W', title: 'Só o título', description: '  ' } });
+  assert.deepEqual(await h.books.getBookDetail('OL1W'), {
+    id: 'OL1W',
+    title: 'Só o título',
+    authors: [],
+    description: null,
+    categories: [],
+    coverUrl: null,
+    openLibraryUrl: 'https://openlibrary.org/works/OL1W',
+  });
 });
 
 test('detalhe recusa identificador inválido sem chamar a rede', async () => {
