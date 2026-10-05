@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
+
 import {
   ActivityIndicator,
   Linking,
@@ -12,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmptyState } from '@/components/empty_state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -443,115 +445,129 @@ export default function Explorar() {
                     Tentar novamente
                   </ThemedText>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => setRefresh((value) => value + 1)}
+                  style={[styles.retryButton, { borderColor: theme.accent }]}>
+                  <ThemedText themeColor="accent" style={styles.retryText}>
+                    Tentar novamente
+                  </ThemedText>
+                </TouchableOpacity>
               </ThemedView>
             ) : !loading && !error && books.length === 0 ? (
-              <ThemedView type="backgroundElement" style={styles.emptyCard}>
-                <ThemedText type="subtitle" style={styles.emptyTitle}>
-                  Nenhum livro encontrado
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  Tente outros termos ou remova alguns filtros.
-                </ThemedText>
-              </ThemedView>
+              <EmptyState
+                title="Nenhum livro encontrado"
+                message={`Não achamos resultados para “${submittedQuery}”. Confira a grafia, use menos palavras ou busque pelo nome do autor.`}
+                primaryAction={{
+                  label: 'Fazer nova busca',
+                  onPress: () => {
+                    handleQueryChange('');
+                    inputRef.current?.focus();
+                  },
+                }}
+                secondaryAction={
+                  hasActiveFilters ? { label: 'Limpar filtros', onPress: clearFilters } : undefined
+                }
+              />
             ) : (
               <>
-                <View style={styles.resultsHeader}>
-                  <ThemedText style={styles.resultsTitle}>
-                    Resultados para “{submittedQuery}”
-                  </ThemedText>
-                  <ThemedText themeColor="textMuted" style={styles.resultsCaption}>
-                    {qualityCaption}
-                  </ThemedText>
-                  <ThemedText themeColor="textMuted" style={styles.resultsCount}>
-                    {total.toLocaleString('pt-BR')} obra(s) encontrada(s)
-                  </ThemedText>
-                </View>
+              <View style={styles.resultsHeader}>
+                <ThemedText style={styles.resultsTitle}>
+                  Resultados para “{submittedQuery}”
+                </ThemedText>
+                <ThemedText themeColor="textMuted" style={styles.resultsCaption}>
+                  {qualityCaption}
+                </ThemedText>
+                <ThemedText themeColor="textMuted" style={styles.resultsCount}>
+                  {total.toLocaleString('pt-BR')} obra(s) encontrada(s)
+                </ThemedText>
+              </View>
 
-                <View style={styles.grid}>
-                  {books.map((book) => (
-                    <ThemedView key={book.id} type="backgroundElement" style={styles.card}>
-                      {book.coverUrl ? (
-                        <Image
-                          source={{ uri: book.coverUrl }}
-                          style={styles.cover}
-                          contentFit="contain"
-                          accessibilityLabel={`Capa de ${book.title}`}
-                        />
-                      ) : (
-                        <View
-                          style={[
-                            styles.coverPlaceholder,
-                            { backgroundColor: theme.backgroundSelected },
-                          ]}>
-                          <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
-                            {book.title}
-                          </ThemedText>
-                        </View>
-                      )}
-                      <View style={styles.cardBody}>
-                        <View
-                          style={[
-                            styles.categoryBadge,
-                            { backgroundColor: 'rgba(100,255,218,0.08)' },
-                          ]}>
-                          <ThemedText themeColor="accent" style={styles.categoryText}>
-                            {book.category}
-                          </ThemedText>
-                        </View>
-                        <ThemedText style={styles.cardTitle} numberOfLines={2}>
+              <View style={styles.grid}>
+                {books.map((book) => (
+                  <ThemedView key={book.id} type="backgroundElement" style={styles.card}>
+                    {book.coverUrl ? (
+                      <Image
+                        source={{ uri: book.coverUrl }}
+                        style={styles.cover}
+                        contentFit="contain"
+                        accessibilityLabel={`Capa de ${book.title}`}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.coverPlaceholder,
+                          { backgroundColor: theme.backgroundSelected },
+                        ]}>
+                        <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
                           {book.title}
                         </ThemedText>
-                        <ThemedText
-                          themeColor="textSecondary"
-                          style={styles.cardAuthor}
-                          numberOfLines={2}>
-                          {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
-                        </ThemedText>
-                        <ThemedText themeColor="textMuted" style={styles.cardDescription}>
-                          {book.firstPublishYear
-                            ? `Primeira publicação: ${book.firstPublishYear}`
-                            : 'Ano não informado'}
-                          {' · '}
-                          {book.editionCount} edição(ões)
-                        </ThemedText>
-                        <TouchableOpacity
-                          accessibilityRole="link"
-                          onPress={() => void openBook(book)}>
-                          <ThemedText themeColor="accent" style={styles.detailsLink}>
-                            Ver na Open Library
-                          </ThemedText>
-                        </TouchableOpacity>
                       </View>
-                    </ThemedView>
-                  ))}
-                </View>
-
-                {loadingMore ? (
-                  <ActivityIndicator
-                    accessibilityLabel="Carregando mais livros"
-                    color={theme.accent}
-                    style={styles.listFooter}
-                  />
-                ) : loadMoreError ? (
-                  <View style={styles.listFooter}>
-                    <ThemedText themeColor="danger" style={styles.footerError}>
-                      {loadMoreError}
-                    </ThemedText>
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      onPress={() => void loadMore()}
-                      style={[styles.retryButton, { borderColor: theme.accent }]}>
-                      <ThemedText themeColor="accent" style={styles.retryText}>
-                        Tentar novamente
+                    )}
+                    <View style={styles.cardBody}>
+                      <View
+                        style={[
+                          styles.categoryBadge,
+                          { backgroundColor: 'rgba(100,255,218,0.08)' },
+                        ]}>
+                        <ThemedText themeColor="accent" style={styles.categoryText}>
+                          {book.category}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={styles.cardTitle} numberOfLines={2}>
+                        {book.title}
                       </ThemedText>
-                    </TouchableOpacity>
-                  </View>
-                ) : !hasMore && !loading && books.length > 0 ? (
-                  <ThemedText themeColor="textMuted" style={styles.endText}>
-                    Você chegou ao fim dos resultados.
+                      <ThemedText
+                        themeColor="textSecondary"
+                        style={styles.cardAuthor}
+                        numberOfLines={2}>
+                        {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
+                      </ThemedText>
+                      <ThemedText themeColor="textMuted" style={styles.cardDescription}>
+                        {book.firstPublishYear
+                          ? `Primeira publicação: ${book.firstPublishYear}`
+                          : 'Ano não informado'}
+                        {' · '}
+                        {book.editionCount} edição(ões)
+                      </ThemedText>
+                      <TouchableOpacity
+                        accessibilityRole="link"
+                        onPress={() => void openBook(book)}>
+                        <ThemedText themeColor="accent" style={styles.detailsLink}>
+                          Ver na Open Library
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                  </ThemedView>
+                ))}
+              </View>
+
+              {loadingMore ? (
+                <ActivityIndicator
+                  accessibilityLabel="Carregando mais livros"
+                  color={theme.accent}
+                  style={styles.listFooter}
+                />
+              ) : loadMoreError ? (
+                <View style={styles.listFooter}>
+                  <ThemedText themeColor="danger" style={styles.footerError}>
+                    {loadMoreError}
                   </ThemedText>
-                ) : null}
-              </>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => void loadMore()}
+                    style={[styles.retryButton, { borderColor: theme.accent }]}>
+                    <ThemedText themeColor="accent" style={styles.retryText}>
+                      Tentar novamente
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              ) : !hasMore && !loading && books.length > 0 ? (
+                <ThemedText themeColor="textMuted" style={styles.endText}>
+                  Você chegou ao fim dos resultados.
+                </ThemedText>
+              ) : null}
+            </>
             )}
 
             <ThemedText themeColor="textMuted" style={styles.attribution}>
