@@ -125,12 +125,19 @@ export default function PerfilScreen() {
               label="Editar perfil"
               onPress={() => router.push('/editar_perfil')}
             />
+             <ActionButton
+              label="Configurações"
+              variant="ghost"
+              onPress={() => router.push('/configuracoes')}
+            />
             <ActionButton
               label="Sair da conta"
               variant="ghost"
               onPress={handleLogout}
               loading={loggingOut}
             />
+           
+
           </View>
         </View>
       </SafeAreaView>
