@@ -65,7 +65,7 @@ async function start() {
     console.log(`   POST /api/auth/login     - Fazer login`);
     console.log(`   GET  /api/auth/profile   - Ver perfil (requer token)`);
     console.log(`   GET/PUT/DELETE /api/auth/profile/photo - Foto de perfil (requer token)`);
-    console.log(`   POST /api/auth/forgot-password - Pedir link de redefinição`);
+    console.log(`   POST /api/auth/forgot-password - Pedir código de redefinição por e-mail`);
     console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
     console.log(`   GET  /api/books/search   - Buscar livros (requer token)`);
     console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
