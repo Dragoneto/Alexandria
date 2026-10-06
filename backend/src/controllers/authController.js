@@ -11,14 +11,16 @@ const SENHA_REGRA = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
 const SENHA_FRACA = `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres, com letra e número`;
 const TTL_MINUTOS = Number(process.env.RESET_TOKEN_TTL_MINUTES) > 0
   ? Number(process.env.RESET_TOKEN_TTL_MINUTES)
-  : 30;
-const RESET_URL_BASE = process.env.APP_RESET_URL || 'alexandriamobile://redefinir-senha';
-// Fora de produção o token volta na resposta: sem servidor de e-mail, é como se testa o fluxo
-const EXPOE_TOKEN = process.env.NODE_ENV !== 'production';
+  : 15;
+const CODIGO_FORMATO = /^\d{6}$/;
+// Com 6 dígitos, chutar precisa custar caro: depois de cinco tentativas o código para de valer
+const MAX_TENTATIVAS = 5;
+// Fora de produção o código volta na resposta, para testar sem abrir a caixa de e-mail
+const EXPOE_CODIGO = process.env.NODE_ENV !== 'production';
 // Mesma resposta para e-mail cadastrado ou não, para não revelar quem tem conta
 const MENSAGEM_NEUTRA =
-  'Se existir uma conta com esse e-mail, enviamos o link para criar uma nova senha.';
-const LINK_INVALIDO = 'Link inválido ou expirado. Peça um novo.';
+  'Se existir uma conta com esse e-mail, enviamos um código de 6 dígitos para criar uma nova senha.';
+const CODIGO_INVALIDO = 'Código inválido ou expirado. Peça um novo.';
 const FOTO_FORMATO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 const FOTO_TAMANHO_MAXIMO = 300 * 1024;
 
@@ -229,21 +231,21 @@ const forgotPassword = async (req, res) => {
       return res.status(200).json({ message: MENSAGEM_NEUTRA });
     }
 
-    // 3. Gerar o token do link e guardar o pedido (o armazenamento só vê o hash)
-    const token = crypto.randomBytes(32).toString('hex');
+    // 3. Sortear o código e guardar o pedido (o armazenamento só vê o hash).
+    //    Um código novo derruba o anterior: só vale o último pedido
+    const codigo = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
     const expiraEm = new Date(Date.now() + TTL_MINUTOS * 60 * 1000);
 
-    await passwordResets.create({ userId: usuario.id, token, expiraEm });
+    await passwordResets.invalidateForUser(usuario.id);
+    await passwordResets.create({ userId: usuario.id, token: codigo, expiraEm });
 
-    const resetUrl = `${RESET_URL_BASE}?token=${token}`;
+    // 4. Enquanto não existe envio de e-mail, o código sai no log do servidor
+    console.log(`🔑 Código de redefinição para ${email} (vale ${TTL_MINUTOS} min): ${codigo}`);
 
-    // 4. Enquanto não existe envio de e-mail, o link sai no log do servidor
-    console.log(`🔑 Link de redefinição para ${email} (vale ${TTL_MINUTOS} min): ${resetUrl}`);
-
-    // 5. Fora de produção o token volta na resposta, para dar para testar sem e-mail
+    // 5. Fora de produção o código volta na resposta, para dar para testar sem e-mail
     return res.status(200).json({
       message: MENSAGEM_NEUTRA,
-      ...(EXPOE_TOKEN ? { resetToken: token, resetUrl } : {}),
+      ...(EXPOE_CODIGO ? { resetCode: codigo } : {}),
     });
 
   } catch (error) {
@@ -259,23 +261,27 @@ const forgotPassword = async (req, res) => {
 // ==========================================
 const resetPassword = async (req, res) => {
   try {
-    const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const codigo = typeof req.body?.codigo === 'string' ? req.body.codigo.trim() : '';
     const senha = typeof req.body?.senha === 'string' ? req.body.senha : '';
 
     // 1. Validar os campos
-    if (!token) {
-      return res.status(400).json({ error: LINK_INVALIDO });
+    if (!email || !CODIGO_FORMATO.test(codigo)) {
+      return res.status(400).json({ error: CODIGO_INVALIDO });
     }
 
     if (!SENHA_REGRA.test(senha)) {
       return res.status(400).json({ error: SENHA_FRACA });
     }
 
-    // 2. Conferir se o token existe, não venceu e ainda não foi usado
-    const pedido = await passwordResets.findValidByToken(token);
+    // 2. Achar o pedido aberto da conta e gastar uma tentativa antes de comparar o código.
+    //    Depois de cinco tentativas o pedido se esgota, e nem o código certo passa
+    const usuario = await users.findByEmail(email);
+    const pedido = usuario ? await passwordResets.findOpenByUser(usuario.id) : null;
+    const podeTentar = pedido && (await passwordResets.claimAttempt(pedido.id, MAX_TENTATIVAS));
 
-    if (!pedido) {
-      return res.status(400).json({ error: LINK_INVALIDO });
+    if (!podeTentar || !passwordResets.matches(pedido, codigo)) {
+      return res.status(400).json({ error: CODIGO_INVALIDO });
     }
 
     // 3. Trocar a senha pelo hash da nova
@@ -284,10 +290,10 @@ const resetPassword = async (req, res) => {
     const usuarioAtualizado = await users.updatePassword(pedido.user_id, senhaHash);
 
     if (!usuarioAtualizado) {
-      return res.status(400).json({ error: LINK_INVALIDO });
+      return res.status(400).json({ error: CODIGO_INVALIDO });
     }
 
-    // 4. Um link atendido derruba os outros pedidos abertos do mesmo usuário
+    // 4. O código usado não vale de novo
     await passwordResets.invalidateForUser(pedido.user_id);
 
     return res.status(200).json({
