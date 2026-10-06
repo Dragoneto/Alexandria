@@ -16,10 +16,15 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS foto TEXT;
 CREATE TABLE IF NOT EXISTS password_resets (
   id SERIAL PRIMARY KEY,                                        -- ID auto-incrementado
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- Dono do pedido
-  token_hash CHAR(64) UNIQUE NOT NULL,                          -- Hash SHA-256 do token do link (o token inteiro só vai no e-mail)
-  expira_em TIMESTAMPTZ NOT NULL,                               -- Prazo do link
-  usado_em TIMESTAMPTZ,                                         -- Preenchido quando o link é usado ou derrubado
+  token_hash CHAR(64) NOT NULL,                                 -- Hash SHA-256 do código de 6 dígitos (o código só vai no e-mail)
+  expira_em TIMESTAMPTZ NOT NULL,                               -- Prazo do código
+  usado_em TIMESTAMPTZ,                                         -- Preenchido quando o código é usado ou derrubado
+  tentativas INTEGER NOT NULL DEFAULT 0,                        -- Tentativas gastas; depois da quinta o código para de valer
   criado_em TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP               -- Data do pedido
 );
 
 CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON password_resets (user_id);
+
+-- Bancos criados na época do link: ganham o contador e perdem o UNIQUE do hash
+ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS tentativas INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE password_resets DROP CONSTRAINT IF EXISTS password_resets_token_hash_key;

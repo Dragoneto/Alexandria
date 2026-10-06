@@ -13,8 +13,7 @@ function usePostgres() {
   return pool !== null;
 }
 
-// O token só existe inteiro no link que o usuário recebe. Aqui fica o hash:
-// quem conseguir ler o armazenamento não consegue redefinir a senha de ninguém.
+// O código só existe inteiro no e-mail que o usuário recebe. Aqui fica só o hash.
 function hashToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
@@ -52,14 +51,23 @@ async function initialize() {
       CREATE TABLE IF NOT EXISTS password_resets (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        token_hash CHAR(64) UNIQUE NOT NULL,
+        token_hash CHAR(64) NOT NULL,
         expira_em TIMESTAMPTZ NOT NULL,
         usado_em TIMESTAMPTZ,
+        tentativas INTEGER NOT NULL DEFAULT 0,
         criado_em TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
       )
     `);
     await pool.query(
       'CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON password_resets (user_id)',
+    );
+    // Bancos criados na época do link: ganham o contador e perdem o UNIQUE,
+    // porque dois pedidos podem sortear o mesmo código de 6 dígitos
+    await pool.query(
+      'ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS tentativas INTEGER NOT NULL DEFAULT 0',
+    );
+    await pool.query(
+      'ALTER TABLE password_resets DROP CONSTRAINT IF EXISTS password_resets_token_hash_key',
     );
     return;
   }
@@ -89,6 +97,7 @@ async function create({ userId, token, expiraEm }) {
       token_hash: tokenHash,
       expira_em: new Date(expiraEm).toISOString(),
       usado_em: null,
+      tentativas: 0,
       criado_em: new Date().toISOString(),
     };
     const vigentes = pedidos.filter((candidate) => new Date(candidate.expira_em).getTime() > agora);
@@ -97,26 +106,60 @@ async function create({ userId, token, expiraEm }) {
   });
 }
 
-/** Devolve o pedido do token se ele ainda não venceu nem foi usado; null nos outros casos. */
-async function findValidByToken(token) {
-  const tokenHash = hashToken(token);
-
+/** Devolve o pedido mais recente do usuário que ainda não venceu nem foi usado; null se não houver. */
+async function findOpenByUser(userId) {
   if (usePostgres()) {
     const result = await pool.query(
-      'SELECT id, user_id, expira_em, usado_em FROM password_resets WHERE token_hash = $1 AND usado_em IS NULL AND expira_em > NOW()',
-      [tokenHash],
+      'SELECT id, user_id, token_hash FROM password_resets WHERE user_id = $1 AND usado_em IS NULL AND expira_em > NOW() ORDER BY id DESC LIMIT 1',
+      [userId],
     );
     return result.rows[0] ?? null;
   }
 
   const pedidos = await readLocalResets();
   const agora = Date.now();
-  const pedido = pedidos.find((candidate) => candidate.token_hash === tokenHash);
+  const abertos = pedidos.filter(
+    (pedido) => pedido.user_id === Number(userId) && isValid(pedido, agora),
+  );
 
-  return pedido && isValid(pedido, agora) ? pedido : null;
+  return abertos.at(-1) ?? null;
 }
 
-/** Marca como usados todos os pedidos abertos do usuário: um link atendido derruba os outros. */
+/** Confere o código digitado sem deixar o tempo da comparação dar pistas. */
+function matches(pedido, codigo) {
+  return crypto.timingSafeEqual(
+    Buffer.from(hashToken(codigo), 'hex'),
+    Buffer.from(pedido.token_hash, 'hex'),
+  );
+}
+
+/**
+ * Gasta uma tentativa do pedido; devolve false se ele já foi usado ou esgotou o limite.
+ * A tentativa conta antes da comparação, para chutes simultâneos não passarem do limite.
+ */
+async function claimAttempt(id, limite) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'UPDATE password_resets SET tentativas = tentativas + 1 WHERE id = $1 AND usado_em IS NULL AND tentativas < $2',
+      [id, limite],
+    );
+    return result.rowCount > 0;
+  }
+
+  return serializeWrite(async () => {
+    const pedidos = await readLocalResets();
+    const index = pedidos.findIndex((pedido) => pedido.id === Number(id));
+    const pedido = pedidos[index];
+    const tentativas = pedido?.tentativas ?? 0;
+    if (!pedido || pedido.usado_em || tentativas >= limite) return false;
+    const atualizados = [...pedidos];
+    atualizados[index] = { ...pedido, tentativas: tentativas + 1 };
+    await writeLocalResets(atualizados);
+    return true;
+  });
+}
+
+/** Marca como usados todos os pedidos abertos do usuário: código novo ou usado derruba os anteriores. */
 async function invalidateForUser(userId) {
   if (usePostgres()) {
     const result = await pool.query(
@@ -146,6 +189,8 @@ module.exports = {
   mode: usePostgres() ? 'postgres' : 'local-file',
   initialize,
   create,
-  findValidByToken,
+  findOpenByUser,
+  matches,
+  claimAttempt,
   invalidateForUser,
 };
