@@ -4,6 +4,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
+const bookRoutes = require('./routes/books');
 const users = require('./repositories/userRepository');
 const passwordResets = require('./repositories/passwordResetRepository');
 
@@ -43,6 +44,9 @@ app.get('/', (req, res) => {
 // Rotas de autenticação
 app.use('/api/auth', authRoutes);
 
+// Rotas de livros (Open Library)
+app.use('/api/books', bookRoutes);
+
 // ==========================================
 // INICIAR SERVIDOR
 // ==========================================
@@ -63,6 +67,8 @@ async function start() {
     console.log(`   GET/PUT/DELETE /api/auth/profile/photo - Foto de perfil (requer token)`);
     console.log(`   POST /api/auth/forgot-password - Pedir link de redefinição`);
     console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
+    console.log(`   GET  /api/books/search   - Buscar livros (requer token)`);
+    console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
   });
 }
 

@@ -47,6 +47,7 @@ function SessionRoutes() {
         <Stack.Screen name="equipe" />
         <Stack.Screen name="curiosidades" />
         <Stack.Screen name="ajuda" />
+        <Stack.Screen name="livro/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={!user}>
         <Stack.Screen name="index" />

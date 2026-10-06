@@ -4,6 +4,9 @@
 // Ordem de tentativa: cover_i -> ISBN -> OLID da edição -> placeholder.
 // O placeholder vem de BOOK_COVER_PLACEHOLDER_URL; sem ele, retorna null para
 // o cliente decidir como exibir a ausência de capa.
+//
+// As URLs levam default=false: sem isso a Open Library responde 200 com uma
+// imagem vazia quando a capa não existe, e o cliente não tem como perceber.
 
 const COVER_BASE_URL = 'https://covers.openlibrary.org';
 const VALID_SIZES = new Set(['S', 'M', 'L']);
@@ -48,13 +51,13 @@ function buildCoverUrl(source = {}, size = 'M') {
   const imageSize = VALID_SIZES.has(size) ? size : 'M';
 
   const coverId = positiveInteger(source.coverId);
-  if (coverId) return `${COVER_BASE_URL}/b/id/${coverId}-${imageSize}.jpg`;
+  if (coverId) return `${COVER_BASE_URL}/b/id/${coverId}-${imageSize}.jpg?default=false`;
 
   const isbn = firstValidIsbn(source.isbn);
-  if (isbn) return `${COVER_BASE_URL}/b/isbn/${isbn}-${imageSize}.jpg`;
+  if (isbn) return `${COVER_BASE_URL}/b/isbn/${isbn}-${imageSize}.jpg?default=false`;
 
   const olid = cleanOlid(source.olid);
-  if (olid) return `${COVER_BASE_URL}/b/olid/${olid}-${imageSize}.jpg`;
+  if (olid) return `${COVER_BASE_URL}/b/olid/${olid}-${imageSize}.jpg?default=false`;
 
   return placeholderUrl();
 }
