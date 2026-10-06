@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const users = require('../repositories/userRepository');
 const passwordResets = require('../repositories/passwordResetRepository');
+const mailer = require('../services/mailer');
 
 // Regras da redefinição de senha
 const SENHA_MINIMA = 8;
@@ -239,8 +240,15 @@ const forgotPassword = async (req, res) => {
     await passwordResets.invalidateForUser(usuario.id);
     await passwordResets.create({ userId: usuario.id, token: codigo, expiraEm });
 
-    // 4. Enquanto não existe envio de e-mail, o código sai no log do servidor
-    console.log(`🔑 Código de redefinição para ${email} (vale ${TTL_MINUTOS} min): ${codigo}`);
+    // 4. Mandar o código sem esperar o envio: a demora do Gmail entregaria quem tem conta.
+    //    Uma falha no envio só vai para o log. Sem SMTP configurado, o código sai no log
+    if (mailer.isConfigured()) {
+      mailer
+        .sendResetCode(email, codigo, TTL_MINUTOS)
+        .catch((error) => console.error('Erro ao enviar o código de redefinição:', error.message));
+    } else {
+      console.log(`🔑 Código de redefinição para ${email} (vale ${TTL_MINUTOS} min): ${codigo}`);
+    }
 
     // 5. Fora de produção o código volta na resposta, para dar para testar sem e-mail
     return res.status(200).json({

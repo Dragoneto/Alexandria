@@ -10,6 +10,10 @@ process.env.DB_MODE = 'local';
 process.env.LOCAL_DB_FILE = path.join(dataDir, 'users.json');
 process.env.LOCAL_RESETS_FILE = path.join(dataDir, 'password-resets.json');
 process.env.JWT_SECRET = 'segredo-de-teste';
+// Nenhum teste manda e-mail de verdade, e o prazo é o padrão
+delete process.env.SMTP_USER;
+delete process.env.SMTP_PASS;
+delete process.env.RESET_TOKEN_TTL_MINUTES;
 
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
@@ -18,6 +22,7 @@ const bcrypt = require('bcrypt');
 const { forgotPassword, register, resetPassword } = require('../src/controllers/authController');
 const passwordResets = require('../src/repositories/passwordResetRepository');
 const users = require('../src/repositories/userRepository');
+const mailer = require('../src/services/mailer');
 
 const EMAIL = 'leitora@alexandria.com';
 
@@ -161,6 +166,31 @@ test('depois de cinco tentativas erradas, nem o código certo vale', async () =>
   }
 
   assert.equal((await redefinir(body.resetCode, 'senhaNova123')).statusCode, 400);
+});
+
+test('com o e-mail configurado, o código vai para a caixa da pessoa', async (t) => {
+  t.mock.method(mailer, 'isConfigured', () => true);
+  const envio = t.mock.method(mailer, 'sendResetCode', async () => {});
+
+  const res = await pedirCodigo(EMAIL);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(envio.mock.calls[0].arguments, [EMAIL, res.body.resetCode, 15]);
+});
+
+test('se o envio falhar, a resposta continua neutra e o erro vai para o log', async (t) => {
+  t.mock.method(mailer, 'isConfigured', () => true);
+  t.mock.method(mailer, 'sendResetCode', async () => {
+    throw new Error('SMTP fora do ar');
+  });
+  const log = t.mock.method(console, 'error', () => {});
+
+  const res = await pedirCodigo(EMAIL);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(res.statusCode, 200);
+  assert.match(res.body.message, /Se existir uma conta/);
+  assert.match(log.mock.calls[0].arguments.join(' '), /SMTP fora do ar/);
 });
 
 test('código certo troca a senha e não vale de novo', async () => {
