@@ -14,6 +14,8 @@ process.env.JWT_SECRET = 'segredo-de-teste';
 delete process.env.SMTP_USER;
 delete process.env.SMTP_PASS;
 delete process.env.RESET_TOKEN_TTL_MINUTES;
+// Os testes leem o código na resposta, como no desenvolvimento
+process.env.RESET_CODE_DEBUG = 'true';
 
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
@@ -46,6 +48,14 @@ async function pedirCodigo(email) {
   const res = fakeResponse();
   await forgotPassword({ body: { email } }, res);
   return res;
+}
+
+/** Desliga o interruptor de desenvolvimento só durante o teste. */
+function semDebug(t) {
+  delete process.env.RESET_CODE_DEBUG;
+  t.after(() => {
+    process.env.RESET_CODE_DEBUG = 'true';
+  });
 }
 
 async function redefinir(codigo, senha, email = EMAIL) {
@@ -191,6 +201,30 @@ test('se o envio falhar, a resposta continua neutra e o erro vai para o log', as
   assert.equal(res.statusCode, 200);
   assert.match(res.body.message, /Se existir uma conta/);
   assert.match(log.mock.calls[0].arguments.join(' '), /SMTP fora do ar/);
+});
+
+test('sem RESET_CODE_DEBUG o código não aparece na resposta nem no log, mesmo sem NODE_ENV=production', async (t) => {
+  t.mock.method(mailer, 'isConfigured', () => true);
+  const envio = t.mock.method(mailer, 'sendResetCode', async () => {});
+  const log = t.mock.method(console, 'log', () => {});
+  semDebug(t);
+
+  const res = await pedirCodigo(EMAIL);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.resetCode, undefined);
+  const codigo = envio.mock.calls[0].arguments[1];
+  assert.ok(log.mock.calls.every((chamada) => !chamada.arguments.join(' ').includes(codigo)));
+});
+
+test('sem e-mail configurado e sem RESET_CODE_DEBUG, a redefinição fica indisponível', async (t) => {
+  semDebug(t);
+
+  for (const email of [EMAIL, 'ninguem@alexandria.com']) {
+    const res = await pedirCodigo(email);
+    assert.equal(res.statusCode, 503);
+    assert.match(res.body.error, /indisponível/);
+  }
 });
 
 test('código certo troca a senha e não vale de novo', async () => {

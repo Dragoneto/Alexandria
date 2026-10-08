@@ -16,12 +16,17 @@ const TTL_MINUTOS = Number(process.env.RESET_TOKEN_TTL_MINUTES) > 0
 const CODIGO_FORMATO = /^\d{6}$/;
 // Com 6 dígitos, chutar precisa custar caro: depois de cinco tentativas o código para de valer
 const MAX_TENTATIVAS = 5;
-// Fora de produção o código volta na resposta, para testar sem abrir a caixa de e-mail
-const EXPOE_CODIGO = process.env.NODE_ENV !== 'production';
+// O código só aparece no log e na resposta da API com RESET_CODE_DEBUG=true, ligado à mão no
+// desenvolvimento. Não depende de NODE_ENV: se nada for configurado, nada vaza
+function expoeCodigo() {
+  return process.env.RESET_CODE_DEBUG === 'true';
+}
 // Mesma resposta para e-mail cadastrado ou não, para não revelar quem tem conta
 const MENSAGEM_NEUTRA =
   'Se existir uma conta com esse e-mail, enviamos um código de 6 dígitos para criar uma nova senha.';
 const CODIGO_INVALIDO = 'Código inválido ou expirado. Peça um novo.';
+const REDEFINICAO_INDISPONIVEL =
+  'A redefinição de senha está indisponível no momento. Tente de novo mais tarde.';
 const FOTO_FORMATO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 const FOTO_TAMANHO_MAXIMO = 300 * 1024;
 
@@ -225,6 +230,12 @@ const forgotPassword = async (req, res) => {
       });
     }
 
+    // Sem e-mail configurado o código não teria como chegar: melhor dizer que está indisponível
+    // do que fingir que enviou. Vale para qualquer e-mail, para não revelar quem tem conta
+    if (!mailer.isConfigured() && !expoeCodigo()) {
+      return res.status(503).json({ error: REDEFINICAO_INDISPONIVEL });
+    }
+
     // 2. Buscar o usuário. Se não existir, a resposta é a mesma de quem existe
     const usuario = await users.findByEmail(email);
 
@@ -241,19 +252,20 @@ const forgotPassword = async (req, res) => {
     await passwordResets.create({ userId: usuario.id, token: codigo, expiraEm });
 
     // 4. Mandar o código sem esperar o envio: a demora do Gmail entregaria quem tem conta.
-    //    Uma falha no envio só vai para o log. Sem SMTP configurado, o código sai no log
+    //    Uma falha no envio só vai para o log
     if (mailer.isConfigured()) {
       mailer
         .sendResetCode(email, codigo, TTL_MINUTOS)
         .catch((error) => console.error('Erro ao enviar o código de redefinição:', error.message));
-    } else {
+    }
+    if (expoeCodigo()) {
       console.log(`🔑 Código de redefinição para ${email} (vale ${TTL_MINUTOS} min): ${codigo}`);
     }
 
-    // 5. Fora de produção o código volta na resposta, para dar para testar sem e-mail
+    // 5. No desenvolvimento o código também volta na resposta, para dar para testar sem e-mail
     return res.status(200).json({
       message: MENSAGEM_NEUTRA,
-      ...(EXPOE_CODIGO ? { resetCode: codigo } : {}),
+      ...(expoeCodigo() ? { resetCode: codigo } : {}),
     });
 
   } catch (error) {

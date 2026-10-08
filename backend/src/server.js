@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const users = require('./repositories/userRepository');
 const passwordResets = require('./repositories/passwordResetRepository');
+const mailer = require('./services/mailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +54,18 @@ app.use('/api/books', bookRoutes);
 async function start() {
   if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET não configurado. Crie backend/.env antes de iniciar.');
+  }
+
+  // RESET_CODE_DEBUG devolve o código de redefinição na resposta da API: em produção,
+  // qualquer pessoa trocaria a senha de qualquer conta
+  if (process.env.RESET_CODE_DEBUG === 'true' && process.env.NODE_ENV === 'production') {
+    throw new Error('RESET_CODE_DEBUG=true não pode ser usado com NODE_ENV=production.');
+  }
+
+  if (!mailer.isConfigured() && process.env.RESET_CODE_DEBUG !== 'true') {
+    console.error(
+      '⚠️ Redefinição de senha indisponível: preencha SMTP_USER e SMTP_PASS (ou, só no desenvolvimento, RESET_CODE_DEBUG=true).',
+    );
   }
 
   await users.initialize();
