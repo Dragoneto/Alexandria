@@ -3,33 +3,35 @@
  *
  * Reproduz POST /api/auth/forgot-password e POST /api/auth/reset-password:
  * mesmos caminhos, mesmos status HTTP e o mesmo formato de erro ({ error }).
+ * Responde como o backend com RESET_CODE_DEBUG=true: o código volta na resposta.
  * Serve para mexer no app sem subir o backend; para falar com o backend de
  * verdade basta trocar EXPO_PUBLIC_API_URL.
  *
  * Uso: npm run mock-api   (porta MOCK_API_PORT, padrão 8080)
  *
  * E-mails especiais:
- *   leitor@alexandria.com   conta cadastrada: devolve resetToken e resetUrl
+ *   leitor@alexandria.com   conta cadastrada: devolve resetCode, o código de 6 dígitos
  *   erro500@alexandria.com  simula erro interno (500)
  *   lento@alexandria.com    responde depois de 20 s, acima do limite de 15 s do app
  */
 const http = require('node:http');
-const { randomUUID } = require('node:crypto');
+const { randomInt } = require('node:crypto');
 
 const REGISTERED_EMAIL = 'leitor@alexandria.com';
 const SERVER_ERROR_EMAIL = 'erro500@alexandria.com';
 const SLOW_EMAIL = 'lento@alexandria.com';
-const RESET_URL_BASE = 'alexandriamobile://redefinir-senha';
 const FORGOT_PASSWORD_PATH = '/api/auth/forgot-password';
 const RESET_PASSWORD_PATH = '/api/auth/reset-password';
 const SENHA_MINIMA = 8;
 const SENHA_REGRA = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
-const TTL_MS = 30 * 60 * 1000;
+const CODIGO_FORMATO = /^\d{6}$/;
+const MAX_TENTATIVAS = 5;
+const TTL_MS = 15 * 60 * 1000;
 
 // Mesmos textos do authController, para o app ver aqui o que veria em produção
 const MENSAGEM_NEUTRA =
-  'Se existir uma conta com esse e-mail, enviamos o link para criar uma nova senha.';
-const LINK_INVALIDO = 'Link inválido ou expirado. Peça um novo.';
+  'Se existir uma conta com esse e-mail, enviamos um código de 6 dígitos para criar uma nova senha.';
+const CODIGO_INVALIDO = 'Código inválido ou expirado. Peça um novo.';
 const INTERNAL_ERROR = { status: 500, body: { error: 'Erro interno do servidor' } };
 
 const CORS_HEADERS = {
@@ -38,7 +40,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// Tokens emitidos enquanto este processo estiver de pé
+// Código aberto de cada e-mail enquanto este processo estiver de pé; pedir de novo troca o anterior
 const pedidos = new Map();
 
 function sleep(ms) {
@@ -91,35 +93,34 @@ function forgotPassword(body) {
     return INTERNAL_ERROR;
   }
 
-  // Só esta conta "existe" no mock; as outras recebem a mesma resposta, sem token
+  // Só esta conta "existe" no mock; as outras recebem a mesma resposta, sem código
   if (email !== REGISTERED_EMAIL) {
     return { status: 200, body: { message: MENSAGEM_NEUTRA } };
   }
 
-  const resetToken = randomUUID();
-  pedidos.set(resetToken, { expiraEm: Date.now() + TTL_MS, usado: false });
+  const resetCode = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  pedidos.set(email, {
+    codigo: resetCode,
+    expiraEm: Date.now() + TTL_MS,
+    usado: false,
+    tentativas: 0,
+  });
 
-  return {
-    status: 200,
-    body: {
-      message: MENSAGEM_NEUTRA,
-      resetToken,
-      resetUrl: `${RESET_URL_BASE}?token=${resetToken}`,
-    },
-  };
+  return { status: 200, body: { message: MENSAGEM_NEUTRA, resetCode } };
 }
 
-/** Mesmas regras do resetPassword do backend, com os tokens que este mock emitiu. */
+/** Mesmas regras do resetPassword do backend, com os códigos que este mock emitiu. */
 function resetPassword(body) {
   if (body === null) {
     return INTERNAL_ERROR;
   }
 
-  const token = typeof body?.token === 'string' ? body.token.trim() : '';
+  const email = normalizeEmail(body);
+  const codigo = typeof body?.codigo === 'string' ? body.codigo.trim() : '';
   const senha = typeof body?.senha === 'string' ? body.senha : '';
 
-  if (!token) {
-    return { status: 400, body: { error: LINK_INVALIDO } };
+  if (!email || !CODIGO_FORMATO.test(codigo)) {
+    return { status: 400, body: { error: CODIGO_INVALIDO } };
   }
 
   if (!SENHA_REGRA.test(senha)) {
@@ -131,10 +132,22 @@ function resetPassword(body) {
     };
   }
 
-  const pedido = pedidos.get(token);
+  const pedido = pedidos.get(email);
 
-  if (!pedido || pedido.usado || pedido.expiraEm <= Date.now()) {
-    return { status: 400, body: { error: LINK_INVALIDO } };
+  if (
+    !pedido ||
+    pedido.usado ||
+    pedido.expiraEm <= Date.now() ||
+    pedido.tentativas >= MAX_TENTATIVAS
+  ) {
+    return { status: 400, body: { error: CODIGO_INVALIDO } };
+  }
+
+  // A tentativa conta antes da comparação, como no backend: depois da quinta, nem o código certo passa
+  pedido.tentativas += 1;
+
+  if (pedido.codigo !== codigo) {
+    return { status: 400, body: { error: CODIGO_INVALIDO } };
   }
 
   // Uso único, como no backend
@@ -160,13 +173,13 @@ function createMockApi({ delayMs = 800, slowDelayMs = 20000, log = console.log }
     }
 
     const body = await readJson(request);
-    const pedindoLink = path === FORGOT_PASSWORD_PATH;
-    const result = pedindoLink ? forgotPassword(body) : resetPassword(body);
+    const pedindoCodigo = path === FORGOT_PASSWORD_PATH;
+    const result = pedindoCodigo ? forgotPassword(body) : resetPassword(body);
 
-    await sleep(pedindoLink && normalizeEmail(body) === SLOW_EMAIL ? slowDelayMs : delayMs);
+    await sleep(pedindoCodigo && normalizeEmail(body) === SLOW_EMAIL ? slowDelayMs : delayMs);
 
     log(
-      pedindoLink
+      pedindoCodigo
         ? `POST ${path} email=${JSON.stringify(body?.email ?? null)} -> ${result.status}`
         : `POST ${path} -> ${result.status}`,
     );
@@ -179,7 +192,7 @@ if (require.main === module) {
 
   createMockApi().listen(port, '0.0.0.0', () => {
     console.log(`Mock da API em http://localhost:${port}`);
-    console.log(`   POST ${FORGOT_PASSWORD_PATH} - Pedir link de redefinição`);
+    console.log(`   POST ${FORGOT_PASSWORD_PATH} - Pedir código de redefinição`);
     console.log(`   POST ${RESET_PASSWORD_PATH}  - Definir a nova senha`);
     console.log(
       `E-mails especiais: ${REGISTERED_EMAIL} (cadastrado), ${SERVER_ERROR_EMAIL} (erro 500), ${SLOW_EMAIL} (lento)`,

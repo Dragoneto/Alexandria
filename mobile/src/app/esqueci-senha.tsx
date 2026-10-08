@@ -26,6 +26,11 @@ function messageFor(error: unknown): string {
       return 'A recuperação de senha ainda não está disponível. Tente novamente mais tarde.';
     }
 
+    // O backend responde 503 quando não tem como mandar o e-mail com o código
+    if (error.status === 503) {
+      return 'A recuperação de senha está indisponível no momento. Tente novamente mais tarde.';
+    }
+
     if (error.kind === 'config' && __DEV__) {
       return error.message;
     }
@@ -81,9 +86,14 @@ export default function ForgotPasswordScreen() {
     return (
       <AuthShell
         title="Confira seu e-mail"
-        subtitle="Se existir uma conta com esse e-mail, você vai receber um link para criar uma nova senha.">
+        subtitle="Se existir uma conta com esse e-mail, você vai receber um código de 6 dígitos para criar uma nova senha.">
         <View style={styles.actions}>
-          <ActionButton label="Já tenho o código" onPress={() => router.push('/redefinir-senha')} />
+          <ActionButton
+            label="Já tenho o código"
+            onPress={() =>
+              router.push({ pathname: '/redefinir-senha', params: { email: email.trim() } })
+            }
+          />
           <ActionButton label="Voltar para o login" variant="ghost" onPress={goToLogin} />
         </View>
       </AuthShell>
@@ -93,7 +103,7 @@ export default function ForgotPasswordScreen() {
   return (
     <AuthShell
       title="Esqueceu a senha?"
-      subtitle="Informe o e-mail da sua conta para receber o link de redefinição.">
+      subtitle="Informe o e-mail da sua conta para receber o código de redefinição.">
       <View style={styles.form}>
         <TextField
           label="E-mail"
@@ -118,7 +128,7 @@ export default function ForgotPasswordScreen() {
           </Text>
         ) : null}
 
-        <ActionButton label="Enviar link" onPress={handleSubmit} loading={status === 'sending'} />
+        <ActionButton label="Enviar código" onPress={handleSubmit} loading={status === 'sending'} />
       </View>
 
       <View style={styles.footer}>

@@ -36,11 +36,11 @@ function messageFor(error: unknown): string {
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  // O link do e-mail abre alexandriamobile://redefinir-senha?token=... (e /redefinir-senha?token=... no navegador)
-  const params = useLocalSearchParams<{ token?: string }>();
-  const tokenFromLink = params.token?.trim() ?? '';
+  // O e-mail vem preenchido da tela "Esqueceu a senha?"; o código chega na caixa de entrada
+  const params = useLocalSearchParams<{ email?: string }>();
 
-  const [token, setToken] = useState(tokenFromLink);
+  const [email, setEmail] = useState(params.email ?? '');
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [status, setStatus] = useState<Status>('idle');
@@ -52,6 +52,9 @@ export default function ResetPasswordScreen() {
     setError('');
   };
 
+  // Só dígitos, até 6: colar o código do e-mail com espaços também funciona
+  const handleChangeCode = handleChange((value) => setCode(value.replace(/\D/g, '').slice(0, 6)));
+
   const handleSubmit = async () => {
     if (submitting.current) {
       return;
@@ -62,7 +65,7 @@ export default function ResetPasswordScreen() {
     setStatus('sending');
 
     try {
-      await resetPassword({ token, password, confirmation });
+      await resetPassword({ email, code, password, confirmation });
       setStatus('done');
     } catch (resetError) {
       setError(messageFor(resetError));
@@ -87,25 +90,34 @@ export default function ResetPasswordScreen() {
   return (
     <AuthShell
       title="Criar nova senha"
-      subtitle={
-        tokenFromLink
-          ? 'Escolha a senha que você vai usar para entrar.'
-          : 'Cole o código que veio no link do e-mail e escolha a nova senha.'
-      }>
+      subtitle="Digite o código de 6 dígitos que enviamos para o seu e-mail e escolha a nova senha.">
       <View style={styles.form}>
-        {tokenFromLink ? null : (
-          <TextField
-            label="Código do link"
-            icon={{ ios: 'key.fill', android: 'key', web: 'key' }}
-            placeholder="Cole aqui o código recebido"
-            value={token}
-            onChangeText={handleChange(setToken)}
-            editable={status !== 'sending'}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-          />
-        )}
+        <TextField
+          label="E-mail"
+          icon={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
+          placeholder="voce@email.com"
+          value={email}
+          onChangeText={handleChange(setEmail)}
+          editable={status !== 'sending'}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
+          returnKeyType="next"
+        />
+
+        <TextField
+          label="Código"
+          icon={{ ios: 'key.fill', android: 'key', web: 'key' }}
+          placeholder="000000"
+          value={code}
+          onChangeText={handleChangeCode}
+          editable={status !== 'sending'}
+          keyboardType="number-pad"
+          autoComplete="one-time-code"
+          textContentType="oneTimeCode"
+          returnKeyType="next"
+        />
 
         <TextField
           label="Nova senha"
@@ -153,10 +165,12 @@ export default function ResetPasswordScreen() {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>O link venceu?</Text>
+        <Text style={styles.footerText}>O código venceu?</Text>
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.replace('/esqueci-senha')}
+          onPress={() =>
+            router.replace({ pathname: '/esqueci-senha', params: { email: email.trim() } })
+          }
           style={({ pressed }) => pressed && styles.pressed}>
           <Text style={styles.footerLink}>Pedir outro</Text>
         </Pressable>
