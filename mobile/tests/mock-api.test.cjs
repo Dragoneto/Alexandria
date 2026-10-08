@@ -30,64 +30,80 @@ async function post(path, body, url = baseUrl) {
   return { status: response.status, body: await response.json() };
 }
 
-function pedirLink(email) {
+function pedirCodigo(email) {
   return post('/api/auth/forgot-password', { email });
 }
 
-function redefinir(token, senha) {
-  return post('/api/auth/reset-password', { token, senha });
+function redefinir(codigo, senha, email = REGISTERED_EMAIL) {
+  return post('/api/auth/reset-password', { email, codigo, senha });
 }
 
-test('conta cadastrada recebe o token e um link que abre o app', async () => {
-  const { status, body } = await pedirLink(` ${REGISTERED_EMAIL.toUpperCase()} `);
+/** Um código no formato certo, mas diferente do que o mock emitiu. */
+function codigoErrado(codigo) {
+  return codigo === '000000' ? '000001' : '000000';
+}
+
+test('conta cadastrada recebe um código de 6 dígitos', async () => {
+  const { status, body } = await pedirCodigo(` ${REGISTERED_EMAIL.toUpperCase()} `);
 
   assert.equal(status, 200);
-  assert.match(body.message, /Se existir uma conta/);
-  assert.equal(body.resetUrl, `alexandriamobile://redefinir-senha?token=${body.resetToken}`);
+  assert.match(body.message, /código de 6 dígitos/);
+  assert.match(body.resetCode, /^\d{6}$/);
 });
 
-test('e-mail sem conta recebe a mesma resposta, e sem token', async () => {
-  const { status, body } = await pedirLink('ninguem@alexandria.com');
+test('e-mail sem conta recebe a mesma resposta, e sem código', async () => {
+  const { status, body } = await pedirCodigo('ninguem@alexandria.com');
 
   assert.equal(status, 200);
-  assert.equal(body.resetToken, undefined);
+  assert.equal(body.resetCode, undefined);
   assert.match(body.message, /Se existir uma conta/);
 });
 
 test('e-mail vazio e erro interno seguem o formato do backend', async () => {
-  assert.deepEqual(await pedirLink('   '), {
+  assert.deepEqual(await pedirCodigo('   '), {
     status: 400,
     body: { error: 'Email é obrigatório' },
   });
-  assert.deepEqual(await pedirLink('erro500@alexandria.com'), {
+  assert.deepEqual(await pedirCodigo('erro500@alexandria.com'), {
     status: 500,
     body: { error: 'Erro interno do servidor' },
   });
 });
 
-test('senha curta é recusada e não gasta o link', async () => {
-  const { body } = await pedirLink(REGISTERED_EMAIL);
+test('senha curta é recusada e não gasta o código', async () => {
+  const { body } = await pedirCodigo(REGISTERED_EMAIL);
 
-  const recusado = await redefinir(body.resetToken, 'curta12');
+  const recusado = await redefinir(body.resetCode, 'curta12');
   assert.equal(recusado.status, 400);
   assert.match(recusado.body.error, /pelo menos 8 caracteres/);
 
-  const aceito = await redefinir(body.resetToken, SENHA_VALIDA);
+  const aceito = await redefinir(body.resetCode, SENHA_VALIDA);
   assert.equal(aceito.status, 200);
   assert.match(aceito.body.message, /Senha redefinida/);
 });
 
-test('o link só vale uma vez, e token desconhecido não passa', async () => {
-  const { body } = await pedirLink(REGISTERED_EMAIL);
+test('o código só vale uma vez, e código errado, fora do formato ou de outro e-mail não passa', async () => {
+  const { body } = await pedirCodigo(REGISTERED_EMAIL);
 
-  assert.equal((await redefinir(body.resetToken, SENHA_VALIDA)).status, 200);
+  assert.equal((await redefinir(codigoErrado(body.resetCode), SENHA_VALIDA)).status, 400);
+  assert.equal((await redefinir('12345', SENHA_VALIDA)).status, 400);
+  assert.equal((await redefinir(body.resetCode, SENHA_VALIDA, 'outra@alexandria.com')).status, 400);
 
-  const reuso = await redefinir(body.resetToken, SENHA_VALIDA);
+  assert.equal((await redefinir(body.resetCode, SENHA_VALIDA)).status, 200);
+
+  const reuso = await redefinir(body.resetCode, SENHA_VALIDA);
   assert.equal(reuso.status, 400);
-  assert.match(reuso.body.error, /Link inválido ou expirado/);
+  assert.match(reuso.body.error, /Código inválido ou expirado/);
+});
 
-  assert.equal((await redefinir('nao-existe', SENHA_VALIDA)).status, 400);
-  assert.equal((await redefinir('   ', SENHA_VALIDA)).status, 400);
+test('depois de cinco tentativas erradas, nem o código certo vale', async () => {
+  const { body } = await pedirCodigo(REGISTERED_EMAIL);
+
+  for (let tentativa = 1; tentativa <= 5; tentativa += 1) {
+    assert.equal((await redefinir(codigoErrado(body.resetCode), SENHA_VALIDA)).status, 400);
+  }
+
+  assert.equal((await redefinir(body.resetCode, SENHA_VALIDA)).status, 400);
 });
 
 test('rota fora do contrato responde 404 no formato do backend', async () => {

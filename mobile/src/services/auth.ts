@@ -10,6 +10,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MIN_PASSWORD_LENGTH = 8;
 const PASSWORD_PATTERN = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
 export const PASSWORD_HINT = `Mínimo de ${MIN_PASSWORD_LENGTH} caracteres, com letra e número.`;
+/** O backend manda por e-mail um código de 6 dígitos para redefinir a senha. */
+const RESET_CODE_PATTERN = /^\d{6}$/;
 
 function normalizeEmail(email: string) {
   const normalized = email.trim();
@@ -160,19 +162,22 @@ export async function forgotPassword(email: string): Promise<void> {
 }
 
 export async function resetPassword(input: {
-  token: string;
+  email: string;
+  code: string;
   password: string;
   confirmation: string;
 }): Promise<void> {
-  const token = input.token.trim();
-  if (!token) throw new ApiError('validation', 'Cole o código que veio no link do e-mail.');
+  const email = normalizeEmail(input.email);
+  const code = input.code.trim();
+  if (!RESET_CODE_PATTERN.test(code))
+    throw new ApiError('validation', 'Digite o código de 6 dígitos que chegou no seu e-mail.');
   validatePassword(input.password);
   if (input.password !== input.confirmation)
     throw new ApiError('validation', 'As senhas não coincidem.');
   const response = await apiRequest<{ message: string }>('/api/auth/reset-password', {
     method: 'POST',
     authenticated: false,
-    body: { token, senha: input.password },
+    body: { email, codigo: code, senha: input.password },
   });
   if (typeof response?.message !== 'string') {
     throw new ApiError('server', 'Resposta inválida ao redefinir a senha.');
