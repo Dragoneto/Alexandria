@@ -28,3 +28,17 @@ CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON password_resets (user_
 -- Bancos criados na época do link: ganham o contador e perdem o UNIQUE do hash
 ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS tentativas INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE password_resets DROP CONSTRAINT IF EXISTS password_resets_token_hash_key;
+
+CREATE TABLE IF NOT EXISTS avaliacoes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  livro_id VARCHAR(20) NOT NULL,
+  livro_titulo TEXT NOT NULL,
+  livro_autores TEXT[] NOT NULL DEFAULT '{}',
+  livro_capa TEXT,
+  nota SMALLINT NOT NULL CHECK (nota BETWEEN 1 AND 5),
+  resenha TEXT,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, livro_id)
+);
