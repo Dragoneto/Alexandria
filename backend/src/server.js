@@ -5,8 +5,10 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
+const avaliacaoRoutes = require('./routes/avaliacoes');
 const users = require('./repositories/userRepository');
 const passwordResets = require('./repositories/passwordResetRepository');
+const avaliacoes = require('./repositories/avaliacaoRepository');
 const mailer = require('./services/mailer');
 
 const app = express();
@@ -48,6 +50,8 @@ app.use('/api/auth', authRoutes);
 // Rotas de livros (Open Library)
 app.use('/api/books', bookRoutes);
 
+app.use('/api/avaliacoes', avaliacaoRoutes);
+
 // ==========================================
 // INICIAR SERVIDOR
 // ==========================================
@@ -70,6 +74,7 @@ async function start() {
 
   await users.initialize();
   await passwordResets.initialize();
+  await avaliacoes.initialize();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
     console.log(`💾 Persistência: ${users.mode}`);
@@ -82,6 +87,8 @@ async function start() {
     console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
     console.log(`   GET  /api/books/search   - Buscar livros (requer token)`);
     console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
+    console.log(`   POST /api/avaliacoes     - Avaliar um livro (requer token)`);
+    console.log(`   PUT/DELETE /api/avaliacoes/:id - Editar ou excluir a própria avaliação (requer token)`);
   });
 }
 
