@@ -4,28 +4,64 @@ const openLibrary = require('../services/openLibrary');
 
 const ID_OBRA = /^OL\d+W$/;
 const ID_AVALIACAO = /^\d{1,9}$/;
+const RESENHA_MINIMA = 10;
 const RESENHA_MAXIMA = 5000;
 const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502, not_found: 404 };
 const NAO_ENCONTRADA = 'Avaliação não encontrada';
 const JA_AVALIOU = 'Você já avaliou este livro. Edite a avaliação existente.';
 
-function lerConteudo(body) {
-  const nota = body?.nota;
+function erroDaNota(nota) {
+  if (nota === undefined || nota === null) return 'A nota é obrigatória';
   if (!Number.isInteger(nota) || nota < 1 || nota > 5) {
-    return { erro: 'A nota deve ser um número inteiro de 1 a 5' };
+    return 'A nota deve ser um número inteiro de 1 a 5';
+  }
+  return null;
+}
+
+function limparResenha(texto) {
+  return texto
+    .normalize('NFC')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\n' || c === '\t' || c === '‍' ? c : ''))
+    .replace(/‍(?!\p{Extended_Pictographic})/gu, '')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function erroDaResenha(resenha) {
+  if (resenha !== undefined && resenha !== null && typeof resenha !== 'string') {
+    return 'A resenha deve ser um texto';
   }
 
-  const resenha = body?.resenha ?? null;
-  if (resenha !== null && typeof resenha !== 'string') {
-    return { erro: 'A resenha deve ser um texto' };
+  const texto = resenha ?? '';
+  const tamanho = [...texto].length;
+  if (!tamanho) return 'A resenha é obrigatória';
+  if (tamanho < RESENHA_MINIMA) return `A resenha deve ter pelo menos ${RESENHA_MINIMA} caracteres`;
+  if (tamanho > RESENHA_MAXIMA) return `A resenha deve ter no máximo ${RESENHA_MAXIMA} caracteres`;
+  if (!/\p{L}|\p{Extended_Pictographic}/u.test(texto)) {
+    return 'A resenha precisa ter palavras ou emoji, não só números ou símbolos';
   }
-
-  const texto = resenha?.trim() ?? '';
-  if (texto.length > RESENHA_MAXIMA) {
-    return { erro: `A resenha deve ter no máximo ${RESENHA_MAXIMA} caracteres` };
+  if (new Set(texto.replace(/\s/g, '')).size === 1) {
+    return 'A resenha não pode ser só um caractere repetido';
   }
+  return null;
+}
 
-  return { nota, resenha: texto || null };
+function lerConteudo(body) {
+  const erros = {};
+  const resenha = typeof body?.resenha === 'string' ? limparResenha(body.resenha) : body?.resenha;
+  const erroNota = erroDaNota(body?.nota);
+  const erroResenha = erroDaResenha(resenha);
+  if (erroNota) erros.nota = erroNota;
+  if (erroResenha) erros.resenha = erroResenha;
+  if (Object.keys(erros).length) return { erros };
+  return { nota: body.nota, resenha };
+}
+
+function responderInvalido(res, erros) {
+  return res.status(400).json({ error: Object.values(erros)[0], errors: erros });
 }
 
 function paraResposta(avaliacao) {
@@ -81,15 +117,13 @@ const create = async (req, res) => {
       return res.status(400).json({ error: 'Identificador de livro inválido' });
     }
 
-    const conteudo = lerConteudo(req.body);
-    if (conteudo.erro) {
-      return res.status(400).json({ error: conteudo.erro });
-    }
-
     const existente = await avaliacoes.findByUserAndBook(req.user.id, livroId);
     if (existente) {
       return res.status(409).json({ error: JA_AVALIOU, avaliacaoId: existente.id });
     }
+
+    const conteudo = lerConteudo(req.body);
+    if (conteudo.erros) return responderInvalido(res, conteudo.erros);
 
     const work = await openLibrary.getWork(livroId);
     const livro = mapWorkDetail(work, await openLibrary.getAuthorNames(work));
@@ -119,9 +153,7 @@ const update = async (req, res) => {
     if (!avaliacao) return res;
 
     const conteudo = lerConteudo(req.body);
-    if (conteudo.erro) {
-      return res.status(400).json({ error: conteudo.erro });
-    }
+    if (conteudo.erros) return responderInvalido(res, conteudo.erros);
 
     const atualizada = await avaliacoes.update(avaliacao.id, req.user.id, conteudo);
     if (!atualizada) {

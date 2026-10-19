@@ -18,6 +18,7 @@ const avaliacoes = require('../src/repositories/avaliacaoRepository');
 const users = require('../src/repositories/userRepository');
 
 const fetchOriginal = global.fetch;
+const RESENHA = 'Leitura muito boa.';
 let leitora;
 let leitor;
 let avaliacaoId;
@@ -101,8 +102,9 @@ test('cria a avaliação com o usuário do token e os dados do livro', async () 
 
 test('recusa livro, nota e resenha inválidos', async () => {
   const casos = [
-    [{ livroId: 'dom-casmurro', nota: 4 }, /livro inválido/],
-    ...[0, 6, 3.5, '5', undefined].map((nota) => [{ livroId: 'OL100W', nota }, /inteiro de 1 a 5/]),
+    [{ livroId: 'dom-casmurro', nota: 4, resenha: RESENHA }, /livro inválido/],
+    ...[0, 6, 3.5, '5'].map((nota) => [{ livroId: 'OL100W', nota, resenha: RESENHA }, /inteiro de 1 a 5/]),
+    [{ livroId: 'OL100W', resenha: RESENHA }, /nota é obrigatória/],
     [{ livroId: 'OL100W', nota: 4, resenha: 42 }, /deve ser um texto/],
     [{ livroId: 'OL100W', nota: 4, resenha: 'a'.repeat(5001) }, /no máximo 5000/],
   ];
@@ -114,8 +116,69 @@ test('recusa livro, nota e resenha inválidos', async () => {
   }
 });
 
+test('resenha é obrigatória, com pelo menos 10 caracteres e texto de verdade', async () => {
+  const casos = [
+    [undefined, /resenha é obrigatória/],
+    ['   ', /resenha é obrigatória/],
+    ['Gostei.', /pelo menos 10 caracteres/],
+    ['  curta  a  ', /pelo menos 10 caracteres/],
+    ['1234567890', /precisa ter palavras/],
+    ['.......... !!!', /precisa ter palavras/],
+    ['kkkkkkkkkkkk', /caractere repetido/],
+    ['aaaaa aaaaa', /caractere repetido/],
+  ];
+
+  for (const [resenha, mensagem] of casos) {
+    const res = await chamar(create, { usuario: leitor, body: { livroId: 'OL100W', nota: 4, resenha } });
+    assert.equal(res.statusCode, 400, String(resenha));
+    assert.match(res.body.errors.resenha, mensagem);
+  }
+});
+
+test('devolve o erro de cada campo para a tela mostrar embaixo dele', async () => {
+  const res = await chamar(create, { usuario: leitor, body: { livroId: 'OL100W', nota: 0, resenha: 'ok' } });
+
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.errors.nota, /inteiro de 1 a 5/);
+  assert.match(res.body.errors.resenha, /pelo menos 10 caracteres/);
+  assert.equal(res.body.error, res.body.errors.nota);
+});
+
+test('aceita resenha curta mas válida, com acentos e emoji', async () => {
+  simularOpenLibrary({ ...OPEN_LIBRARY, '/works/OL200W.json': { key: '/works/OL200W', title: 'O Alienista' } });
+  const res = await chamar(create, { usuario: leitor, body: { livroId: 'OL200W', nota: 3, resenha: ' Ótimo livro ✨ ' } });
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.avaliacao.resenha, 'Ótimo livro ✨');
+
+  simularOpenLibrary({ '/works/OL500W.json': { key: '/works/OL500W', title: 'Só emoji' } });
+  const emoji = await chamar(create, { usuario: leitor, body: { livroId: 'OL500W', nota: 5, resenha: '📚😍👏🔥✨🙌💯👍🤩📖' } });
+  assert.equal(emoji.statusCode, 201);
+});
+
+test('limpa invisíveis, espaços e linhas em branco antes de contar e salvar', async () => {
+  const recusadas = [`a${'​'.repeat(10)}`, `ok${'\u0007'.repeat(10)}`, 'a          b', `a${'\n'.repeat(20)}b`];
+  for (const resenha of recusadas) {
+    const res = await chamar(create, { usuario: leitor, body: { livroId: 'OL100W', nota: 4, resenha } });
+    assert.match(res.body.errors?.resenha ?? '', /pelo menos 10 caracteres/, JSON.stringify(resenha));
+  }
+
+  simularOpenLibrary({ '/works/OL400W.json': { key: '/works/OL400W', title: 'Memórias' } });
+  const resenha = 'Bom\u0000 livro,\t\tleitura   leve.\n\n\n\nRecomendo 👨‍👩‍👧 é nota';
+  const res = await chamar(create, { usuario: leitor, body: { livroId: 'OL400W', nota: 4, resenha } });
+  assert.equal(res.statusCode, 201);
+  assert.equal(res.body.avaliacao.resenha, 'Bom livro, leitura leve.\n\nRecomendo 👨‍👩‍👧 é nota');
+});
+
+test('quem já avaliou recebe o aviso antes da validação do texto', async () => {
+  const res = await chamar(create, { body: { livroId: 'OL100W', nota: 0, resenha: 'ok' } });
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.avaliacaoId, avaliacaoId);
+});
+
 test('só permite uma avaliação por livro e devolve a existente', async () => {
-  const res = await chamar(create, { body: { livroId: 'OL100W', nota: 3 } });
+  const res = await chamar(create, { body: { livroId: 'OL100W', nota: 3, resenha: RESENHA } });
 
   assert.equal(res.statusCode, 409);
   assert.match(res.body.error, /já avaliou este livro/);
@@ -124,23 +187,25 @@ test('só permite uma avaliação por livro e devolve a existente', async () => 
 
 test('livro inexistente responde 404 e Open Library fora do ar responde 502', async () => {
   simularOpenLibrary(OPEN_LIBRARY);
-  assert.equal((await chamar(create, { body: { livroId: 'OL999W', nota: 4 } })).statusCode, 404);
+  assert.equal((await chamar(create, { body: { livroId: 'OL999W', nota: 4, resenha: RESENHA } })).statusCode, 404);
 
-  simularOpenLibrary({ '/works/OL200W.json': () => respostaJson({}, 503) });
-  assert.equal((await chamar(create, { body: { livroId: 'OL200W', nota: 4 } })).statusCode, 502);
+  simularOpenLibrary({ '/works/OL300W.json': () => respostaJson({}, 503) });
+  assert.equal((await chamar(create, { body: { livroId: 'OL300W', nota: 4, resenha: RESENHA } })).statusCode, 502);
 });
 
 test('outro usuário não edita nem exclui a avaliação', async () => {
   const params = { id: String(avaliacaoId) };
 
-  assert.equal((await chamar(update, { usuario: leitor, params, body: { nota: 1 } })).statusCode, 403);
+  const body = { nota: 1, resenha: RESENHA };
+  assert.equal((await chamar(update, { usuario: leitor, params, body })).statusCode, 403);
   assert.equal((await chamar(remove, { usuario: leitor, params })).statusCode, 403);
 });
 
 test('o dono edita e depois exclui a própria avaliação', async () => {
   const params = { id: String(avaliacaoId) };
 
-  assert.equal((await chamar(update, { params, body: { nota: 9 } })).statusCode, 400);
+  assert.equal((await chamar(update, { params, body: { nota: 9, resenha: RESENHA } })).statusCode, 400);
+  assert.equal((await chamar(update, { params, body: { nota: 4, resenha: 'aaaaaaaaaaaa' } })).statusCode, 400);
 
   const editada = await chamar(update, { params, body: { nota: 4, resenha: 'Mudei de ideia.' } });
   assert.equal(editada.statusCode, 200);
