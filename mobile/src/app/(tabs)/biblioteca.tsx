@@ -1,10 +1,29 @@
-import { useMemo, useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing, MaxContentWidth } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ApiError } from '@/services/api';
+import {
+  listarBiblioteca,
+  removerDaBiblioteca,
+  type BibliotecaItem,
+  type StatusLeitura,
+} from '@/services/biblioteca';
+
 
 const STATUS_LEITURA: Record<string, string> = {
   QUERO_LER: 'Quero ler',
@@ -19,73 +38,40 @@ const FILTERS = [
   { label: 'Lendo', value: 'LENDO' },
   { label: 'Lido', value: 'LIDO' },
   { label: 'Abandonado', value: 'ABANDONADO' },
-  { label: 'Favoritos', value: 'FAVORITOS' },
-];
-
-interface Livro {
-  titulo: string;
-  autor: string;
-  categoria: string;
-  descricao: string;
-  capa: string | null;
-}
-
-interface BibliotecaItem {
-  id: string;
-  favorito: boolean;
-  statusLeitura: string;
-  livro: Livro;
-}
-
-// Mock — substituir por listarBiblioteca(token) quando AuthContext existir
-const MOCK_ITEMS: BibliotecaItem[] = [
-  {
-    id: '1',
-    favorito: true,
-    statusLeitura: 'LENDO',
-    livro: {
-      titulo: 'Dom Casmurro',
-      autor: 'Machado de Assis',
-      categoria: 'Literatura brasileira',
-      descricao: 'A história de Bentinho e sua desconfiança sobre Capitu.',
-      capa: null,
-    },
-  },
-  {
-    id: '2',
-    favorito: false,
-    statusLeitura: 'LIDO',
-    livro: {
-      titulo: 'O Hobbit',
-      autor: 'J. R. R. Tolkien',
-      categoria: 'Fantasia',
-      descricao: 'Bilbo Bolseiro é levado numa aventura inesperada.',
-      capa: null,
-    },
-  },
-  {
-    id: '3',
-    favorito: false,
-    statusLeitura: 'QUERO_LER',
-    livro: {
-      titulo: '1984',
-      autor: 'George Orwell',
-      categoria: 'Ficção política',
-      descricao: 'Um retrato sombrio de vigilância e controle totalitário.',
-      capa: null,
-    },
-  },
 ];
 
 export default function Biblioteca() {
   const theme = useTheme();
-  const [items, setItems] = useState(MOCK_ITEMS);
+  const [items, setItems] = useState<BibliotecaItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState('');
   const [filter, setFilter] = useState('TODOS');
-  const [statusModalItemId, setStatusModalItemId] = useState<string | null>(null);
+  const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
+
+  // Recarrega toda vez que a aba ganha foco (ex.: depois de adicionar um livro)
+  useFocusEffect(
+    useCallback(() => {
+      const controller = new AbortController();
+      listarBiblioteca(controller.signal)
+        .then((itens) => {
+          setItems(itens);
+          setErro('');
+        })
+        .catch((error) => {
+          if (controller.signal.aborted) return;
+          setErro(
+            error instanceof ApiError ? error.message : 'Não foi possível carregar sua biblioteca.',
+          );
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+      return () => controller.abort();
+    }, []),
+  );
 
   const filteredItems = useMemo(() => {
     if (filter === 'TODOS') return items;
-    if (filter === 'FAVORITOS') return items.filter((i) => i.favorito);
     return items.filter((i) => i.statusLeitura === filter);
   }, [filter, items]);
 
@@ -94,32 +80,45 @@ export default function Biblioteca() {
       (acc, item) => {
         acc.total += 1;
         if (item.statusLeitura === 'LENDO') acc.lendo += 1;
-        if (item.favorito) acc.favoritos += 1;
         return acc;
       },
-      { total: 0, lendo: 0, favoritos: 0 },
+      { total: 0, lendo: 0 },
     );
   }, [items]);
 
-  const handleStatusChange = (id: string, status: string) => {
+  const handleStatusChange = (id: number, status: StatusLeitura) => {
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
     setStatusModalItemId(null);
   };
 
-  const handleFavorite = (id: string) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, favorito: !i.favorito } : i)));
-  };
+ 
 
-  const handleRemove = (id: string, titulo: string) => {
+    const handleRemove = (id: number, titulo: string) => {
     Alert.alert('Remover livro', `Remover "${titulo}" da sua biblioteca?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Remover',
         style: 'destructive',
-        onPress: () => setItems((prev) => prev.filter((i) => i.id !== id)),
+        onPress: async () => {
+          try {
+            await removerDaBiblioteca(id);
+            setItems((prev) => prev.filter((i) => i.id !== id));
+          } catch (error) {
+            // 404 = já não estava no servidor; então pode sumir da tela também
+            if (error instanceof ApiError && error.status === 404) {
+              setItems((prev) => prev.filter((i) => i.id !== id));
+              return;
+            }
+            Alert.alert(
+              'Não foi possível remover',
+              error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
+            );
+          }
+        },
       },
     ]);
   };
+
 
   return (
     <ThemedView style={styles.root}>
@@ -153,12 +152,6 @@ export default function Biblioteca() {
                   Lendo
                 </ThemedText>
               </ThemedView>
-              <ThemedView type="backgroundElement" style={styles.statCard}>
-                <ThemedText style={styles.statNumber}>{counters.favoritos}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>
-                  Favoritos
-                </ThemedText>
-              </ThemedView>
             </View>
 
             {/* FILTERS */}
@@ -186,8 +179,22 @@ export default function Biblioteca() {
               })}
             </ScrollView>
 
-            {/* GRID / EMPTY */}
-            {filteredItems.length === 0 ? (
+            {/* LOADING / ERRO / VAZIO / GRID */}
+            {loading ? (
+              <ThemedView type="backgroundElement" style={styles.emptyCard}>
+                <ActivityIndicator color={theme.accent} />
+                <ThemedText themeColor="textSecondary">Carregando sua biblioteca…</ThemedText>
+              </ThemedView>
+            ) : erro ? (
+              <ThemedView type="backgroundElement" style={styles.emptyCard}>
+                <ThemedText type="subtitle" style={styles.emptyTitle}>
+                  Não foi possível carregar
+                </ThemedText>
+                <ThemedText themeColor="textSecondary" style={styles.emptyText}>
+                  {erro}
+                </ThemedText>
+              </ThemedView>
+            ) : filteredItems.length === 0 ? (
               <ThemedView type="backgroundElement" style={styles.emptyCard}>
                 <ThemedText type="subtitle" style={styles.emptyTitle}>
                   Nenhum livro neste filtro
@@ -198,38 +205,31 @@ export default function Biblioteca() {
               </ThemedView>
             ) : (
               <View style={styles.grid}>
-                {filteredItems.map((item: BibliotecaItem) => (
+                {filteredItems.map((item) => (
                   <ThemedView key={item.id} type="backgroundElement" style={styles.card}>
-                    <View
-                      style={[
-                        styles.coverPlaceholder,
-                        { backgroundColor: theme.backgroundSelected },
-                      ]}>
-                      <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
-                        {item.livro.titulo}
-                      </ThemedText>
-                    </View>
-
-                    <View style={styles.cardBody}>
+                    {item.livro.capa ? (
+                      <Image
+                        source={{ uri: item.livro.capa }}
+                        style={[styles.cover, { backgroundColor: theme.backgroundSelected }]}
+                        contentFit="contain"
+                        accessibilityLabel={`Capa de ${item.livro.titulo}`}
+                      />
+                    ) : (
                       <View
                         style={[
-                          styles.categoryBadge,
-                          { backgroundColor: 'rgba(100,255,218,0.08)' },
+                          styles.coverPlaceholder,
+                          { backgroundColor: theme.backgroundSelected },
                         ]}>
-                        <ThemedText themeColor="accent" style={styles.categoryText}>
-                          {item.livro.categoria || 'Livro'}
+                        <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+                          {item.livro.titulo}
                         </ThemedText>
                       </View>
+                    )}
 
+                    <View style={styles.cardBody}>
                       <ThemedText style={styles.cardTitle}>{item.livro.titulo}</ThemedText>
                       <ThemedText themeColor="textSecondary" style={styles.cardAuthor}>
-                        {item.livro.autor}
-                      </ThemedText>
-                      <ThemedText
-                        themeColor="textMuted"
-                        style={styles.cardDescription}
-                        numberOfLines={3}>
-                        {item.livro.descricao}
+                        {item.livro.autores.join(', ') || 'Autoria não informada'}
                       </ThemedText>
 
                       <TouchableOpacity
@@ -241,24 +241,6 @@ export default function Biblioteca() {
                       </TouchableOpacity>
 
                       <View style={styles.actionsRow}>
-                        <TouchableOpacity
-                          style={[
-                            styles.favButton,
-                            {
-                              backgroundColor: item.favorito ? theme.accent : 'transparent',
-                              borderColor: theme.accent,
-                            },
-                          ]}
-                          onPress={() => handleFavorite(item.id)}>
-                          <ThemedText
-                            style={[
-                              styles.favButtonText,
-                              { color: item.favorito ? theme.background : theme.accent },
-                            ]}>
-                            {item.favorito ? 'Favorito' : 'Favoritar'}
-                          </ThemedText>
-                        </TouchableOpacity>
-
                         <TouchableOpacity
                           style={[styles.removeButton, { borderColor: theme.danger }]}
                           onPress={() => handleRemove(item.id, item.livro.titulo)}>
@@ -294,7 +276,11 @@ export default function Biblioteca() {
               <TouchableOpacity
                 key={value}
                 style={styles.modalOption}
-                onPress={() => statusModalItemId && handleStatusChange(statusModalItemId, value)}>
+                onPress={() => {
+                  if (statusModalItemId !== null) {
+                    handleStatusChange(statusModalItemId, value as StatusLeitura);
+                  }
+                }}>
                 <ThemedText themeColor="textSecondary">{label}</ThemedText>
               </TouchableOpacity>
             ))}
@@ -342,6 +328,7 @@ const styles = StyleSheet.create({
   emptyText: { lineHeight: 22 },
   grid: { gap: Spacing.three },
   card: { borderRadius: 16, overflow: 'hidden' },
+  cover: { width: '100%', height: 200 },
   coverPlaceholder: {
     height: 160,
     alignItems: 'center',
@@ -350,16 +337,8 @@ const styles = StyleSheet.create({
   },
   coverPlaceholderText: { fontWeight: '800', textAlign: 'center' },
   cardBody: { padding: Spacing.three, gap: 8 },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  categoryText: { fontSize: 11, fontWeight: '800' },
   cardTitle: { fontSize: 17, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
-  cardDescription: { fontSize: 13, lineHeight: 20 },
   statusButton: {
     borderWidth: 1,
     borderRadius: 10,
@@ -369,13 +348,6 @@ const styles = StyleSheet.create({
   },
   statusButtonText: { fontSize: 13, fontWeight: '700' },
   actionsRow: { flexDirection: 'row', gap: Spacing.two, marginTop: 4 },
-  favButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
   favButtonText: { fontSize: 13, fontWeight: '800' },
   removeButton: {
     flex: 1,

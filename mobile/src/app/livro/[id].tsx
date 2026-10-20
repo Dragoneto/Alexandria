@@ -17,6 +17,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { ApiError } from '@/services/api';
+import { adicionarNaBiblioteca } from '@/services/biblioteca';
 import {
   describeSearchError,
   getBookDetail,
@@ -59,6 +61,8 @@ export default function DetalheDoLivro() {
   const [expanded, setExpanded] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const [linkError, setLinkError] = useState('');
+  const [addState, setAddState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [addError, setAddError] = useState('');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -90,6 +94,23 @@ export default function DetalheDoLivro() {
       await Linking.openURL(url);
     } catch {
       setLinkError('Não foi possível abrir a página da obra.');
+    }
+  };
+
+  const adicionar = async () => {
+    if (!book) return;
+    setAddState('saving');
+    setAddError('');
+    try {
+      await adicionarNaBiblioteca(book.id);
+      setAddState('saved');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setAddState('saved'); // já estava na biblioteca
+        return;
+      }
+      setAddState('idle');
+      setAddError(error instanceof ApiError ? error.message : 'Não foi possível adicionar o livro.');
     }
   };
 
@@ -220,18 +241,27 @@ export default function DetalheDoLivro() {
                   </ThemedText>
                 )}
 
-                <View
+                <TouchableOpacity
                   accessibilityRole="button"
-                  accessibilityState={{ disabled: true }}
-                  accessibilityLabel="Adicionar à biblioteca, em breve"
-                  style={[styles.addButton, { backgroundColor: theme.accent }]}>
+                  disabled={addState !== 'idle'}
+                  onPress={() => void adicionar()}
+                  style={[
+                    styles.addButton,
+                    { backgroundColor: theme.accent, opacity: addState === 'idle' ? 1 : 0.6 },
+                  ]}>
                   <ThemedText style={[styles.addButtonText, { color: theme.background }]}>
-                    Adicionar à biblioteca
+                    {addState === 'saving'
+                      ? 'Adicionando…'
+                      : addState === 'saved'
+                        ? 'Na sua biblioteca ✓'
+                        : 'Adicionar à biblioteca'}
                   </ThemedText>
-                </View>
-                <ThemedText themeColor="textMuted" style={styles.addHint}>
-                  Em breve você poderá guardar este livro na sua biblioteca.
-                </ThemedText>
+                </TouchableOpacity>
+                {!!addError && (
+                  <ThemedText themeColor="danger" style={styles.addHint}>
+                    {addError}
+                  </ThemedText>
+                )}
 
                 <TouchableOpacity
                   accessibilityRole="link"
@@ -335,7 +365,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.45,
   },
   addButtonText: { fontSize: 14, fontWeight: '800' },
   addHint: { marginTop: Spacing.two, marginBottom: Spacing.two, fontSize: 12, textAlign: 'center' },
