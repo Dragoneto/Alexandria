@@ -9,6 +9,8 @@ const avaliacaoRoutes = require('./routes/avaliacoes');
 const users = require('./repositories/userRepository');
 const passwordResets = require('./repositories/passwordResetRepository');
 const avaliacoes = require('./repositories/avaliacaoRepository');
+const bibliotecaRoutes = require('./routes/biblioteca');
+const biblioteca = require('./repositories/bibliotecaRepository');
 const mailer = require('./services/mailer');
 
 const app = express();
@@ -27,6 +29,7 @@ app.use(
     origin: configuredOrigins?.length ? configuredOrigins : '*',
   }),
 );
+
 
 // Parsear JSON do body das requisições
 app.use(express.json({ limit: '1mb' }));
@@ -51,6 +54,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 
 app.use('/api/avaliacoes', avaliacaoRoutes);
+app.use('/api/biblioteca', bibliotecaRoutes);
+
 
 // ==========================================
 // INICIAR SERVIDOR
@@ -75,6 +80,7 @@ async function start() {
   await users.initialize();
   await passwordResets.initialize();
   await avaliacoes.initialize();
+  await biblioteca.initialize();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
     console.log(`💾 Persistência: ${users.mode}`);
