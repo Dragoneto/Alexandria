@@ -102,8 +102,8 @@ async function buscarDaPessoa(req, res) {
     return null;
   }
 
-  if (avaliacao.user_id !== Number(req.user.id)) {
-    res.status(403).json({ error: 'Você só pode alterar a sua própria avaliação' });
+    if (avaliacao.user_id !== Number(req.user.id)) {
+    res.status(404).json({ error: NAO_ENCONTRADA });
     return null;
   }
 
