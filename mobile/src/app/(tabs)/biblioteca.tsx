@@ -48,6 +48,7 @@ export default function Biblioteca() {
   const [erro, setErro] = useState('');
   const [filter, setFilter] = useState('TODOS');
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
+  const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
 
   // Recarrega toda vez que a aba ganha foco (ex.: depois de adicionar um livro)
   useFocusEffect(
@@ -106,6 +107,26 @@ export default function Biblioteca() {
         'Não foi possível alterar o status',
         error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
       );
+    }
+  };
+
+  const handleFavorite = async (item: BibliotecaItem) => {
+    if (savingFavoriteId !== null) return;
+    const favorito = !item.favorito;
+    setSavingFavoriteId(item.id);
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, favorito } : i)));
+    try {
+      await atualizarItemBiblioteca(item.id, { favorito });
+    } catch (error) {
+      setItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, favorito: item.favorito } : i)),
+      );
+      Alert.alert(
+        'Não foi possível alterar o favorito',
+        error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
+      );
+    } finally {
+      setSavingFavoriteId(null);
     }
   };
 
@@ -260,7 +281,15 @@ export default function Biblioteca() {
 
                       <View style={styles.actionsRow}>
                         <TouchableOpacity
-                          style={[styles.removeButton, { borderColor: theme.danger }]}
+                          disabled={savingFavoriteId !== null}
+                          style={[styles.actionButton, { borderColor: theme.accent }]}
+                          onPress={() => void handleFavorite(item)}>
+                          <ThemedText themeColor="accent" style={styles.favButtonText}>
+                            {item.favorito ? 'Favorito' : 'Favoritar'}
+                          </ThemedText>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionButton, { borderColor: theme.danger }]}
                           onPress={() => handleRemove(item.id, item.livro.titulo)}>
                           <ThemedText themeColor="danger" style={styles.removeButtonText}>
                             Remover
@@ -367,7 +396,7 @@ const styles = StyleSheet.create({
   statusButtonText: { fontSize: 13, fontWeight: '700' },
   actionsRow: { flexDirection: 'row', gap: Spacing.two, marginTop: 4 },
   favButtonText: { fontSize: 13, fontWeight: '800' },
-  removeButton: {
+  actionButton: {
     flex: 1,
     borderWidth: 1,
     borderRadius: 8,
