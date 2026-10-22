@@ -81,6 +81,29 @@ async function findByUser(userId, status) {
     .sort((a, b) => b.adicionado_em.localeCompare(a.adicionado_em));
 }
 
+async function countByStatus(userId) {
+  const contagens = { QUERO_LER: 0, LENDO: 0, LIDO: 0, ABANDONADO: 0 };
+
+  if (usePostgres()) {
+    const result = await pool.query(
+      'SELECT status, COUNT(*)::int AS total FROM biblioteca WHERE user_id = $1 GROUP BY status',
+      [userId],
+    );
+    for (const row of result.rows) {
+      contagens[row.status] = row.total;
+    }
+    return contagens;
+  }
+
+  const itens = await readLocalItems();
+  for (const item of itens) {
+    if (item.user_id === Number(userId) && contagens[item.status] !== undefined) {
+      contagens[item.status] += 1;
+    }
+  }
+  return contagens;
+}
+
 async function create({ userId, livro, status }) {
   if (usePostgres()) {
     try {
@@ -163,5 +186,4 @@ async function remove(id, userId) {
   });
 }
 
-
-module.exports = { initialize, findByUser, create, update, remove };
+module.exports = { initialize, findByUser, create, update, remove, countByStatus };
