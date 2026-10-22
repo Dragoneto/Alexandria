@@ -44,3 +44,19 @@ CREATE TABLE IF NOT EXISTS avaliacoes (
 );
 
 CREATE INDEX IF NOT EXISTS avaliacoes_livro_id_idx ON avaliacoes (livro_id);
+
+-- Comentários nas avaliações. Respostas apontam para o comentário pai (pai_id), em quantos níveis quiserem.
+-- Apagar só marca apagado_em e tira o texto: as respostas de outras pessoas continuam
+CREATE TABLE IF NOT EXISTS comentarios (
+  id SERIAL PRIMARY KEY,
+  avaliacao_id INTEGER NOT NULL REFERENCES avaliacoes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pai_id INTEGER REFERENCES comentarios(id) ON DELETE CASCADE,  -- NULL: comentário direto na avaliação
+  texto TEXT,                                                   -- NULL só depois de apagado
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  apagado_em TIMESTAMPTZ,
+  CHECK ((texto IS NULL) = (apagado_em IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS comentarios_avaliacao_id_idx ON comentarios (avaliacao_id);

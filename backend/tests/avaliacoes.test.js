@@ -8,6 +8,7 @@ process.env.NODE_ENV = 'test';
 process.env.DB_MODE = 'local';
 process.env.LOCAL_DB_FILE = path.join(dataDir, 'users.json');
 process.env.LOCAL_REVIEWS_FILE = path.join(dataDir, 'avaliacoes.json');
+process.env.LOCAL_COMMENTS_FILE = path.join(dataDir, 'comentarios.json');
 process.env.JWT_SECRET = 'segredo-de-teste';
 
 const assert = require('node:assert/strict');
