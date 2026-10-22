@@ -17,7 +17,14 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
-import { criarAvaliacao } from '@/services/avaliacoes';
+import {
+  contarCaracteres,
+  criarAvaliacao,
+  RESENHA_MAXIMA,
+  RESENHA_MINIMA,
+  validarAvaliacao,
+  type ErrosAvaliacao,
+} from '@/services/avaliacoes';
 
 const NOTAS = [1, 2, 3, 4, 5];
 
@@ -35,17 +42,22 @@ export default function AvaliarLivro() {
   const [resenha, setResenha] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [erros, setErros] = useState<ErrosAvaliacao>({});
   const [jaAvaliou, setJaAvaliou] = useState(false);
   const submitting = useRef(false);
+  const tamanho = contarCaracteres(resenha);
 
   const voltarAvaliado = () =>
     router.dismissTo({ pathname: '/livro/[id]', params: { id: livroId, avaliado: '1' } });
 
   const publicar = async () => {
     if (submitting.current) return;
+    const locais = validarAvaliacao(nota, resenha);
+    setErros(locais);
+    setError('');
+    if (locais.nota || locais.resenha) return;
     submitting.current = true;
     setSaving(true);
-    setError('');
     try {
       await criarAvaliacao({ livroId, nota, resenha });
       setSaving(false);
@@ -54,6 +66,11 @@ export default function AvaliarLivro() {
       setSaving(false);
       if (failure instanceof ApiError && failure.status === 409) {
         setJaAvaliou(true);
+        return;
+      }
+      const doServidor = failure instanceof ApiError ? failure.fieldErrors : undefined;
+      if (doServidor?.nota || doServidor?.resenha) {
+        setErros({ nota: doServidor.nota, resenha: doServidor.resenha });
         return;
       }
       setError(
@@ -129,7 +146,10 @@ export default function AvaliarLivro() {
                         accessibilityLabel={`Nota ${valor} de 5`}
                         accessibilityState={{ selected: ativa }}
                         disabled={saving}
-                        onPress={() => setNota(valor)}
+                        onPress={() => {
+                          setNota(valor);
+                          setErros((atuais) => ({ ...atuais, nota: undefined }));
+                        }}
                         style={[
                           styles.nota,
                           {
@@ -151,6 +171,14 @@ export default function AvaliarLivro() {
                 <ThemedText themeColor="textMuted" style={styles.legend}>
                   1 = não gostei · 5 = adorei
                 </ThemedText>
+                {!!erros.nota && (
+                  <ThemedText
+                    themeColor="danger"
+                    style={styles.fieldError}
+                    accessibilityRole="alert">
+                    {erros.nota}
+                  </ThemedText>
+                )}
 
                 <ThemedText themeColor="textMuted" style={styles.label}>
                   Sua resenha
@@ -158,13 +186,33 @@ export default function AvaliarLivro() {
                 <TextInput
                   accessibilityLabel="Sua resenha"
                   value={resenha}
-                  onChangeText={setResenha}
+                  onChangeText={(texto) => {
+                    setResenha(texto);
+                    setErros((atuais) => ({ ...atuais, resenha: undefined }));
+                  }}
                   editable={!saving}
                   multiline
                   placeholder="O que você achou do livro?"
                   placeholderTextColor={theme.textMuted}
-                  style={[styles.resenha, { borderColor: theme.border, color: theme.text }]}
+                  style={[
+                    styles.resenha,
+                    { borderColor: erros.resenha ? theme.danger : theme.border, color: theme.text },
+                  ]}
                 />
+                {erros.resenha ? (
+                  <ThemedText
+                    themeColor="danger"
+                    style={styles.fieldError}
+                    accessibilityRole="alert">
+                    {erros.resenha}
+                  </ThemedText>
+                ) : (
+                  <ThemedText themeColor="textMuted" style={styles.counter}>
+                    {tamanho < RESENHA_MINIMA
+                      ? `Mínimo de ${RESENHA_MINIMA} caracteres`
+                      : `${tamanho}/${RESENHA_MAXIMA}`}
+                  </ThemedText>
+                )}
 
                 {!!error && (
                   <ThemedText themeColor="danger" style={styles.error} accessibilityRole="alert">
@@ -253,6 +301,8 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   error: { marginTop: Spacing.three, fontSize: 13, lineHeight: 20 },
+  fieldError: { marginTop: Spacing.one, fontSize: 13, lineHeight: 20 },
+  counter: { marginTop: Spacing.one, fontSize: 12, textAlign: 'right' },
   submit: {
     marginTop: Spacing.four,
     minHeight: 48,
