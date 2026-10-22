@@ -8,6 +8,7 @@ process.env.LOCAL_LIBRARY_FILE = path.join(dataDir, 'biblioteca.json');
 
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
+const { list, update } = require('../src/controllers/bibliotecaController');
 const biblioteca = require('../src/repositories/bibliotecaRepository');
 
 const livro = (id) => ({ id, titulo: `Livro ${id}`, autores: ['Autora'], capa: null });
@@ -20,6 +21,22 @@ before(async () => {
 });
 
 after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+
+async function chamar(handler, { body, params, query } = {}) {
+  const res = {
+    statusCode: 200,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(value) {
+      this.body = value;
+      return this;
+    },
+  };
+  await handler({ user: { id: 1 }, body, params, query }, res);
+  return res;
+}
 
 test('filtra a biblioteca pelo status sem misturar usuários', async () => {
   const todos = await biblioteca.findByUser(1);
@@ -43,4 +60,12 @@ test('atualiza status e favorito somente para o dono do item', async () => {
   const [persistido] = await biblioteca.findByUser(1, 'LIDO');
   assert.equal(persistido.id, item.id);
   assert.equal(persistido.favorito, true);
+});
+
+test('endpoint valida e aplica o filtro informado', async () => {
+  const invalido = await chamar(list, { query: { status: 'QUALQUER' } });
+  const lendo = await chamar(list, { query: { status: 'LENDO' } });
+
+  assert.equal(invalido.statusCode, 400);
+  assert.deepEqual(lendo.body.itens.map((item) => item.livro.id), ['OL2W']);
 });
