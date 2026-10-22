@@ -117,6 +117,34 @@ async function create({ userId, livro, status }) {
   });
 }
 
+async function update(id, userId, { status, favorito }) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      `UPDATE biblioteca
+       SET status = COALESCE($3, status), favorito = COALESCE($4, favorito)
+       WHERE id = $1 AND user_id = $2
+       RETURNING *`,
+      [id, userId, status ?? null, favorito ?? null],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return serializeWrite(async () => {
+    const itens = await readLocalItems();
+    const index = itens.findIndex(
+      (item) => item.id === Number(id) && item.user_id === Number(userId),
+    );
+    if (index < 0) return null;
+
+    const atualizado = { ...itens[index] };
+    if (status !== undefined) atualizado.status = status;
+    if (favorito !== undefined) atualizado.favorito = favorito;
+    itens[index] = atualizado;
+    await writeLocalItems(itens);
+    return atualizado;
+  });
+}
+
 async function remove(id, userId) {
   if (usePostgres()) {
     const result = await pool.query('DELETE FROM biblioteca WHERE id = $1 AND user_id = $2', [
@@ -136,4 +164,4 @@ async function remove(id, userId) {
 }
 
 
-module.exports = { initialize, findByUser, create, remove };
+module.exports = { initialize, findByUser, create, update, remove };
