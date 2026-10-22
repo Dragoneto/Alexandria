@@ -18,6 +18,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import {
+  atualizarItemBiblioteca,
   listarBiblioteca,
   removerDaBiblioteca,
   type BibliotecaItem,
@@ -86,9 +87,26 @@ export default function Biblioteca() {
     );
   }, [items]);
 
-  const handleStatusChange = (id: number, status: StatusLeitura) => {
+  const handleStatusChange = async (id: number, status: StatusLeitura) => {
+    const anterior = items.find((item) => item.id === id);
+    if (!anterior || anterior.statusLeitura === status) {
+      setStatusModalItemId(null);
+      return;
+    }
+
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
     setStatusModalItemId(null);
+    try {
+      await atualizarItemBiblioteca(id, { status });
+    } catch (error) {
+      setItems((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, statusLeitura: anterior.statusLeitura } : item)),
+      );
+      Alert.alert(
+        'Não foi possível alterar o status',
+        error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
+      );
+    }
   };
 
  
