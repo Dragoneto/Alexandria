@@ -13,7 +13,7 @@ process.env.JWT_SECRET = 'segredo-de-teste';
 const assert = require('node:assert/strict');
 const { after, afterEach, before, test } = require('node:test');
 
-const { create, remove, update } = require('../src/controllers/avaliacaoController');
+const { create, detail, listByBook, listMine, remove, update } = require('../src/controllers/avaliacaoController');
 const avaliacoes = require('../src/repositories/avaliacaoRepository');
 const users = require('../src/repositories/userRepository');
 
@@ -63,9 +63,9 @@ function fakeResponse() {
   };
 }
 
-async function chamar(handler, { usuario = leitora, body, params } = {}) {
+async function chamar(handler, { usuario = leitora, body, params, query } = {}) {
   const res = fakeResponse();
-  await handler({ user: { id: usuario.id }, body, params }, res);
+  await handler({ user: { id: usuario.id }, body, params, query }, res);
   return res;
 }
 
@@ -221,4 +221,75 @@ test('identificador de avaliação inválido responde 400', async () => {
     assert.equal((await chamar(update, { params: { id }, body: { nota: 3 } })).statusCode, 400);
     assert.equal((await chamar(remove, { params: { id } })).statusCode, 400);
   }
+});
+
+test('lista as avaliações do livro com quem avaliou, total, média e a minha primeiro', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() }); // mesmo criado_em: o id desempata
+  const terceira = await users.create({ nome: 'Terceira', email: 'terceira@alexandria.com', senhaHash: 'x' });
+  await users.updatePhoto(leitora.id, `data:image/png;base64,${'A'.repeat(100)}`);
+  const livro = { id: 'OL700W', titulo: 'Quincas Borba', autores: ['Machado de Assis'], capa: null };
+  for (const [usuario, nota] of [[leitora, 5], [leitor, 5], [terceira, 4]]) {
+    await avaliacoes.create({ userId: usuario.id, livro, nota, resenha: RESENHA });
+  }
+  global.fetch = async () => assert.fail('a leitura não chama a Open Library');
+
+  const res = await chamar(listByBook, { usuario: leitor, params: { livroId: 'OL700W' } });
+  const { avaliacoes: lista, ...resumo } = res.body;
+  assert.deepEqual(resumo, { total: 3, media: 4.7, page: 1, limit: 10, hasMore: false });
+  assert.deepEqual(lista.map((a) => [a.usuarioNome, a.minha]), [['Leitor', true], ['Terceira', false], ['Leitora', false]]);
+  assert.doesNotMatch(JSON.stringify(res.body), /@alexandria|base64|senha_hash/);
+});
+
+test('pagina a lista do livro sem mudar o total e a média', async () => {
+  const pagina = async (page) =>
+    (await chamar(listByBook, { usuario: leitor, params: { livroId: 'OL700W' }, query: { page, limit: '1' } })).body;
+  const paginas = [await pagina('1'), await pagina('2'), await pagina('3')];
+
+  assert.deepEqual(paginas.map((p) => p.avaliacoes.map((a) => a.usuarioNome)), [['Leitor'], ['Terceira'], ['Leitora']]);
+  assert.deepEqual(paginas.map((p) => p.hasMore), [true, true, false]);
+  assert.ok(paginas.every((p) => p.total === 3 && p.media === 4.7));
+  assert.equal((await chamar(listByBook, { params: { livroId: ' OL700W ' }, query: { limit: '50' } })).body.limit, 20);
+
+  for (const query of [{ page: '0' }, { limit: 'abc' }, { page: '-1' }, { page: ['1', '2'] }]) {
+    assert.match((await chamar(listByBook, { params: { livroId: 'OL700W' }, query })).body.error, /inteiros positivos/);
+  }
+});
+
+test('livro sem avaliações tem total 0 e média nula; id de livro inválido dá 400', async () => {
+  const vazio = await chamar(listByBook, { params: { livroId: 'OL999W' } });
+  assert.deepEqual(vazio.body, { avaliacoes: [], total: 0, media: null, page: 1, limit: 10, hasMore: false });
+
+  for (const livroId of ['dom-casmurro', 'ol700w', 'OL1M']) {
+    assert.match((await chamar(listByBook, { params: { livroId } })).body.error, /livro inválido/);
+  }
+});
+
+test('lista só as minhas avaliações, das mais recentes para as mais antigas', async () => {
+  const velha = await avaliacoes.findByUserAndBook(leitor.id, 'OL200W');
+  await avaliacoes.update(velha.id, leitor.id, { nota: 2, resenha: RESENHA }); // editar não muda a posição
+  const res = await chamar(listMine, { usuario: leitor });
+  assert.deepEqual(res.body.avaliacoes.map((a) => a.livro.id), ['OL700W', 'OL400W', 'OL500W', 'OL200W']);
+  assert.ok(res.body.avaliacoes.every((a) => a.usuarioId === leitor.id && a.minha && a.usuarioNome === 'Leitor'));
+
+  const novo = await users.create({ nome: 'Novo', email: 'novo@alexandria.com', senhaHash: 'x' });
+  assert.deepEqual((await chamar(listMine, { usuario: novo })).body, { avaliacoes: [] });
+});
+
+test('qualquer leitor vê uma avaliação pelo id, e minha só vale para o dono', async () => {
+  const { id } = await avaliacoes.findByUserAndBook(leitora.id, 'OL700W');
+  const params = { id: String(id) };
+
+  const { avaliacao: deOutro } = (await chamar(detail, { usuario: leitor, params })).body;
+  assert.deepEqual([deOutro.usuarioNome, deOutro.minha], ['Leitora', false]);
+  assert.equal((await chamar(detail, { usuario: leitora, params })).body.avaliacao.minha, true);
+
+  assert.equal((await chamar(detail, { params: { id: '999999' } })).statusCode, 404);
+  for (const invalido of ['abc', '-1', '1.5', 'minhas']) {
+    assert.equal((await chamar(detail, { params: { id: invalido } })).statusCode, 400);
+  }
+});
+
+test('as rotas fixas vêm antes de /:id', () => {
+  const rotasGet = require('../src/routes/avaliacoes').stack.filter((c) => c.route?.methods.get);
+  assert.deepEqual(rotasGet.map((c) => c.route.path), ['/minhas', '/livro/:livroId', '/:id']);
 });
