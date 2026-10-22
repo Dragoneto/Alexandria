@@ -1,0 +1,1 @@
+{ "extends": "../tsconfig.json", "include": ["ajuda.tsx", "../.expo/types/**/*.ts", "../expo-env.d.ts", "../src/types/**/*.ts"] }

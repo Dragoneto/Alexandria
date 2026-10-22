@@ -1,7 +1,16 @@
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  LayoutAnimation,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -11,13 +20,29 @@ import {
   Mint,
   Radius,
   ScreenInset,
+  Shadow,
   Space,
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
 
-// Perguntas separadas por assunto. Cada assunto vira uma seção na tela.
-const FAQ = [
+type Pergunta = { pergunta: string; resposta: string };
+
+type Secao = {
+  assunto: string;
+  cor: string;
+  icone: SymbolViewProps['name'];
+  perguntas: Pergunta[];
+};
+
+function normalizar(texto: string) {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+const FAQ: Secao[] = [
   {
     assunto: 'Conta',
     cor: Accent.sapphire,
@@ -78,13 +103,27 @@ const FAQ = [
       },
     ],
   },
-] as const;
+];
 
 export default function AjudaScreen() {
   const router = useRouter();
+  const [busca, setBusca] = useState('');
+  const [assunto, setAssunto] = useState<string | null>(null); // null = todos os assuntos
+  const [aberta, setAberta] = useState<string | null>(null); // null = nenhuma pergunta aberta
 
-  // Guarda qual pergunta está aberta (null = nenhuma)
-  const [aberta, setAberta] = useState<string | null>(null);
+  // Seções que aparecem na tela, já filtradas pelo assunto escolhido e pelo texto da busca
+  const secoes = useMemo(() => {
+    const termo = normalizar(busca.trim());
+
+    return FAQ.filter((secao) => assunto === null || secao.assunto === assunto)
+      .map((secao) => ({
+        ...secao,
+        perguntas: secao.perguntas.filter((item) =>
+          normalizar(`${item.pergunta} ${item.resposta}`).includes(termo),
+        ),
+      }))
+      .filter((secao) => secao.perguntas.length > 0);
+  }, [busca, assunto]);
 
   // Abre a pergunta tocada. Se ela já estava aberta, fecha.
   function alternarPergunta(pergunta: string) {
@@ -92,234 +131,403 @@ export default function AjudaScreen() {
     setAberta((atual) => (atual === pergunta ? null : pergunta));
   }
 
+  function escolherAssunto(novo: string | null) {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAssunto(novo);
+  }
+
+  function limparFiltros() {
+    setBusca('');
+    setAssunto(null);
+  }
+
+
   return (
-    <SafeAreaView style={styles.tela}>
-      <ScrollView contentContainerStyle={styles.conteudo}>
-        {/* Botão de voltar (o mesmo das outras telas) */}
+   <SafeAreaView style={styles.tela} edges={['top']}>
+  <ScrollView
+    contentContainerStyle={styles.conteudo}
+    showsVerticalScrollIndicator={false}
+    keyboardShouldPersistTaps="handled">
+    <Pressable
+      onPress={() => router.back()}
+      hitSlop={Space.two}
+      accessibilityRole="button"
+      accessibilityLabel="Voltar"
+      style={({ pressed }) => [styles.voltar, pressed && styles.pressionado]}>
+      <SymbolView
+        name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
+        size={20}
+        tintColor={TextColor.primary}
+      />
+    </Pressable>
+
+    {/* Cabeçalho no mesmo formato da Home: rótulo pequeno + título serifado */}
+    <View style={styles.cabecalho}>
+      <Text style={styles.rotulo}>Central de ajuda</Text>
+      <Text style={styles.titulo}>Como podemos ajudar?</Text>
+      <Text style={styles.subtitulo}>Respostas rápidas para as dúvidas mais comuns.</Text>
+    </View>
+
+
+    <View style={styles.busca}>
+      <SymbolView
+        name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
+        size={18}
+        tintColor={TextColor.secondary}
+      />
+      <TextInput
+        style={styles.buscaInput}
+        placeholder="Buscar uma dúvida"
+        placeholderTextColor={TextColor.muted}
+        value={busca}
+        onChangeText={setBusca}
+        returnKeyType="search"
+        selectionColor={Mint.mint400}
+      />
+      {busca.length > 0 && (
         <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
+          onPress={() => setBusca('')}
+          hitSlop={Space.two}
           accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          style={({ pressed }) => [styles.voltar, pressed && styles.voltarPressionado]}>
+          accessibilityLabel="Limpar busca">
           <SymbolView
-            name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-            size={20}
-            tintColor={Mint.mint400}
+            name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+            size={18}
+            tintColor={TextColor.muted}
           />
         </Pressable>
+      )}
+    </View>
 
-        {/* Cabeçalho */}
-        <View style={styles.cabecalho}>
-          <View style={styles.cabecalhoIcone}>
-            <SymbolView
-              name={{ ios: 'questionmark.circle.fill', android: 'help', web: 'help' }}
-              size={36}
-              tintColor={Mint.mint400}
-            />
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.chipsLista}
+      contentContainerStyle={styles.chips}>
+      <Chip titulo="Todas" ativo={assunto === null} onPress={() => escolherAssunto(null)} />
+      {FAQ.map((secao) => (
+        <Chip
+          key={secao.assunto}
+          titulo={secao.assunto}
+          icone={secao.icone}
+          cor={secao.cor}
+          ativo={assunto === secao.assunto}
+          onPress={() => escolherAssunto(secao.assunto)}
+        />
+      ))}
+    </ScrollView>
+
+    {secoes.map((secao) => (
+      <View key={secao.assunto} style={styles.secao}>
+        <View style={styles.secaoCabecalho}>
+          <View style={[styles.secaoIcone, { backgroundColor: withAlpha(secao.cor, 0.15) }]}>
+            <SymbolView name={secao.icone} size={16} tintColor={secao.cor} />
           </View>
-          <Text style={styles.titulo}>Ajuda e FAQ</Text>
-          <Text style={styles.subtitulo}>
-            Tire suas dúvidas sobre o Alexandria. Toque em uma pergunta para ver a resposta.
+          <Text style={styles.secaoTitulo}>{secao.assunto}</Text>
+          <Text style={styles.secaoContagem}>
+            {secao.perguntas.length} {secao.perguntas.length === 1 ? 'pergunta' : 'perguntas'}
           </Text>
         </View>
 
-        {/* Uma seção para cada assunto */}
-        {FAQ.map((secao) => (
-          <View key={secao.assunto}>
-            <View style={styles.secaoCabecalho}>
-              <View style={[styles.secaoIcone, { backgroundColor: withAlpha(secao.cor, 0.15) }]}>
-                <SymbolView name={secao.icone} size={14} tintColor={secao.cor} />
-              </View>
-              <Text style={styles.secaoTitulo}>{secao.assunto}</Text>
-            </View>
-
-            <View style={styles.cartao}>
-              {secao.perguntas.map((item, index) => {
-                const estaAberta = aberta === item.pergunta;
-
-                return (
-                  <Pressable
-                    key={item.pergunta}
-                    onPress={() => alternarPergunta(item.pergunta)}
-                    accessibilityRole="button"
-                    accessibilityState={{ expanded: estaAberta }}
-                    style={({ pressed }) => [
-                      styles.item,
-                      index > 0 && styles.comBorda,
-                      pressed && styles.itemPressionado,
-                    ]}>
-                    <View style={styles.perguntaLinha}>
-                      <Text style={[styles.pergunta, estaAberta && { color: secao.cor }]}>
-                        {item.pergunta}
-                      </Text>
-                      <SymbolView
-                        name={
-                          estaAberta
-                            ? { ios: 'chevron.up', android: 'expand_less', web: 'expand_less' }
-                            : { ios: 'chevron.down', android: 'expand_more', web: 'expand_more' }
-                        }
-                        size={18}
-                        tintColor={estaAberta ? secao.cor : TextColor.muted}
-                      />
-                    </View>
-
-                    {/* A resposta só aparece quando a pergunta está aberta */}
-                    {estaAberta && <Text style={styles.resposta}>{item.resposta}</Text>}
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+        {secao.perguntas.map((item) => (
+          <ItemPergunta
+            key={item.pergunta}
+            pergunta={item.pergunta}
+            resposta={item.resposta}
+            cor={secao.cor}
+            aberta={aberta === item.pergunta}
+            onPress={() => alternarPergunta(item.pergunta)}
+          />
         ))}
+      </View>
+    ))}
 
-        {/* Cartão final: ainda com dúvidas */}
-        <View style={styles.contato}>
+    {secoes.length === 0 && (
+      <View style={styles.vazio}>
+        <SymbolView
+          name={{ ios: 'magnifyingglass', android: 'search_off', web: 'search_off' }}
+          size={28}
+          tintColor={TextColor.secondary}
+        />
+        <Text style={styles.vazioTitulo}>Nenhuma dúvida encontrada</Text>
+        <Text style={styles.vazioTexto}>Tente outras palavras ou veja todas as perguntas.</Text>
+        <Pressable
+          onPress={limparFiltros}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.botaoSecundario, pressed && styles.pressionado]}>
+          <Text style={styles.botaoSecundarioTexto}>Ver todas</Text>
+        </Pressable>
+      </View>
+    )}
+
+    {/* Cartão final: ainda com dúvidas */}
+    <View style={styles.contato}>
+      <View style={styles.contatoTopo}>
+        <View style={styles.contatoIcone}>
           <SymbolView
             name={{ ios: 'bubble.left.and.bubble.right.fill', android: 'forum', web: 'forum' }}
-            size={28}
+            size={22}
             tintColor={Mint.mint400}
           />
-          <Text style={styles.contatoTitulo}>Ainda tem dúvidas?</Text>
-          <Text style={styles.contatoTexto}>
-            Fale com a equipe que criou o Alexandria. A gente ajuda!
-          </Text>
-          <Pressable
-            onPress={() => router.push('/equipe')}
-            accessibilityRole="button"
-            style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}>
-            <Text style={styles.botaoTexto}>Conhecer a equipe</Text>
-          </Pressable>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+        <View style={styles.contatoTextos}>
+          <Text style={styles.contatoTitulo}>Ainda tem dúvidas?</Text>
+          <Text style={styles.contatoTexto}>Fale com a equipe que criou o Alexandria.</Text>
+        </View>
+      </View>
+
+      <Pressable
+        onPress={() => router.push('/equipe')}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}>
+        <Text style={styles.botaoTexto}>Conhecer a equipe</Text>
+      </Pressable>
+    </View>
+  </ScrollView>
+</SafeAreaView>
   );
 }
 
+type ChipProps = {
+  titulo: string;
+  ativo: boolean;
+  onPress: () => void;
+  icone?: SymbolViewProps['name'];
+  cor?: string;
+};
+
+function Chip({ titulo, ativo, onPress, icone, cor = Mint.mint400 }: ChipProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: ativo }}
+      style={({ pressed }) => [styles.chip, ativo && styles.chipAtivo, pressed && styles.pressionado]}>
+      {icone && <SymbolView name={icone} size={14} tintColor={ativo ? Mint.mint400 : cor} />}
+      <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{titulo}</Text>
+    </Pressable>
+  );
+}
+
+type ItemPerguntaProps = Pergunta & {
+  cor: string;
+  aberta: boolean;
+  onPress: () => void;
+};
+
+function ItemPergunta({ pergunta, resposta, cor, aberta, onPress }: ItemPerguntaProps) {
+  // Giro da seta: 0 = apontando para baixo, 1 = apontando para cima
+  const giro = useSharedValue(aberta ? 1 : 0);
+
+  useEffect(() => {
+    giro.value = withTiming(aberta ? 1 : 0, { duration: 250 });
+  }, [aberta, giro]);
+
+  const setaStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${giro.value * 180}deg` }],
+  }));
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: aberta }}
+      style={({ pressed }) => [
+        styles.item,
+        aberta && { borderColor: withAlpha(cor, 0.4) },
+        pressed && styles.pressionado,
+      ]}>
+      <View style={styles.perguntaLinha}>
+        <Text style={[styles.pergunta, aberta && { color: cor }]}>{pergunta}</Text>
+        <Animated.View style={setaStyle}>
+          <SymbolView
+            name={{ ios: 'chevron.down', android: 'expand_more', web: 'expand_more' }}
+            size={18}
+            tintColor={aberta ? cor : TextColor.secondary}
+          />
+        </Animated.View>
+      </View>
+
+      {/* A resposta só aparece quando a pergunta está aberta */}
+      {aberta && <Text style={styles.resposta}>{resposta}</Text>}
+    </Pressable>
+  );
+}
+
+
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.twelve },
+  conteudo: { paddingTop: Space.four, paddingBottom: Space.twelve },
+  pressionado: { opacity: 0.7 },
 
-  // Botão de voltar
+  // Cabeçalho
   voltar: {
     width: 44,
     height: 44,
+    marginLeft: ScreenInset,
     borderRadius: Radius.pill,
-    backgroundColor: Ink.ink700,
-    borderWidth: 1,
-    borderColor: Ink.ink500,
+    backgroundColor: Ink.ink600,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  voltarPressionado: { backgroundColor: Ink.ink600 },
-
-  // Cabeçalho
-  cabecalho: { alignItems: 'center', marginTop: Space.four },
-  cabecalhoIcone: {
-    width: 80,
-    height: 80,
-    borderRadius: Radius.pill,
-    backgroundColor: withAlpha(Mint.mint400, 0.15),
-    alignItems: 'center',
-    justifyContent: 'center',
+  cabecalho: { marginTop: Space.six, paddingHorizontal: ScreenInset, gap: Space.one },
+  rotulo: {
+    fontFamily: DSFonts.ui,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.76,
+    textTransform: 'uppercase',
+    color: TextColor.secondary,
   },
-  titulo: {
-    marginTop: Space.four,
-    fontFamily: DSFonts.display,
-    fontSize: 28,
-    color: TextColor.primary,
-  },
+  titulo: { fontFamily: DSFonts.display, fontSize: 28, lineHeight: 34, color: TextColor.primary },
   subtitulo: {
-    marginTop: Space.two,
+    marginTop: Space.one,
     fontFamily: DSFonts.ui,
     fontSize: 15,
     lineHeight: 22,
     color: TextColor.secondary,
-    textAlign: 'center',
   },
 
-  // Título de cada assunto
-  secaoCabecalho: {
+  // Busca
+  busca: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.three,
+    marginTop: Space.six,
+    marginHorizontal: ScreenInset,
+    paddingHorizontal: Space.four,
+    minHeight: 48,
+    borderRadius: Radius.pill,
+    backgroundColor: Ink.ink700,
+  },
+  buscaInput: { flex: 1, fontFamily: DSFonts.ui, fontSize: 16, color: TextColor.primary },
+
+  // Filtro por assunto
+  chipsLista: { marginTop: Space.four, flexGrow: 0 },
+  chips: { paddingHorizontal: ScreenInset, gap: Space.two },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Space.two,
-    marginTop: Space.eight,
-    marginBottom: Space.two,
+    height: 36,
+    paddingHorizontal: Space.four,
+    borderRadius: Radius.pill,
+    backgroundColor: Ink.ink600,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
+  chipAtivo: { backgroundColor: Mint.mint900, borderColor: withAlpha(Mint.mint400, 0.4) },
+  chipTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '600', color: TextColor.secondary },
+  chipTextoAtivo: { color: Mint.mint400 },
+
+  // Seções
+  secao: { marginTop: Space.eight, paddingHorizontal: ScreenInset, gap: Space.three },
+  secaoCabecalho: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
   secaoIcone: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 32,
+    height: 32,
+    borderRadius: Radius.cover,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secaoTitulo: {
-    fontFamily: DSFonts.ui,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    color: TextColor.secondary,
+    flex: 1,
+    fontFamily: DSFonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: TextColor.primary,
   },
+  secaoContagem: { fontFamily: DSFonts.ui, fontSize: 12, fontWeight: '600', color: TextColor.secondary },
 
-  // Cartão com as perguntas
-  cartao: {
-    backgroundColor: Ink.ink700,
+  // Pergunta
+  item: {
+    padding: Space.four,
     borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
     borderWidth: 1,
-    borderColor: Ink.ink500,
-    overflow: 'hidden',
+    borderColor: 'transparent',
   },
-  item: { paddingHorizontal: Space.four, paddingVertical: Space.four },
-  itemPressionado: { backgroundColor: Ink.ink600 },
-  comBorda: { borderTopWidth: 1, borderTopColor: Ink.ink500 },
   perguntaLinha: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
   pergunta: {
     flex: 1,
     fontFamily: DSFonts.ui,
     fontSize: 16,
+    lineHeight: 22,
     fontWeight: '600',
     color: TextColor.primary,
   },
   resposta: {
     marginTop: Space.three,
     fontFamily: DSFonts.ui,
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 22,
     color: TextColor.secondary,
   },
 
-  // Cartão final
-  contato: {
+  // Nada encontrado
+  vazio: {
     alignItems: 'center',
+    gap: Space.two,
     marginTop: Space.eight,
+    marginHorizontal: ScreenInset,
     padding: Space.six,
-    backgroundColor: withAlpha(Mint.mint400, 0.08),
-    borderRadius: Radius.sheet,
-    borderWidth: 1,
-    borderColor: withAlpha(Mint.mint400, 0.3),
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
   },
-  contatoTitulo: {
-    marginTop: Space.three,
+  vazioTitulo: {
+    marginTop: Space.two,
     fontFamily: DSFonts.display,
-    fontSize: 20,
+    fontSize: 18,
+    lineHeight: 24,
     color: TextColor.primary,
   },
-  contatoTexto: {
-    marginTop: Space.one,
+  vazioTexto: {
     fontFamily: DSFonts.ui,
     fontSize: 14,
     lineHeight: 20,
     color: TextColor.secondary,
     textAlign: 'center',
   },
-  botao: {
-    marginTop: Space.four,
+  botaoSecundario: {
+    marginTop: Space.two,
     paddingHorizontal: Space.six,
-    paddingVertical: Space.three,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: withAlpha(Mint.mint400, 0.4),
+  },
+  botaoSecundarioTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700', color: Mint.mint400 },
+
+  // Cartão final
+  contato: {
+    gap: Space.four,
+    marginTop: Space.eight,
+    marginHorizontal: ScreenInset,
+    padding: Space.six,
+    borderRadius: Radius.sheet,
+    backgroundColor: Ink.ink700,
+    ...Shadow.e1,
+  },
+  contatoTopo: { flexDirection: 'row', alignItems: 'center', gap: Space.four },
+  contatoIcone: {
+    width: 48,
+    height: 48,
+    borderRadius: Radius.pill,
+    backgroundColor: Mint.mint900,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contatoTextos: { flex: 1, gap: Space.one },
+  contatoTitulo: { fontFamily: DSFonts.display, fontSize: 20, lineHeight: 26, color: TextColor.primary },
+  contatoTexto: { fontFamily: DSFonts.ui, fontSize: 14, lineHeight: 20, color: TextColor.secondary },
+  botao: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: Radius.pill,
     backgroundColor: Mint.mint400,
   },
   botaoPressionado: { backgroundColor: Mint.mint500 },
-  botaoTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700', color: Ink.ink900 },
+  botaoTexto: { fontFamily: DSFonts.ui, fontSize: 15, fontWeight: '700', color: Ink.ink900 },
 });
