@@ -28,3 +28,19 @@ test('filtra a biblioteca pelo status sem misturar usuários', async () => {
   assert.equal(todos.length, 2);
   assert.deepEqual(lendo.map((item) => item.livro_id), ['OL2W']);
 });
+
+test('atualiza status e favorito somente para o dono do item', async () => {
+  const [item] = await biblioteca.findByUser(1, 'QUERO_LER');
+  const atualizado = await biblioteca.update(item.id, 1, {
+    status: 'LIDO',
+    favorito: true,
+  });
+
+  assert.equal(atualizado.status, 'LIDO');
+  assert.equal(atualizado.favorito, true);
+  assert.equal(await biblioteca.update(item.id, 2, { favorito: false }), null);
+
+  const [persistido] = await biblioteca.findByUser(1, 'LIDO');
+  assert.equal(persistido.id, item.id);
+  assert.equal(persistido.favorito, true);
+});
