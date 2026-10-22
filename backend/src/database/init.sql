@@ -42,3 +42,5 @@ CREATE TABLE IF NOT EXISTS avaliacoes (
   atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (user_id, livro_id)
 );
+
+CREATE INDEX IF NOT EXISTS avaliacoes_livro_id_idx ON avaliacoes (livro_id);

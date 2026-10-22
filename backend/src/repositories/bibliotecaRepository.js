@@ -64,17 +64,20 @@ async function initialize() {
   await fs.mkdir(path.dirname(localFile), { recursive: true });
 }
 
-async function findByUser(userId) {
+async function findByUser(userId, status) {
   if (usePostgres()) {
+    const whereStatus = status ? ' AND status = $2' : '';
     const result = await pool.query(
-      'SELECT * FROM biblioteca WHERE user_id = $1 ORDER BY adicionado_em DESC',
-      [userId],
+      `SELECT * FROM biblioteca WHERE user_id = $1${whereStatus} ORDER BY adicionado_em DESC`,
+      status ? [userId, status] : [userId],
     );
     return result.rows;
   }
 
   return (await readLocalItems())
-    .filter((item) => item.user_id === Number(userId))
+    .filter(
+      (item) => item.user_id === Number(userId) && (!status || item.status === status),
+    )
     .sort((a, b) => b.adicionado_em.localeCompare(a.adicionado_em));
 }
 
@@ -137,6 +140,34 @@ async function create({ userId, livro, status }) {
   });
 }
 
+async function update(id, userId, { status, favorito }) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      `UPDATE biblioteca
+       SET status = COALESCE($3, status), favorito = COALESCE($4, favorito)
+       WHERE id = $1 AND user_id = $2
+       RETURNING *`,
+      [id, userId, status ?? null, favorito ?? null],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return serializeWrite(async () => {
+    const itens = await readLocalItems();
+    const index = itens.findIndex(
+      (item) => item.id === Number(id) && item.user_id === Number(userId),
+    );
+    if (index < 0) return null;
+
+    const atualizado = { ...itens[index] };
+    if (status !== undefined) atualizado.status = status;
+    if (favorito !== undefined) atualizado.favorito = favorito;
+    itens[index] = atualizado;
+    await writeLocalItems(itens);
+    return atualizado;
+  });
+}
+
 async function remove(id, userId) {
   if (usePostgres()) {
     const result = await pool.query('DELETE FROM biblioteca WHERE id = $1 AND user_id = $2', [
@@ -155,5 +186,4 @@ async function remove(id, userId) {
   });
 }
 
-
-module.exports = { initialize, findByUser, create, remove, countByStatus };
+module.exports = { initialize, findByUser, create, update, remove, countByStatus };

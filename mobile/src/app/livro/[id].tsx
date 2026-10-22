@@ -53,7 +53,9 @@ function firstParam(value: string | string[] | undefined): string {
 export default function DetalheDoLivro() {
   const theme = useTheme();
   const router = useRouter();
-  const id = firstParam(useLocalSearchParams<{ id?: string | string[] }>().id);
+  const params = useLocalSearchParams<{ id?: string | string[]; avaliado?: string | string[] }>();
+  const id = firstParam(params.id);
+  const avaliado = firstParam(params.avaliado) === '1';
   const [book, setBook] = useState<BookDetail | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,9 @@ export default function DetalheDoLivro() {
         return;
       }
       setAddState('idle');
-      setAddError(error instanceof ApiError ? error.message : 'Não foi possível adicionar o livro.');
+      setAddError(
+        error instanceof ApiError ? error.message : 'Não foi possível adicionar o livro.',
+      );
     }
   };
 
@@ -264,6 +268,24 @@ export default function DetalheDoLivro() {
                 )}
 
                 <TouchableOpacity
+                  accessibilityRole="button"
+                  disabled={avaliado}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/avaliar/[id]',
+                      params: { id: book.id, titulo: book.title },
+                    })
+                  }
+                  style={[
+                    styles.rateButton,
+                    { borderColor: theme.accent, opacity: avaliado ? 0.6 : 1 },
+                  ]}>
+                  <ThemedText themeColor="accent" style={styles.addButtonText}>
+                    {avaliado ? 'Você avaliou este livro' : 'Avaliar este livro'}
+                  </ThemedText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   accessibilityRole="link"
                   onPress={() => void openInOpenLibrary(book.openLibraryUrl)}>
                   <ThemedText themeColor="accent" style={styles.link}>
@@ -367,6 +389,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addButtonText: { fontSize: 14, fontWeight: '800' },
+  rateButton: {
+    marginTop: Spacing.two,
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   addHint: { marginTop: Spacing.two, marginBottom: Spacing.two, fontSize: 12, textAlign: 'center' },
   attribution: { marginTop: Spacing.four, fontSize: 11, lineHeight: 17, textAlign: 'center' },
 });

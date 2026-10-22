@@ -111,6 +111,15 @@ async function getWork(id) {
   return target && target !== id ? getWorkJson(target) : work;
 }
 
+/** Ids de obras que a Open Library unificou nesta e que hoje redirecionam para ela. */
+async function getMergedWorkIds(work) {
+  if (typeof work?.key !== 'string' || !/^\/works\/OL\d+W$/.test(work.key)) return [];
+  const redirects = await getJson(`/query.json?type=/type/redirect&location=${work.key}&limit=1000`, AUTHOR_TIMEOUT_MS);
+  return Array.isArray(redirects)
+    ? redirects.map((redirect) => /^\/works\/(OL\d+W)$/.exec(redirect?.key ?? '')?.[1]).filter(Boolean)
+    : [];
+}
+
 function authorKeys(work) {
   if (!Array.isArray(work?.authors)) return [];
   const keys = work.authors
@@ -134,4 +143,4 @@ async function getAuthorNames(work) {
   return names.filter(Boolean);
 }
 
-module.exports = { OpenLibraryError, searchWorks, getWork, getAuthorNames };
+module.exports = { OpenLibraryError, searchWorks, getWork, getAuthorNames, getMergedWorkIds };

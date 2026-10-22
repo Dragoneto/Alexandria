@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics';
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useEffect, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -45,7 +44,6 @@ export function NavBar({ state, descriptors, navigation, insets }: BottomTabBarP
             });
 
             if (!focado && !evento.defaultPrevented) {
-              Haptics.selectionAsync(); // vibração curtinha, só quando troca de aba
               navigation.navigate(route.name, route.params);
             }
           }

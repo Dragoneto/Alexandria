@@ -95,6 +95,7 @@ async function start() {
     console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
     console.log(`   POST /api/avaliacoes     - Avaliar um livro (requer token)`);
     console.log(`   PUT/DELETE /api/avaliacoes/:id - Editar ou excluir a própria avaliação (requer token)`);
+    console.log(`   GET  /api/avaliacoes/livro/:livroId | /minhas | /:id - Ler avaliações (requer token)`);
   });
 }
 
