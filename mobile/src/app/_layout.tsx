@@ -8,7 +8,7 @@ import { AppErrorBoundary } from '@/components/app-error-boundary';
 import { Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 
-SplashScreen.preventAutoHideAsync().catch(() => { });
+SplashScreen.preventAutoHideAsync().catch(() => {});
 export const ErrorBoundary = AppErrorBoundary;
 
 function SessionRoutes() {
@@ -48,6 +48,7 @@ function SessionRoutes() {
         <Stack.Screen name="curiosidades" />
         <Stack.Screen name="ajuda" />
         <Stack.Screen name="livro/[id]" />
+        <Stack.Screen name="avaliar/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={!user}>
         <Stack.Screen name="index" />
