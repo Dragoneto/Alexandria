@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const users = require('../repositories/userRepository');
 const passwordResets = require('../repositories/passwordResetRepository');
 const mailer = require('../services/mailer');
+const biblioteca = require('../repositories/bibliotecaRepository');
 
 // Regras da redefinição de senha
 const SENHA_MINIMA = 8;
@@ -169,8 +170,11 @@ const getProfile = async (req, res) => {
       });
     }
 
+    const estatisticas = await biblioteca.countByStatus(req.user.id);
+
     return res.status(200).json({
       user: usuario,
+      estatisticas,
     });
 
   } catch (error) {
