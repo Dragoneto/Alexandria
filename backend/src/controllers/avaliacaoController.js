@@ -63,6 +63,10 @@ function lerConteudo(body) {
   return { nota: body.nota, resenha };
 }
 
+function responderJaAvaliou(res, avaliacao) {
+  return res.status(409).json({ error: JA_AVALIOU, avaliacaoId: avaliacao?.id });
+}
+
 function responderInvalido(res, erros) {
   return res.status(400).json({ error: Object.values(erros)[0], errors: erros });
 }
@@ -145,31 +149,39 @@ const create = async (req, res) => {
     }
 
     const existente = await avaliacoes.findByUserAndBook(req.user.id, livroId);
-    if (existente) {
-      return res.status(409).json({ error: JA_AVALIOU, avaliacaoId: existente.id });
-    }
+    if (existente) return responderJaAvaliou(res, existente);
 
     const conteudo = lerConteudo(req.body);
     if (conteudo.erros) return responderInvalido(res, conteudo.erros);
 
     const work = await openLibrary.getWork(livroId);
-    const livro = mapWorkDetail(work, await openLibrary.getAuthorNames(work));
+    const [autores, unificados] = await Promise.all([
+      openLibrary.getAuthorNames(work),
+      openLibrary.getMergedWorkIds(work).catch(() => []), // checagem extra: se falhar, segue sem ela
+    ]);
+    const livro = mapWorkDetail(work, autores);
     if (!livro) {
       return res.status(404).json({ error: 'Livro não encontrado na Open Library.' });
     }
+
+    // O livro pode ter sido unificado na Open Library depois que a pessoa avaliou por outro id
+    const ids = new Set([livro.id, ...unificados]);
+    const jaAvaliada = (await avaliacoes.findByUser(req.user.id)).find((a) => ids.has(a.livro_id));
+    if (jaAvaliada) return responderJaAvaliou(res, jaAvaliada);
 
     const criada = await avaliacoes.create({
       userId: req.user.id,
       livro: { id: livro.id, titulo: livro.title, autores: livro.authors, capa: livro.coverUrl },
       nota: conteudo.nota,
       resenha: conteudo.resenha,
+    }).catch((error) => {
+      if (error.code === 'DUPLICATE_REVIEW') return null; // toque duplo: o outro pedido gravou primeiro
+      throw error;
     });
+    if (!criada) return responderJaAvaliou(res, await avaliacoes.findByUserAndBook(req.user.id, livro.id));
 
     return res.status(201).json({ avaliacao: paraResposta(criada) });
   } catch (error) {
-    if (error.code === 'DUPLICATE_REVIEW') {
-      return res.status(409).json({ error: JA_AVALIOU });
-    }
     return responderErro(res, error, 'Erro ao criar avaliação');
   }
 };

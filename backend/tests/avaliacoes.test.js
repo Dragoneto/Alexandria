@@ -33,7 +33,7 @@ function respostaJson(body, status = 200) {
 function simularOpenLibrary(respostas) {
   global.fetch = async (url) => {
     const resposta = respostas[new URL(url).pathname];
-    if (typeof resposta === 'function') return resposta();
+    if (typeof resposta === 'function') return resposta(url);
     return resposta === undefined ? respostaJson({ error: 'notfound' }, 404) : respostaJson(resposta);
   };
 }
@@ -292,4 +292,58 @@ test('qualquer leitor vê uma avaliação pelo id, e minha só vale para o dono'
 test('as rotas fixas vêm antes de /:id', () => {
   const rotasGet = require('../src/routes/avaliacoes').stack.filter((c) => c.route?.methods.get);
   assert.deepEqual(rotasGet.map((c) => c.route.path), ['/minhas', '/livro/:livroId', '/:id']);
+});
+
+test('avaliar pelo id unificado grava o destino, e tentar de novo pelo id antigo devolve a existente', async () => {
+  const pessoa = await users.create({ nome: 'Unificada', email: 'unificada@alexandria.com', senhaHash: 'x' });
+  simularOpenLibrary({
+    '/works/OL801W.json': { key: '/works/OL801W', type: { key: '/type/redirect' }, location: '/works/OL800W' },
+    '/works/OL800W.json': { key: '/works/OL800W', title: 'Esaú e Jacó' },
+    '/query.json': () => respostaJson({}, 503), // a consulta de unificados fora do ar não impede a criação
+  });
+  const body = { livroId: 'OL801W', nota: 4, resenha: RESENHA };
+
+  const criada = await chamar(create, { usuario: pessoa, body });
+  assert.equal(criada.body.avaliacao.livro.id, 'OL800W');
+
+  const denovo = await chamar(create, { usuario: pessoa, body });
+  assert.equal(denovo.statusCode, 409);
+  assert.equal(denovo.body.avaliacaoId, criada.body.avaliacao.id);
+});
+
+test('livro unificado depois da avaliação: avaliar por outro id do mesmo livro devolve a avaliação antiga', async () => {
+  const pessoa = await users.create({ nome: 'Antiga', email: 'antiga@alexandria.com', senhaHash: 'x' });
+  simularOpenLibrary({ '/works/OL900W.json': { key: '/works/OL900W', title: 'Helena' } });
+  const antiga = await chamar(create, { usuario: pessoa, body: { livroId: 'OL900W', nota: 3, resenha: RESENHA } });
+
+  // A Open Library unificou OL900W e OL902W em OL901W, e a pessoa abre o livro pelo id antigo OL902W
+  simularOpenLibrary({
+    '/works/OL902W.json': { key: '/works/OL902W', type: { key: '/type/redirect' }, location: '/works/OL901W' },
+    '/works/OL901W.json': { key: '/works/OL901W', title: 'Helena' },
+    '/query.json': (url) => respostaJson(decodeURIComponent(url).includes('?type=/type/redirect&location=/works/OL901W&') ? [{ key: '/works/OL900W' }] : []),
+  });
+  const res = await chamar(create, { usuario: pessoa, body: { livroId: 'OL902W', nota: 5, resenha: RESENHA } });
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.avaliacaoId, antiga.body.avaliacao.id);
+});
+
+test('erro do banco ao gravar continua 500, e não vira 409', async (t) => {
+  simularOpenLibrary({ '/works/OL930W.json': { key: '/works/OL930W', title: 'Casa Velha' } });
+  t.mock.method(avaliacoes, 'create', async () => Promise.reject(new Error('banco fora do ar')));
+  t.mock.method(console, 'error', () => {});
+  assert.equal((await chamar(create, { usuario: leitor, body: { livroId: 'OL930W', nota: 4, resenha: RESENHA } })).statusCode, 500);
+});
+
+test('toque duplo no enviar: uma avaliação só, e o segundo pedido recebe a que ficou', async () => {
+  const pessoa = await users.create({ nome: 'Apressada', email: 'apressada@alexandria.com', senhaHash: 'x' });
+  simularOpenLibrary({ '/works/OL920W.json': { key: '/works/OL920W', title: 'Ressurreição' } });
+  const body = { livroId: 'OL920W', nota: 5, resenha: RESENHA };
+
+  const respostas = await Promise.all([chamar(create, { usuario: pessoa, body }), chamar(create, { usuario: pessoa, body })]);
+  const [criada, repetida] = respostas.sort((a, b) => a.statusCode - b.statusCode);
+
+  assert.deepEqual([criada.statusCode, repetida.statusCode], [201, 409]);
+  assert.equal(repetida.body.avaliacaoId, criada.body.avaliacao.id);
+  assert.equal((await avaliacoes.findByUser(pessoa.id)).length, 1);
 });
