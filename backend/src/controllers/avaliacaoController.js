@@ -130,7 +130,9 @@ async function buscarAvaliacao(req, res) {
 
     if (avaliacao.user_id !== Number(req.user.id)) {
     res.status(404).json({ error: NAO_ENCONTRADA });
-  return avaliacao;
+  return null;
+  }
+return avaliacao;
 }
 
 async function buscarDaPessoa(req, res) {
