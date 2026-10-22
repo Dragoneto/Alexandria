@@ -25,7 +25,6 @@ import {
   type StatusLeitura,
 } from '@/services/biblioteca';
 
-
 const STATUS_LEITURA: Record<string, string> = {
   QUERO_LER: 'Quero ler',
   LENDO: 'Lendo',
@@ -101,7 +100,9 @@ export default function Biblioteca() {
       await atualizarItemBiblioteca(id, { status });
     } catch (error) {
       setItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, statusLeitura: anterior.statusLeitura } : item)),
+        prev.map((item) =>
+          item.id === id ? { ...item, statusLeitura: anterior.statusLeitura } : item,
+        ),
       );
       Alert.alert(
         'Não foi possível alterar o status',
@@ -130,9 +131,7 @@ export default function Biblioteca() {
     }
   };
 
- 
-
-    const handleRemove = (id: number, titulo: string) => {
+  const handleRemove = (id: number, titulo: string) => {
     Alert.alert('Remover livro', `Remover "${titulo}" da sua biblioteca?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
@@ -157,7 +156,6 @@ export default function Biblioteca() {
       },
     ]);
   };
-
 
   return (
     <ThemedView style={styles.root}>
