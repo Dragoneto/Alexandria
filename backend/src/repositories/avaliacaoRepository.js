@@ -35,6 +35,11 @@ function serializeWrite(operation) {
   return next;
 }
 
+// Mais recentes primeiro pela data de criação (editar não muda a posição); o id desempata
+function maisRecentesPrimeiro(a, b) {
+  return b.criado_em.localeCompare(a.criado_em) || b.id - a.id;
+}
+
 function duplicateError() {
   const error = new Error('Avaliação já existe para este livro');
   error.code = 'DUPLICATE_REVIEW';
@@ -58,6 +63,7 @@ async function initialize() {
         UNIQUE (user_id, livro_id)
       )
     `);
+    await pool.query('CREATE INDEX IF NOT EXISTS avaliacoes_livro_id_idx ON avaliacoes (livro_id)');
     return;
   }
 
@@ -87,6 +93,42 @@ async function findByUserAndBook(userId, livroId) {
       (avaliacao) => avaliacao.user_id === Number(userId) && avaliacao.livro_id === livroId,
     ) ?? null
   );
+}
+
+/** Uma página das avaliações do livro, com a de usuarioId primeiro, e o total e a soma das notas do livro inteiro. */
+async function findByBook(livroId, { usuarioId, limit, offset }) {
+  if (usePostgres()) {
+    const resumo = await pool.query(
+      'SELECT COUNT(*)::int AS total, COALESCE(SUM(nota), 0)::int AS soma FROM avaliacoes WHERE livro_id = $1',
+      [livroId],
+    );
+    const pagina = await pool.query(
+      `SELECT * FROM avaliacoes WHERE livro_id = $1
+       ORDER BY (user_id = $2) DESC, criado_em DESC, id DESC LIMIT $3 OFFSET $4`,
+      [livroId, usuarioId, limit, offset],
+    );
+    return { avaliacoes: pagina.rows, ...resumo.rows[0] };
+  }
+
+  const doLivro = (await readLocalReviews()).filter((a) => a.livro_id === livroId);
+  const minha = (a) => (a.user_id === Number(usuarioId) ? 1 : 0);
+  doLivro.sort((a, b) => minha(b) - minha(a) || maisRecentesPrimeiro(a, b));
+  const soma = doLivro.reduce((total, a) => total + a.nota, 0);
+  return { avaliacoes: doLivro.slice(offset, offset + limit), total: doLivro.length, soma };
+}
+
+async function findByUser(userId) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'SELECT * FROM avaliacoes WHERE user_id = $1 ORDER BY criado_em DESC, id DESC',
+      [userId],
+    );
+    return result.rows;
+  }
+
+  return (await readLocalReviews())
+    .filter((avaliacao) => avaliacao.user_id === Number(userId))
+    .sort(maisRecentesPrimeiro);
 }
 
 async function create({ userId, livro, nota, resenha }) {
@@ -169,4 +211,4 @@ async function remove(id, userId) {
   });
 }
 
-module.exports = { initialize, findById, findByUserAndBook, create, update, remove };
+module.exports = { initialize, findById, findByUserAndBook, findByBook, findByUser, create, update, remove };

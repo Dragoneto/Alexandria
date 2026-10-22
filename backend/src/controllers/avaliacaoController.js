@@ -1,11 +1,14 @@
 const avaliacoes = require('../repositories/avaliacaoRepository');
 const { mapWorkDetail } = require('../services/bookMapper');
 const openLibrary = require('../services/openLibrary');
+const users = require('../repositories/userRepository');
 
 const ID_OBRA = /^OL\d+W$/;
 const ID_AVALIACAO = /^\d{1,9}$/;
 const RESENHA_MINIMA = 10;
 const RESENHA_MAXIMA = 5000;
+const LIMITE_PADRAO = 10;
+const LIMITE_MAXIMO = 20;
 const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502, not_found: 404 };
 const NAO_ENCONTRADA = 'Avaliação não encontrada';
 const JA_AVALIOU = 'Você já avaliou este livro. Edite a avaliação existente.';
@@ -81,6 +84,25 @@ function paraResposta(avaliacao) {
   };
 }
 
+// Mesma regra de page e limit da busca de livros (positiveIntParam no bookController)
+function inteiroPositivo(valor, padrao) {
+  if (valor === undefined) return padrao;
+  const numero = typeof valor === 'string' && /^\d{1,6}$/.test(valor.trim()) ? Number(valor) : 0;
+  return numero > 0 ? numero : null;
+}
+
+// Nome de quem avaliou (nunca e-mail nem foto) e se a avaliação é de quem está logado
+async function paraLeituras(lista, usuarioLogadoId) {
+  if (!lista.length) return [];
+  const pessoas = await users.findNames([...new Set(lista.map((a) => a.user_id))]);
+  const nomes = new Map(pessoas.map((pessoa) => [pessoa.id, pessoa.nome]));
+  return lista.map((avaliacao) => ({
+    ...paraResposta(avaliacao),
+    usuarioNome: nomes.get(avaliacao.user_id) ?? null,
+    minha: avaliacao.user_id === Number(usuarioLogadoId),
+  }));
+}
+
 function responderErro(res, error, contexto) {
   if (error instanceof openLibrary.OpenLibraryError) {
     return res.status(STATUS_POR_FALHA[error.kind] ?? 502).json({ error: error.message });
@@ -89,7 +111,7 @@ function responderErro(res, error, contexto) {
   return res.status(500).json({ error: 'Erro interno do servidor' });
 }
 
-async function buscarDaPessoa(req, res) {
+async function buscarAvaliacao(req, res) {
   const id = ID_AVALIACAO.test(req.params?.id ?? '') ? Number(req.params.id) : null;
   if (id === null) {
     res.status(400).json({ error: 'Identificador de avaliação inválido' });
@@ -102,7 +124,12 @@ async function buscarDaPessoa(req, res) {
     return null;
   }
 
-  if (avaliacao.user_id !== Number(req.user.id)) {
+  return avaliacao;
+}
+
+async function buscarDaPessoa(req, res) {
+  const avaliacao = await buscarAvaliacao(req, res);
+  if (avaliacao && avaliacao.user_id !== Number(req.user.id)) {
     res.status(403).json({ error: 'Você só pode alterar a sua própria avaliação' });
     return null;
   }
@@ -181,4 +208,50 @@ const remove = async (req, res) => {
   }
 };
 
-module.exports = { create, update, remove };
+const listByBook = async (req, res) => {
+  try {
+    const livroId = typeof req.params?.livroId === 'string' ? req.params.livroId.trim() : '';
+    if (!ID_OBRA.test(livroId)) {
+      return res.status(400).json({ error: 'Identificador de livro inválido' });
+    }
+
+    const page = inteiroPositivo(req.query?.page, 1);
+    const limitePedido = inteiroPositivo(req.query?.limit, LIMITE_PADRAO);
+    if (!page || !limitePedido) {
+      return res.status(400).json({ error: 'Página e tamanho devem ser números inteiros positivos' });
+    }
+    const limit = Math.min(limitePedido, LIMITE_MAXIMO);
+
+    const consulta = { usuarioId: req.user.id, limit, offset: (page - 1) * limit };
+    const { avaliacoes: pagina, total, soma } = await avaliacoes.findByBook(livroId, consulta);
+
+    const media = total ? Math.round((soma * 10) / total) / 10 : null;
+    const lidas = await paraLeituras(pagina, req.user.id);
+    return res.json({ avaliacoes: lidas, total, media, page, limit, hasMore: page * limit < total });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao listar avaliações do livro');
+  }
+};
+
+const listMine = async (req, res) => {
+  try {
+    const lista = await avaliacoes.findByUser(req.user.id);
+    return res.json({ avaliacoes: await paraLeituras(lista, req.user.id) });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao listar suas avaliações');
+  }
+};
+
+const detail = async (req, res) => {
+  try {
+    const avaliacao = await buscarAvaliacao(req, res);
+    if (!avaliacao) return res;
+
+    const [lida] = await paraLeituras([avaliacao], req.user.id);
+    return res.json({ avaliacao: lida });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao buscar avaliação');
+  }
+};
+
+module.exports = { create, update, remove, listByBook, listMine, detail };

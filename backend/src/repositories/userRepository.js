@@ -83,6 +83,16 @@ async function findById(id) {
   return publicProfile(user);
 }
 
+/** Só id e nome: as listas de avaliações nunca levam e-mail nem foto de quem avaliou. */
+async function findNames(ids) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT id, nome FROM users WHERE id = ANY($1::int[])', [ids]);
+    return result.rows;
+  }
+
+  return (await readLocalUsers()).filter((user) => ids.includes(user.id)).map(({ id, nome }) => ({ id, nome }));
+}
+
 async function findPhoto(id) {
   if (usePostgres()) {
     const result = await pool.query('SELECT foto FROM users WHERE id = $1', [id]);
@@ -194,6 +204,7 @@ module.exports = {
   initialize,
   findByEmail,
   findById,
+  findNames,
   findPhoto,
   updatePhoto,
   create,
