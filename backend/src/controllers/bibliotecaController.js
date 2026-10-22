@@ -24,7 +24,12 @@ function paraResposta(item) {
 
 const list = async (req, res) => {
   try {
-    const itens = await biblioteca.findByUser(req.user.id);
+    const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
+    if (status && !STATUS_VALIDOS.includes(status)) {
+      return res.status(400).json({ error: 'Status de leitura inválido' });
+    }
+
+    const itens = await biblioteca.findByUser(req.user.id, status || undefined);
     return res.json({ itens: itens.map(paraResposta) });
   } catch (error) {
     console.error('Erro ao listar biblioteca:', error.message);
