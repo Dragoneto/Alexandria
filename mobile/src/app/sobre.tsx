@@ -15,7 +15,12 @@ import {
   Space,
   TextColor,
   withAlpha,
+  Shadow,
 } from '@/constants/design-system';
+
+
+const VERSAO = Constants.expoConfig?.version ?? '1.0.0';
+const ANO = new Date().getFullYear();
 
 const RECURSOS = [
   {
@@ -38,37 +43,71 @@ const RECURSOS = [
   },
 ] as const;
 
-const VERSAO = Constants.expoConfig?.version ?? '1.0.0';
 
 const INFORMACOES = [
-  { rotulo: 'Versão', valor: VERSAO },
-  { rotulo: 'Feito com', valor: 'React Native + Expo' },
-  { rotulo: 'Dados dos livros', valor: 'Open Library' },
-];
+  {
+    rotulo: 'Versão',
+    valor: VERSAO,
+    icone: { ios: 'number', android: 'tag', web: 'tag' },
+  },
+  {
+    rotulo: 'Feito com',
+    valor: 'React Native + Expo',
+    icone: { ios: 'chevron.left.forwardslash.chevron.right', android: 'code', web: 'code' },
+  },
+  {
+    rotulo: 'Dados dos livros',
+    valor: 'Open Library',
+    icone: { ios: 'book.fill', android: 'menu_book', web: 'menu_book' },
+  },
+] as const;
+
+const ATALHOS = [
+  {
+    titulo: 'Conheça a equipe',
+    descricao: 'Quem criou o Alexandria',
+    rota: '/equipe',
+    cor: Accent.lilac,
+    icone: { ios: 'person.3.fill', android: 'groups', web: 'groups' },
+  },
+  {
+    titulo: 'Ajuda e FAQ',
+    descricao: 'Respostas para as dúvidas mais comuns',
+    rota: '/ajuda',
+    cor: Accent.sapphire,
+    icone: { ios: 'questionmark.circle.fill', android: 'help', web: 'help' },
+  },
+] as const;
 
 
 export default function SobreScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.tela}>
-      <ScrollView contentContainerStyle={styles.conteudo}>
-        {/* Botão de voltar (o mesmo da tela de Configurações) */}
+    <SafeAreaView style={styles.tela} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.conteudo} showsVerticalScrollIndicator={false}>
+        {/* Botão de voltar (o mesmo da tela de Ajuda) */}
         <Pressable
           onPress={() => router.back()}
-          hitSlop={10}
+          hitSlop={Space.two}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
-          style={({ pressed }) => [styles.voltar, pressed && styles.voltarPressionado]}>
+          style={({ pressed }) => [styles.voltar, pressed && styles.pressionado]}>
           <SymbolView
             name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
             size={20}
-            tintColor={Mint.mint400}
+            tintColor={TextColor.primary}
           />
         </Pressable>
 
-        {/* Cabeçalho com logo, nome e versão */}
+        {/* Cabeçalho no formato da Home: rótulo pequeno + título serifado */}
         <View style={styles.cabecalho}>
+          <Text style={styles.rotulo}>Sobre o app</Text>
+          <Text style={styles.titulo}>Sua biblioteca no bolso</Text>
+        </View>
+
+        {/* Cartão da marca: logo, nome e versão */}
+        <View style={styles.marca}>
           <View style={styles.logoFundo}>
             <Image
               source={require('@/assets/images/logo_app.png')}
@@ -76,33 +115,37 @@ export default function SobreScreen() {
               contentFit="contain"
             />
           </View>
-          <Text style={styles.nomeApp}>Alexandria</Text>
-          <Text style={styles.slogan}>Sua biblioteca no bolso</Text>
-          <View style={styles.selo}>
-            <Text style={styles.seloTexto}>Versão {VERSAO}</Text>
+          <View style={styles.marcaTextos}>
+            <Text style={styles.nomeApp}>Alexandria</Text>
+            <View style={styles.selo}>
+              <Text style={styles.seloTexto}>Versão {VERSAO}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Cartão: Nossa missão */}
+        {/* Nossa missão, em formato de citação */}
         <Text style={styles.secaoTitulo}>Nossa missão</Text>
-        <View style={styles.cartao}>
-          <Text style={styles.paragrafo}>
+        <View style={styles.citacao}>
+          <SymbolView
+            name={{ ios: 'quote.opening', android: 'format_quote', web: 'format_quote' }}
+            size={22}
+            tintColor={Mint.mint400}
+          />
+          <Text style={styles.citacaoTexto}>
             Inspirado na lendária Biblioteca de Alexandria, o app nasceu para ajudar você a
             descobrir novos livros, organizar suas leituras e compartilhar o que ama ler.
           </Text>
         </View>
 
-        {/* Cartão: O que você encontra aqui */}
+               {/* Recursos: um cartão abaixo do outro */}
         <Text style={styles.secaoTitulo}>O que você encontra aqui</Text>
-        <View style={styles.cartao}>
-          {RECURSOS.map((recurso, index) => (
-            <View
-              key={recurso.titulo}
-              style={[styles.recurso, index > 0 && styles.comBorda]}>
+        <View style={styles.recursos}>
+          {RECURSOS.map((recurso) => (
+            <View key={recurso.titulo} style={styles.recurso}>
               <View style={[styles.iconeFundo, { backgroundColor: withAlpha(recurso.cor, 0.15) }]}>
-                <SymbolView name={recurso.icone} size={20} tintColor={recurso.cor} />
+                <SymbolView name={recurso.icone} size={22} tintColor={recurso.cor} />
               </View>
-              <View style={styles.flex}>
+              <View style={styles.recursoTextos}>
                 <Text style={styles.recursoTitulo}>{recurso.titulo}</Text>
                 <Text style={styles.recursoDescricao}>{recurso.descricao}</Text>
               </View>
@@ -110,18 +153,49 @@ export default function SobreScreen() {
           ))}
         </View>
 
-        {/* Cartão: Informações */}
+
+        {/* Informações técnicas */}
         <Text style={styles.secaoTitulo}>Informações</Text>
         <View style={styles.cartao}>
           {INFORMACOES.map((info, index) => (
-            <View key={info.rotulo} style={[styles.infoLinha, index > 0 && styles.comBorda]}>
-              <Text style={styles.infoRotulo}>{info.rotulo}</Text>
-              <Text style={styles.infoValor}>{info.valor}</Text>
+            <View key={info.rotulo} style={[styles.linha, index > 0 && styles.comBorda]}>
+              <SymbolView name={info.icone} size={18} tintColor={TextColor.secondary} />
+              <Text style={styles.linhaRotulo}>{info.rotulo}</Text>
+              <Text style={styles.linhaValor}>{info.valor}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={styles.rodape}>Feito com carinho pela equipe Alexandria</Text>
+        {/* Atalhos para outras telas */}
+        <Text style={styles.secaoTitulo}>Saiba mais</Text>
+        <View style={styles.cartao}>
+          {ATALHOS.map((atalho, index) => (
+            <Pressable
+              key={atalho.rota}
+              onPress={() => router.push(atalho.rota)}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.linha,
+                index > 0 && styles.comBorda,
+                pressed && styles.pressionado,
+              ]}>
+              <View style={[styles.atalhoIcone, { backgroundColor: withAlpha(atalho.cor, 0.15) }]}>
+                <SymbolView name={atalho.icone} size={18} tintColor={atalho.cor} />
+              </View>
+              <View style={styles.atalhoTextos}>
+                <Text style={styles.atalhoTitulo}>{atalho.titulo}</Text>
+                <Text style={styles.atalhoDescricao}>{atalho.descricao}</Text>
+              </View>
+              <SymbolView
+                name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+                size={18}
+                tintColor={TextColor.secondary}
+              />
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.rodape}>Feito com carinho pela equipe Alexandria · {ANO}</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -129,49 +203,56 @@ export default function SobreScreen() {
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.twelve },
-  flex: { flex: 1 },
+  conteudo: { paddingTop: Space.four, paddingBottom: Space.twelve },
+  pressionado: { opacity: 0.7 },
 
   // Botão de voltar
   voltar: {
     width: 44,
     height: 44,
+    marginLeft: ScreenInset,
     borderRadius: Radius.pill,
-    backgroundColor: Ink.ink700,
-    borderWidth: 1,
-    borderColor: Ink.ink500,
+    backgroundColor: Ink.ink600,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  voltarPressionado: { backgroundColor: Ink.ink600 },
 
   // Cabeçalho
-  cabecalho: { alignItems: 'center', marginTop: Space.four },
-  logoFundo: {
-    width: 96,
-    height: 96,
+  cabecalho: { marginTop: Space.six, paddingHorizontal: ScreenInset, gap: Space.one },
+  rotulo: {
+    fontFamily: DSFonts.ui,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.76,
+    textTransform: 'uppercase',
+    color: TextColor.secondary,
+  },
+  titulo: { fontFamily: DSFonts.display, fontSize: 28, lineHeight: 34, color: TextColor.primary },
+
+  // Cartão da marca
+  marca: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.four,
+    marginTop: Space.six,
+    marginHorizontal: ScreenInset,
+    padding: Space.four,
     borderRadius: Radius.sheet,
     backgroundColor: Ink.ink700,
-    borderWidth: 1,
-    borderColor: Ink.ink500,
+    ...Shadow.e1,
+  },
+  logoFundo: {
+    width: 72,
+    height: 72,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink600,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logo: { width: 64, height: 64 },
-  nomeApp: {
-    marginTop: Space.four,
-    fontFamily: DSFonts.display,
-    fontSize: 30,
-    color: TextColor.primary,
-  },
-  slogan: {
-    marginTop: Space.one,
-    fontFamily: DSFonts.ui,
-    fontSize: 15,
-    color: TextColor.secondary,
-  },
+  logo: { width: 52, height: 52 },
+  marcaTextos: { flex: 1, alignItems: 'flex-start', gap: Space.two },
+  nomeApp: { fontFamily: DSFonts.display, fontSize: 24, lineHeight: 30, color: TextColor.primary },
   selo: {
-    marginTop: Space.three,
     paddingHorizontal: Space.three,
     paddingVertical: Space.one,
     borderRadius: Radius.pill,
@@ -179,70 +260,98 @@ const styles = StyleSheet.create({
   },
   seloTexto: { fontFamily: DSFonts.ui, fontSize: 12, fontWeight: '700', color: Mint.mint400 },
 
-  // Seções e cartões
+  // Títulos de seção (iguais aos das estantes da Home)
   secaoTitulo: {
     marginTop: Space.eight,
-    marginBottom: Space.two,
-    fontFamily: DSFonts.ui,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    color: TextColor.secondary,
-  },
-  cartao: {
-    backgroundColor: Ink.ink700,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Ink.ink500,
-    paddingHorizontal: Space.four,
-  },
-  comBorda: { borderTopWidth: 1, borderTopColor: Ink.ink500 },
-  paragrafo: {
-    paddingVertical: Space.four,
-    fontFamily: DSFonts.ui,
-    fontSize: 15,
-    lineHeight: 24,
-    color: TextColor.secondary,
+    marginBottom: Space.three,
+    paddingHorizontal: ScreenInset,
+    fontFamily: DSFonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: TextColor.primary,
   },
 
-  // Linhas de recursos
+  // Citação da missão
+  citacao: {
+    gap: Space.three,
+    marginHorizontal: ScreenInset,
+    padding: Space.six,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
+  },
+  citacaoTexto: {
+    fontFamily: DSFonts.display,
+    fontSize: 17,
+    lineHeight: 27,
+    fontStyle: 'italic',
+    color: TextColor.primary,
+  },
+
+  // Recursos (um cartão abaixo do outro)
+  recursos: { marginHorizontal: ScreenInset, gap: Space.three },
   recurso: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.three,
-    paddingVertical: Space.four,
+    gap: Space.four,
+    padding: Space.four,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
   },
   iconeFundo: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: Radius.cover,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  recursoTextos: { flex: 1, gap: Space.one },
   recursoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
   recursoDescricao: {
-    marginTop: 2,
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    lineHeight: 20,
+    color: TextColor.secondary,
+  },
+
+
+  // Cartões com linhas (Informações e Saiba mais)
+  cartao: {
+    marginHorizontal: ScreenInset,
+    paddingHorizontal: Space.four,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
+  },
+  linha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.three,
+    minHeight: 56,
+    paddingVertical: Space.three,
+  },
+  comBorda: { borderTopWidth: 1, borderTopColor: Ink.ink500 },
+  linhaRotulo: { flex: 1, fontFamily: DSFonts.ui, fontSize: 15, color: TextColor.secondary },
+  linhaValor: { fontFamily: DSFonts.ui, fontSize: 15, fontWeight: '600', color: TextColor.primary },
+  atalhoIcone: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.cover,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  atalhoTextos: { flex: 1, gap: 2 },
+  atalhoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
+  atalhoDescricao: {
     fontFamily: DSFonts.ui,
     fontSize: 13,
     lineHeight: 18,
     color: TextColor.secondary,
   },
 
-  // Linhas de informação
-  infoLinha: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: Space.four,
-  },
-  infoRotulo: { fontFamily: DSFonts.ui, fontSize: 15, color: TextColor.secondary },
-  infoValor: { fontFamily: DSFonts.ui, fontSize: 15, fontWeight: '600', color: TextColor.primary },
-
   rodape: {
     marginTop: Space.eight,
     textAlign: 'center',
     fontFamily: DSFonts.ui,
     fontSize: 13,
-    color: TextColor.muted,
+    color: TextColor.secondary,
   },
 });
