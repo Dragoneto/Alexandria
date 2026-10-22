@@ -74,6 +74,34 @@ const add = async (req, res) => {
   }
 };
 
+const update = async (req, res) => {
+  try {
+    if (!ID_ITEM.test(req.params?.id ?? '')) {
+      return res.status(400).json({ error: 'Identificador inválido' });
+    }
+
+    const { status, favorito } = req.body ?? {};
+    if (status === undefined && favorito === undefined) {
+      return res.status(400).json({ error: 'Informe status ou favorito' });
+    }
+    if (status !== undefined && !STATUS_VALIDOS.includes(status)) {
+      return res.status(400).json({ error: 'Status de leitura inválido' });
+    }
+    if (favorito !== undefined && typeof favorito !== 'boolean') {
+      return res.status(400).json({ error: 'Favorito deve ser verdadeiro ou falso' });
+    }
+
+    const item = await biblioteca.update(Number(req.params.id), req.user.id, { status, favorito });
+    if (!item) {
+      return res.status(404).json({ error: 'Livro não encontrado na sua biblioteca.' });
+    }
+    return res.json({ item: paraResposta(item) });
+  } catch (error) {
+    console.error('Erro ao atualizar biblioteca:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
 const remove = async (req, res) => {
   try {
     if (!ID_ITEM.test(req.params?.id ?? '')) {
@@ -93,4 +121,4 @@ const remove = async (req, res) => {
 };
 
 
-module.exports = { list, add, remove };
+module.exports = { list, add, update, remove };
