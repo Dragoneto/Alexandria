@@ -69,3 +69,25 @@ test('endpoint valida e aplica o filtro informado', async () => {
   assert.equal(invalido.statusCode, 400);
   assert.deepEqual(lendo.body.itens.map((item) => item.livro.id), ['OL2W']);
 });
+
+test('endpoint valida e persiste as alterações do item', async () => {
+  const [item] = await biblioteca.findByUser(1, 'LENDO');
+  const semCampo = await chamar(update, { params: { id: String(item.id) }, body: {} });
+  const statusInvalido = await chamar(update, {
+    params: { id: String(item.id) },
+    body: { status: 'QUALQUER' },
+  });
+  const favoritoInvalido = await chamar(update, {
+    params: { id: String(item.id) },
+    body: { favorito: 'sim' },
+  });
+  const valido = await chamar(update, {
+    params: { id: String(item.id) },
+    body: { favorito: true },
+  });
+
+  assert.equal(semCampo.statusCode, 400);
+  assert.equal(statusInvalido.statusCode, 400);
+  assert.equal(favoritoInvalido.statusCode, 400);
+  assert.equal(valido.body.item.favorito, true);
+});
