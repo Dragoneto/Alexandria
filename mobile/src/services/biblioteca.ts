@@ -9,8 +9,12 @@ export type BibliotecaItem = {
   livro: { id: string; titulo: string; autores: string[]; capa: string | null };
 };
 
-export async function listarBiblioteca(signal?: AbortSignal): Promise<BibliotecaItem[]> {
-  const result = await apiRequest<{ itens?: BibliotecaItem[] }>('/api/biblioteca', { signal });
+export async function listarBiblioteca(
+  signal?: AbortSignal,
+  status?: StatusLeitura,
+): Promise<BibliotecaItem[]> {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  const result = await apiRequest<{ itens?: BibliotecaItem[] }>(`/api/biblioteca${query}`, { signal });
   return Array.isArray(result?.itens) ? result.itens : [];
 }
 
