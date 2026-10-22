@@ -14,7 +14,9 @@ export async function listarBiblioteca(
   status?: StatusLeitura,
 ): Promise<BibliotecaItem[]> {
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
-  const result = await apiRequest<{ itens?: BibliotecaItem[] }>(`/api/biblioteca${query}`, { signal });
+  const result = await apiRequest<{ itens?: BibliotecaItem[] }>(`/api/biblioteca${query}`, {
+    signal,
+  });
   return Array.isArray(result?.itens) ? result.itens : [];
 }
 
