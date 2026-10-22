@@ -29,6 +29,16 @@ export async function adicionarNaBiblioteca(
   return result.item;
 }
 
+export async function atualizarItemBiblioteca(
+  id: number,
+  atualizacao: { status?: StatusLeitura; favorito?: boolean },
+): Promise<BibliotecaItem> {
+  const result = await apiRequest<{ item: BibliotecaItem }>(`/api/biblioteca/${id}`, {
+    method: 'PATCH',
+    body: atualizacao,
+  });
+  return result.item;
+}
 
 export async function removerDaBiblioteca(id: number): Promise<void> {
   await apiRequest(`/api/biblioteca/${id}`, { method: 'DELETE' });
