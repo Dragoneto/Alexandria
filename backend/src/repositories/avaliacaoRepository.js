@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const pool = require('../config/database');
+const comentarios = require('./comentarioRepository');
 
 const localFile = process.env.LOCAL_REVIEWS_FILE
   ? path.resolve(process.env.LOCAL_REVIEWS_FILE)
@@ -207,6 +208,7 @@ async function remove(id, userId) {
     );
     if (restantes.length === avaliacoes.length) return false;
     await writeLocalReviews(restantes);
+    await comentarios.removeByAvaliacao(id);
     return true;
   });
 }

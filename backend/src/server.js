@@ -9,6 +9,7 @@ const avaliacaoRoutes = require('./routes/avaliacoes');
 const users = require('./repositories/userRepository');
 const passwordResets = require('./repositories/passwordResetRepository');
 const avaliacoes = require('./repositories/avaliacaoRepository');
+const comentarios = require('./repositories/comentarioRepository');
 const bibliotecaRoutes = require('./routes/biblioteca');
 const biblioteca = require('./repositories/bibliotecaRepository');
 const mailer = require('./services/mailer');
@@ -80,6 +81,7 @@ async function start() {
   await users.initialize();
   await passwordResets.initialize();
   await avaliacoes.initialize();
+  await comentarios.initialize();
   await biblioteca.initialize();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
