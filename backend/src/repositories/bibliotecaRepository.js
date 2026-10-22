@@ -64,17 +64,20 @@ async function initialize() {
   await fs.mkdir(path.dirname(localFile), { recursive: true });
 }
 
-async function findByUser(userId) {
+async function findByUser(userId, status) {
   if (usePostgres()) {
+    const whereStatus = status ? ' AND status = $2' : '';
     const result = await pool.query(
-      'SELECT * FROM biblioteca WHERE user_id = $1 ORDER BY adicionado_em DESC',
-      [userId],
+      `SELECT * FROM biblioteca WHERE user_id = $1${whereStatus} ORDER BY adicionado_em DESC`,
+      status ? [userId, status] : [userId],
     );
     return result.rows;
   }
 
   return (await readLocalItems())
-    .filter((item) => item.user_id === Number(userId))
+    .filter(
+      (item) => item.user_id === Number(userId) && (!status || item.status === status),
+    )
     .sort((a, b) => b.adicionado_em.localeCompare(a.adicionado_em));
 }
 
