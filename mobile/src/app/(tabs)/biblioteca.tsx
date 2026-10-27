@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -49,6 +49,9 @@ export default function Biblioteca() {
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
 
+  const pendingStatus = useRef(new Set<number>());
+  const [savingStatusIds, setSavingStatusIds] = useState<number[]>([]);
+
   // Recarrega toda vez que a aba ganha foco (ex.: depois de adicionar um livro)
   useFocusEffect(
     useCallback(() => {
@@ -88,12 +91,15 @@ export default function Biblioteca() {
   }, [items]);
 
   const handleStatusChange = async (id: number, status: StatusLeitura) => {
+    if (pendingStatus.current.has(id)) return;
     const anterior = items.find((item) => item.id === id);
     if (!anterior || anterior.statusLeitura === status) {
       setStatusModalItemId(null);
       return;
     }
 
+    pendingStatus.current.add(id);
+    setSavingStatusIds([...pendingStatus.current]);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
     setStatusModalItemId(null);
     try {
@@ -108,6 +114,9 @@ export default function Biblioteca() {
         'Não foi possível alterar o status',
         error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
       );
+    } finally {
+      pendingStatus.current.delete(id);
+      setSavingStatusIds([...pendingStatus.current]);
     }
   };
 
@@ -270,10 +279,13 @@ export default function Biblioteca() {
                       </ThemedText>
 
                       <TouchableOpacity
+                        disabled={savingStatusIds.includes(item.id)}
                         style={[styles.statusButton, { borderColor: theme.border }]}
                         onPress={() => setStatusModalItemId(item.id)}>
                         <ThemedText themeColor="textSecondary" style={styles.statusButtonText}>
-                          {STATUS_LEITURA[item.statusLeitura]}
+                          {savingStatusIds.includes(item.id)
+                            ? 'Salvando…'
+                            : STATUS_LEITURA[item.statusLeitura]}
                         </ThemedText>
                       </TouchableOpacity>
 
