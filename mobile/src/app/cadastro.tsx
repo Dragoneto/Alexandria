@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
-import { API_URL } from '@/constants/api';
-import { DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
+import { PASSWORD_HINT, registerUser } from '@/services/auth';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -17,44 +17,23 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const submitting = useRef(false);
   // Preenchido quando o cadastro dá certo; enquanto não for null, o popup fica aberto
   const [nomeCadastrado, setNomeCadastrado] = useState<string | null>(null);
 
   const handleSubmit = async () => {
-    // Validações básicas
-    if (!name || !email || !password || !confirmation) {
-      Alert.alert('Erro', 'Preencha todos os campos');
-      return;
-    }
-
-    if (password !== confirmation) {
-      Alert.alert('Erro', 'As senhas não coincidem');
-      return;
-    }
-
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
+    setError('');
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: name,
-          email,
-          senha: password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert('Erro', data.error || 'Erro ao cadastrar');
-        return;
-      }
-
-      setNomeCadastrado(data.user?.nome ?? name);
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível conectar ao servidor');
+      const user = await registerUser({ name, email, password, confirmation });
+      setNomeCadastrado(user.name);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Não foi possível cadastrar.');
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -66,6 +45,7 @@ export default function SignUpScreen() {
       <View style={styles.form}>
         <TextField
           label="Nome"
+          editable={!loading}
           icon={{ ios: 'person.fill', android: 'person', web: 'person' }}
           placeholder="Como quer ser chamado"
           value={name}
@@ -78,6 +58,7 @@ export default function SignUpScreen() {
 
         <TextField
           label="E-mail"
+          editable={!loading}
           icon={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
           placeholder="voce@email.com"
           value={email}
@@ -91,8 +72,10 @@ export default function SignUpScreen() {
 
         <TextField
           label="Senha"
+          editable={!loading}
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Crie uma senha"
+          hint={PASSWORD_HINT}
           value={password}
           onChangeText={setPassword}
           secure
@@ -104,6 +87,7 @@ export default function SignUpScreen() {
 
         <TextField
           label="Confirmar senha"
+          editable={!loading}
           icon={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
           placeholder="Repita a senha"
           value={confirmation}
@@ -118,6 +102,11 @@ export default function SignUpScreen() {
       </View>
 
       <View style={styles.actions}>
+        {!!error && (
+          <Text accessibilityRole="alert" style={{ color: Accent.coral }}>
+            {error}
+          </Text>
+        )}
         <ActionButton label="Criar conta" onPress={handleSubmit} loading={loading} />
         <Text style={styles.terms}>
           Ao criar a conta você concorda com os termos de uso e a política de privacidade.

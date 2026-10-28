@@ -1,0 +1,93 @@
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'alexandria-biblioteca-'));
+process.env.DB_MODE = 'local';
+process.env.LOCAL_LIBRARY_FILE = path.join(dataDir, 'biblioteca.json');
+
+const assert = require('node:assert/strict');
+const { after, before, test } = require('node:test');
+const { list, update } = require('../src/controllers/bibliotecaController');
+const biblioteca = require('../src/repositories/bibliotecaRepository');
+
+const livro = (id) => ({ id, titulo: `Livro ${id}`, autores: ['Autora'], capa: null });
+
+before(async () => {
+  await biblioteca.initialize();
+  await biblioteca.create({ userId: 1, livro: livro('OL1W'), status: 'QUERO_LER' });
+  await biblioteca.create({ userId: 1, livro: livro('OL2W'), status: 'LENDO' });
+  await biblioteca.create({ userId: 2, livro: livro('OL3W'), status: 'LENDO' });
+});
+
+after(() => fs.rmSync(dataDir, { recursive: true, force: true }));
+
+async function chamar(handler, { body, params, query } = {}) {
+  const res = {
+    statusCode: 200,
+    status(code) {
+      this.statusCode = code;
+      return this;
+    },
+    json(value) {
+      this.body = value;
+      return this;
+    },
+  };
+  await handler({ user: { id: 1 }, body, params, query }, res);
+  return res;
+}
+
+test('filtra a biblioteca pelo status sem misturar usuários', async () => {
+  const todos = await biblioteca.findByUser(1);
+  const lendo = await biblioteca.findByUser(1, 'LENDO');
+
+  assert.equal(todos.length, 2);
+  assert.deepEqual(lendo.map((item) => item.livro_id), ['OL2W']);
+});
+
+test('atualiza status e favorito somente para o dono do item', async () => {
+  const [item] = await biblioteca.findByUser(1, 'QUERO_LER');
+  const atualizado = await biblioteca.update(item.id, 1, {
+    status: 'LIDO',
+    favorito: true,
+  });
+
+  assert.equal(atualizado.status, 'LIDO');
+  assert.equal(atualizado.favorito, true);
+  assert.equal(await biblioteca.update(item.id, 2, { favorito: false }), null);
+
+  const [persistido] = await biblioteca.findByUser(1, 'LIDO');
+  assert.equal(persistido.id, item.id);
+  assert.equal(persistido.favorito, true);
+});
+
+test('endpoint valida e aplica o filtro informado', async () => {
+  const invalido = await chamar(list, { query: { status: 'QUALQUER' } });
+  const lendo = await chamar(list, { query: { status: 'LENDO' } });
+
+  assert.equal(invalido.statusCode, 400);
+  assert.deepEqual(lendo.body.itens.map((item) => item.livro.id), ['OL2W']);
+});
+
+test('endpoint valida e persiste as alterações do item', async () => {
+  const [item] = await biblioteca.findByUser(1, 'LENDO');
+  const semCampo = await chamar(update, { params: { id: String(item.id) }, body: {} });
+  const statusInvalido = await chamar(update, {
+    params: { id: String(item.id) },
+    body: { status: 'QUALQUER' },
+  });
+  const favoritoInvalido = await chamar(update, {
+    params: { id: String(item.id) },
+    body: { favorito: 'sim' },
+  });
+  const valido = await chamar(update, {
+    params: { id: String(item.id) },
+    body: { favorito: true },
+  });
+
+  assert.equal(semCampo.statusCode, 400);
+  assert.equal(statusInvalido.statusCode, 400);
+  assert.equal(favoritoInvalido.statusCode, 400);
+  assert.equal(valido.body.item.favorito, true);
+});

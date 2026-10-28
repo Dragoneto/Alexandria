@@ -4,6 +4,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
+const bookRoutes = require('./routes/books');
+const avaliacaoRoutes = require('./routes/avaliacoes');
+const users = require('./repositories/userRepository');
+const passwordResets = require('./repositories/passwordResetRepository');
+const avaliacoes = require('./repositories/avaliacaoRepository');
+const comentarios = require('./repositories/comentarioRepository');
+const bibliotecaRoutes = require('./routes/biblioteca');
+const biblioteca = require('./repositories/bibliotecaRepository');
+const mailer = require('./services/mailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,10 +22,18 @@ const PORT = process.env.PORT || 3000;
 // ==========================================
 
 // CORS - permite que o mobile (e qualquer origem) acesse a API
-app.use(cors());
+const configuredOrigins = process.env.CORS_ORIGINS?.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+app.use(
+  cors({
+    origin: configuredOrigins?.length ? configuredOrigins : '*',
+  }),
+);
+
 
 // Parsear JSON do body das requisições
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // ==========================================
 // ROTAS
@@ -27,19 +44,64 @@ app.get('/', (req, res) => {
   res.json({
     message: '🏛️ Alexandria API está rodando!',
     version: '1.0.0',
+    storage: users.mode,
   });
 });
 
 // Rotas de autenticação
 app.use('/api/auth', authRoutes);
 
+// Rotas de livros (Open Library)
+app.use('/api/books', bookRoutes);
+
+app.use('/api/avaliacoes', avaliacaoRoutes);
+app.use('/api/biblioteca', bibliotecaRoutes);
+
+
 // ==========================================
 // INICIAR SERVIDOR
 // ==========================================
-app.listen(PORT, () => {
-  console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
-  console.log(`📍 Rotas disponíveis:`);
-  console.log(`   POST /api/auth/register  - Cadastrar usuário`);
-  console.log(`   POST /api/auth/login     - Fazer login`);
-  console.log(`   GET  /api/auth/profile   - Ver perfil (requer token)`);
+async function start() {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET não configurado. Crie backend/.env antes de iniciar.');
+  }
+
+  // RESET_CODE_DEBUG devolve o código de redefinição na resposta da API: em produção,
+  // qualquer pessoa trocaria a senha de qualquer conta
+  if (process.env.RESET_CODE_DEBUG === 'true' && process.env.NODE_ENV === 'production') {
+    throw new Error('RESET_CODE_DEBUG=true não pode ser usado com NODE_ENV=production.');
+  }
+
+  if (!mailer.isConfigured() && process.env.RESET_CODE_DEBUG !== 'true') {
+    console.error(
+      '⚠️ Redefinição de senha indisponível: preencha SMTP_USER e SMTP_PASS (ou, só no desenvolvimento, RESET_CODE_DEBUG=true).',
+    );
+  }
+
+  await users.initialize();
+  await passwordResets.initialize();
+  await avaliacoes.initialize();
+  await comentarios.initialize();
+  await biblioteca.initialize();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
+    console.log(`💾 Persistência: ${users.mode}`);
+    console.log(`📍 Rotas disponíveis:`);
+    console.log(`   POST /api/auth/register  - Cadastrar usuário`);
+    console.log(`   POST /api/auth/login     - Fazer login`);
+    console.log(`   GET  /api/auth/profile   - Ver perfil (requer token)`);
+    console.log(`   GET/PUT/DELETE /api/auth/profile/photo - Foto de perfil (requer token)`);
+    console.log(`   POST /api/auth/forgot-password - Pedir código de redefinição por e-mail`);
+    console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
+    console.log(`   GET  /api/books/search   - Buscar livros (requer token)`);
+    console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
+    console.log(`   POST /api/avaliacoes     - Avaliar um livro (requer token)`);
+    console.log(`   PUT/DELETE /api/avaliacoes/:id - Editar ou excluir a própria avaliação (requer token)`);
+    console.log(`   GET  /api/avaliacoes/livro/:livroId | /minhas | /:id - Ler avaliações (requer token)`);
+  });
+}
+
+start().catch((error) => {
+  console.error(`❌ Não foi possível iniciar a API: ${error.message}`);
+  process.exit(1);
 });

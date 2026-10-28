@@ -1,69 +1,116 @@
-import { getAuth } from '@/services/auth-storage';
+import { getApiConfig } from '@/constants/env';
+import { clearAuth, getAuth } from '@/services/auth-storage';
 
-const MOCK_MODE = true;
-
-export const API_BASE_URL = 'http://localhost:8080';
-
-type ApiRequestOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  body?: unknown;
-  token?: string;
-};
-
-type MockProfile = {
-  id: number;
-  name: string;
-  email: string;
-};
-
-async function mockRequest(path: string, options: ApiRequestOptions): Promise<unknown> {
-  await new Promise((resolve) => setTimeout(resolve, 400));
-
-  if (path === '/api/auth/profile' && options.method === 'PUT') {
-    const body = options.body as Partial<MockProfile>;
-    const current = await getAuth();
-
-    return {
-      id: current?.id ?? 1,
-      name: body.name ?? current?.name ?? '',
-      email: body.email ?? current?.email ?? '',
-    };
+export type ApiErrorKind = 'validation' | 'network' | 'server' | 'config' | 'auth' | 'timeout';
+export class ApiError extends Error {
+  constructor(
+    public kind: ApiErrorKind,
+    message: string,
+    public status?: number,
+    public fieldErrors?: Record<string, string>,
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
-
-  if (path === '/api/auth/profile') {
-    const current = await getAuth();
-
-    return {
-      id: current?.id ?? 1,
-      name: current?.name ?? '',
-      email: current?.email ?? '',
-    };
-  }
-
-  throw new Error('Rota mock não implementada: ' + path);
 }
 
-export async function apiRequest(path: string, options: ApiRequestOptions = {}): Promise<any> {
-  if (MOCK_MODE) {
-    return mockRequest(path, options);
+type RequestOptions = {
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  body?: unknown;
+  authenticated?: boolean;
+  timeoutMs?: number;
+  /** Cancelamento pedido por quem chamou; a requisição rejeita com o erro original do abort. */
+  signal?: AbortSignal;
+};
+
+function errorBody(value: unknown) {
+  if (!value || typeof value !== 'object') return {};
+  const body = value as Record<string, unknown>;
+  const message =
+    typeof body.error === 'string'
+      ? body.error
+      : typeof body.message === 'string'
+        ? body.message
+        : undefined;
+  const fields =
+    body.errors && typeof body.errors === 'object'
+      ? Object.fromEntries(
+          Object.entries(body.errors).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        )
+      : undefined;
+  return { message, fields };
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  let config: ReturnType<typeof getApiConfig>;
+  try {
+    config = getApiConfig();
+  } catch (error) {
+    throw new ApiError('config', error instanceof Error ? error.message : 'Configuração inválida.');
   }
-
-  const { method = 'GET', body, token } = options;
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(data?.message ?? 'Não foi possível concluir a requisição.');
+  if (!path.startsWith('/') || path.startsWith('//'))
+    throw new ApiError('config', 'Caminho de API inválido.');
+  const { method = 'GET', body, authenticated = true } = options;
+  const session = authenticated ? await getAuth() : null;
+  if (authenticated && !session)
+    throw new ApiError('auth', 'Entre na sua conta para continuar.', 401);
+  const timeoutMs = options.timeoutMs ?? config.timeoutMs;
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(options.signal?.reason);
+  options.signal?.addEventListener('abort', abortFromCaller, { once: true });
+  if (options.signal?.aborted) abortFromCaller();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${config.baseUrl}${path}`, {
+      method,
+      headers: {
+        Accept: 'application/json',
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(session ? { Authorization: `Bearer ${session.token}` } : {}),
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (response.status === 401 && session) await clearAuth(session.token);
+    const text = await response.text();
+    let data: unknown;
+    try {
+      data = text ? JSON.parse(text) : undefined;
+    } catch {
+      if (response.ok)
+        throw new ApiError('server', 'Resposta inválida do servidor.', response.status);
+    }
+    if (!response.ok) {
+      const { message, fields } = errorBody(data);
+      const kind =
+        response.status === 401
+          ? 'auth'
+          : [400, 409, 422].includes(response.status)
+            ? 'validation'
+            : 'server';
+      throw new ApiError(
+        kind,
+        message ??
+          (kind === 'auth'
+            ? 'Sua sessão expirou. Entre novamente.'
+            : `Não foi possível concluir a solicitação (HTTP ${response.status}).`),
+        response.status,
+        fields,
+      );
+    }
+    if (!text && response.status !== 204)
+      throw new ApiError('server', 'Resposta vazia do servidor.', response.status);
+    return data as T;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    if (options.signal?.aborted) throw error;
+    if (controller.signal.aborted)
+      throw new ApiError('timeout', 'O servidor demorou para responder. Tente novamente.');
+    throw new ApiError('network', 'Não foi possível conectar ao servidor. Verifique sua conexão.');
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener('abort', abortFromCaller);
   }
-
-  return data;
 }

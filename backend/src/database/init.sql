@@ -9,3 +9,54 @@ CREATE TABLE IF NOT EXISTS users (
   senha_hash VARCHAR(255) NOT NULL,    -- Senha hasheada com bcrypt (nunca texto puro!)
   criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP  -- Data de criação automática
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS foto TEXT;
+
+-- Pedidos de redefinição de senha
+CREATE TABLE IF NOT EXISTS password_resets (
+  id SERIAL PRIMARY KEY,                                        -- ID auto-incrementado
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,  -- Dono do pedido
+  token_hash CHAR(64) NOT NULL,                                 -- Hash SHA-256 do código de 6 dígitos (o código só vai no e-mail)
+  expira_em TIMESTAMPTZ NOT NULL,                               -- Prazo do código
+  usado_em TIMESTAMPTZ,                                         -- Preenchido quando o código é usado ou derrubado
+  tentativas INTEGER NOT NULL DEFAULT 0,                        -- Tentativas gastas; depois da quinta o código para de valer
+  criado_em TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP               -- Data do pedido
+);
+
+CREATE INDEX IF NOT EXISTS password_resets_user_id_idx ON password_resets (user_id);
+
+-- Bancos criados na época do link: ganham o contador e perdem o UNIQUE do hash
+ALTER TABLE password_resets ADD COLUMN IF NOT EXISTS tentativas INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE password_resets DROP CONSTRAINT IF EXISTS password_resets_token_hash_key;
+
+CREATE TABLE IF NOT EXISTS avaliacoes (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  livro_id VARCHAR(20) NOT NULL,
+  livro_titulo TEXT NOT NULL,
+  livro_autores TEXT[] NOT NULL DEFAULT '{}',
+  livro_capa TEXT,
+  nota SMALLINT NOT NULL CHECK (nota BETWEEN 1 AND 5),
+  resenha TEXT,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (user_id, livro_id)
+);
+
+CREATE INDEX IF NOT EXISTS avaliacoes_livro_id_idx ON avaliacoes (livro_id);
+
+-- Comentários nas avaliações. Respostas apontam para o comentário pai (pai_id), em quantos níveis quiserem.
+-- Apagar só marca apagado_em e tira o texto: as respostas de outras pessoas continuam
+CREATE TABLE IF NOT EXISTS comentarios (
+  id SERIAL PRIMARY KEY,
+  avaliacao_id INTEGER NOT NULL REFERENCES avaliacoes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pai_id INTEGER REFERENCES comentarios(id) ON DELETE CASCADE,  -- NULL: comentário direto na avaliação
+  texto TEXT,                                                   -- NULL só depois de apagado
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  apagado_em TIMESTAMPTZ,
+  CHECK ((texto IS NULL) = (apagado_em IS NOT NULL))
+);
+
+CREATE INDEX IF NOT EXISTS comentarios_avaliacao_id_idx ON comentarios (avaliacao_id);

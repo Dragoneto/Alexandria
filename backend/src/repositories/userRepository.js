@@ -1,0 +1,213 @@
+const fs = require('node:fs/promises');
+const path = require('node:path');
+
+const pool = require('../config/database');
+
+const localFile = process.env.LOCAL_DB_FILE
+  ? path.resolve(process.env.LOCAL_DB_FILE)
+  : path.resolve(__dirname, '../../.data/users.json');
+let pendingWrite = Promise.resolve();
+
+function usePostgres() {
+  return pool !== null;
+}
+
+async function readLocalUsers() {
+  try {
+    const parsed = JSON.parse(await fs.readFile(localFile, 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    if (error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+async function writeLocalUsers(users) {
+  await fs.mkdir(path.dirname(localFile), { recursive: true });
+  const temporaryFile = `${localFile}.tmp`;
+  await fs.writeFile(temporaryFile, JSON.stringify(users, null, 2), 'utf8');
+  await fs.rename(temporaryFile, localFile);
+}
+
+function publicProfile(user) {
+  const { senha_hash: _password, foto: _photo, ...profile } = user;
+  return profile;
+}
+
+function serializeWrite(operation) {
+  const next = pendingWrite.then(operation, operation);
+  pendingWrite = next.catch(() => {});
+  return next;
+}
+
+async function initialize() {
+  if (usePostgres()) {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(100) NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        senha_hash VARCHAR(255) NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS foto TEXT');
+    return;
+  }
+
+  await fs.mkdir(path.dirname(localFile), { recursive: true });
+}
+
+async function findByEmail(email) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    return result.rows[0] ?? null;
+  }
+
+  const users = await readLocalUsers();
+  return users.find((user) => user.email === email) ?? null;
+}
+
+async function findById(id) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'SELECT id, nome, email, criado_em FROM users WHERE id = $1',
+      [id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  const users = await readLocalUsers();
+  const user = users.find((candidate) => candidate.id === Number(id));
+  if (!user) return null;
+  return publicProfile(user);
+}
+
+/** Só id e nome: as listas de avaliações nunca levam e-mail nem foto de quem avaliou. */
+async function findNames(ids) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT id, nome FROM users WHERE id = ANY($1::int[])', [ids]);
+    return result.rows;
+  }
+
+  return (await readLocalUsers()).filter((user) => ids.includes(user.id)).map(({ id, nome }) => ({ id, nome }));
+}
+
+async function findPhoto(id) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT foto FROM users WHERE id = $1', [id]);
+    return result.rows[0] ? { foto: result.rows[0].foto ?? null } : null;
+  }
+
+  const users = await readLocalUsers();
+  const user = users.find((candidate) => candidate.id === Number(id));
+  return user ? { foto: user.foto ?? null } : null;
+}
+
+async function updatePhoto(id, foto) {
+  if (usePostgres()) {
+    const result = await pool.query('UPDATE users SET foto = $1 WHERE id = $2 RETURNING id', [
+      foto,
+      id,
+    ]);
+    return result.rowCount > 0;
+  }
+
+  return serializeWrite(async () => {
+    const users = await readLocalUsers();
+    const index = users.findIndex((user) => user.id === Number(id));
+    if (index === -1) return false;
+    const updatedUsers = [...users];
+    updatedUsers[index] = { ...users[index], foto };
+    await writeLocalUsers(updatedUsers);
+    return true;
+  });
+}
+
+async function create({ nome, email, senhaHash }) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'INSERT INTO users (nome, email, senha_hash) VALUES ($1, $2, $3) RETURNING id, nome, email, criado_em',
+      [nome, email, senhaHash],
+    );
+    return result.rows[0];
+  }
+
+  return serializeWrite(async () => {
+    const users = await readLocalUsers();
+    if (users.some((user) => user.email === email)) {
+      const error = new Error('Email já cadastrado');
+      error.code = 'DUPLICATE_EMAIL';
+      throw error;
+    }
+    const user = {
+      id: users.reduce((largest, candidate) => Math.max(largest, candidate.id), 0) + 1,
+      nome,
+      email,
+      senha_hash: senhaHash,
+      criado_em: new Date().toISOString(),
+    };
+    await writeLocalUsers([...users, user]);
+    return publicProfile(user);
+  });
+}
+
+async function update(id, { nome, email }) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'UPDATE users SET nome = $1, email = $2 WHERE id = $3 RETURNING id, nome, email, criado_em',
+      [nome, email, id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return serializeWrite(async () => {
+    const users = await readLocalUsers();
+    const index = users.findIndex((user) => user.id === Number(id));
+    if (index === -1) return null;
+    if (users.some((user) => user.email === email && user.id !== Number(id))) {
+      const error = new Error('Email já cadastrado');
+      error.code = 'DUPLICATE_EMAIL';
+      throw error;
+    }
+    const user = { ...users[index], nome, email };
+    const updatedUsers = [...users];
+    updatedUsers[index] = user;
+    await writeLocalUsers(updatedUsers);
+    return publicProfile(user);
+  });
+}
+
+async function updatePassword(id, senhaHash) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'UPDATE users SET senha_hash = $1 WHERE id = $2 RETURNING id, nome, email, criado_em',
+      [senhaHash, id],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return serializeWrite(async () => {
+    const users = await readLocalUsers();
+    const index = users.findIndex((user) => user.id === Number(id));
+    if (index === -1) return null;
+    const user = { ...users[index], senha_hash: senhaHash };
+    const updatedUsers = [...users];
+    updatedUsers[index] = user;
+    await writeLocalUsers(updatedUsers);
+    return publicProfile(user);
+  });
+}
+
+module.exports = {
+  mode: usePostgres() ? 'postgres' : 'local-file',
+  initialize,
+  findByEmail,
+  findById,
+  findNames,
+  findPhoto,
+  updatePhoto,
+  create,
+  update,
+  updatePassword,
+};

@@ -1,92 +1,185 @@
-/**
- * Chamadas de autenticação ao backend.
- *
- * Por enquanto só o forgot-password (issue #11). Quando o cliente HTTP
- * compartilhado da issue #3 existir, as chamadas daqui passam a usá-lo.
- */
+import { ApiError, apiRequest } from '@/services/api';
+import { clearAuth, getAuth, saveAuth, type StoredUser } from '@/services/auth-storage';
 
-const REQUEST_TIMEOUT_MS = 15000;
+export { ApiError } from '@/services/api';
+export type UserProfile = Omit<StoredUser, 'token'>;
+type UserResponse = { user: { id: number; nome: string; email: string } };
+type LoginResponse = UserResponse & { token: string };
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Tamanho mínimo exigido pelo backend em /api/auth/reset-password. */
+export const MIN_PASSWORD_LENGTH = 8;
+const PASSWORD_PATTERN = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
+export const PASSWORD_HINT = `Mínimo de ${MIN_PASSWORD_LENGTH} caracteres, com letra e número.`;
+/** O backend manda por e-mail um código de 6 dígitos para redefinir a senha. */
+const RESET_CODE_PATTERN = /^\d{6}$/;
 
-export type ForgotPasswordResponse = {
-  message: string;
-  resetToken: string | null;
-  resetUrl: string | null;
-};
+function normalizeEmail(email: string) {
+  const normalized = email.trim();
+  if (!EMAIL_PATTERN.test(normalized)) throw new ApiError('validation', 'Digite um e-mail válido.');
+  return normalized;
+}
 
-export type ApiErrorKind = 'validation' | 'network' | 'server' | 'config';
+function validatePassword(password: string) {
+  if (!PASSWORD_PATTERN.test(password))
+    throw new ApiError(
+      'validation',
+      `A senha precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres, com letra e número.`,
+    );
+}
 
-export class ApiError extends Error {
-  kind: ApiErrorKind;
-  fieldErrors?: Record<string, string>;
+function profileFrom(response: UserResponse): UserProfile {
+  const user = response?.user;
+  if (
+    !user ||
+    !Number.isInteger(user.id) ||
+    user.id <= 0 ||
+    typeof user.nome !== 'string' ||
+    typeof user.email !== 'string'
+  ) {
+    throw new ApiError('server', 'Dados de usuário inválidos recebidos do servidor.');
+  }
+  return { id: user.id, name: user.nome, email: user.email };
+}
 
-  constructor(kind: ApiErrorKind, message: string, fieldErrors?: Record<string, string>) {
-    super(message);
-    this.name = 'ApiError';
-    this.kind = kind;
-    this.fieldErrors = fieldErrors;
+export async function registerUser(input: {
+  name: string;
+  email: string;
+  password: string;
+  confirmation: string;
+}) {
+  if (!input.name.trim() || !input.password)
+    throw new ApiError('validation', 'Preencha todos os campos.');
+  validatePassword(input.password);
+  if (input.password !== input.confirmation)
+    throw new ApiError('validation', 'As senhas não coincidem.');
+  const response = await apiRequest<UserResponse>('/api/auth/register', {
+    method: 'POST',
+    authenticated: false,
+    body: { nome: input.name.trim(), email: normalizeEmail(input.email), senha: input.password },
+  });
+  // Cadastro não cria uma sessão: o backend só fornece token no login.
+  return profileFrom(response);
+}
+
+export async function loginUser(email: string, password: string): Promise<StoredUser> {
+  if (!password) throw new ApiError('validation', 'Informe sua senha.');
+  const response = await apiRequest<LoginResponse>('/api/auth/login', {
+    method: 'POST',
+    authenticated: false,
+    body: { email: normalizeEmail(email), senha: password },
+  });
+  if (typeof response?.token !== 'string' || !response.token || response.token === 'mock-token') {
+    throw new ApiError('server', 'O servidor não retornou uma sessão válida.');
+  }
+  const session = { ...profileFrom(response), token: response.token };
+  await saveAuth(session);
+  return session;
+}
+
+export async function getProfile(): Promise<UserProfile> {
+  return profileFrom(await apiRequest<UserResponse>('/api/auth/profile'));
+}
+
+export async function restoreSession(): Promise<StoredUser | null> {
+  const stored = await getAuth();
+  if (!stored) return null;
+  try {
+    const profile = await getProfile();
+    // Não restaurar uma sessão se houve logout enquanto a requisição estava em andamento.
+    return await saveAuth({ ...profile, token: stored.token }, stored.token);
+  } catch (error) {
+    if (error instanceof ApiError && [401, 404].includes(error.status ?? 0)) {
+      await clearAuth(stored.token);
+      return null;
+    }
+    if (error instanceof ApiError && ['network', 'timeout', 'server'].includes(error.kind)) {
+      const current = await getAuth();
+      return current?.token === stored.token ? current : null;
+    }
+    throw error;
   }
 }
 
-/** Corpo de erro do backend (ErrorResponse do Spring). */
-type ErrorBody = {
-  message?: string;
-  errors?: Record<string, string> | null;
-};
+export async function updateProfile(input: { name: string; email: string }): Promise<UserProfile> {
+  const name = input.name.trim();
+  if (!name) throw new ApiError('validation', 'Informe seu nome.');
 
-type RequestOptions = {
-  timeoutMs?: number;
-};
+  const response = await apiRequest<UserResponse>('/api/auth/profile', {
+    method: 'PUT',
+    body: { nome: name, email: normalizeEmail(input.email) },
+  });
+  const profile = profileFrom(response);
 
-export async function requestPasswordReset(
-  email: string,
-  { timeoutMs = REQUEST_TIMEOUT_MS }: RequestOptions = {},
-): Promise<ForgotPasswordResponse> {
-  // O Expo só embute a variável quando ela aparece escrita por extenso
-  const configuredUrl = process.env.EXPO_PUBLIC_API_URL;
-  const baseUrl = configuredUrl?.replace(/\/+$/, '');
+  // Atualiza a sessão salva no aparelho para o app inteiro enxergar os dados novos
+  const stored = await getAuth();
+  if (stored) await saveAuth({ ...profile, token: stored.token }, stored.token);
 
-  if (!baseUrl) {
-    throw new ApiError('config', 'EXPO_PUBLIC_API_URL não configurada. Veja mobile/.env.example');
+  return profile;
+}
+
+type PhotoResponse = { foto: string | null };
+const PHOTO_PATH = '/api/auth/profile/photo';
+
+function photoFrom(response: PhotoResponse): string | null {
+  const photo = response?.foto;
+  if (photo === null) return null;
+  if (typeof photo === 'string' && photo.startsWith('data:image/')) return photo;
+  throw new ApiError('server', 'Foto de perfil inválida recebida do servidor.');
+}
+
+export async function getProfilePhoto(): Promise<string | null> {
+  return photoFrom(await apiRequest<PhotoResponse>(PHOTO_PATH));
+}
+
+export async function saveProfilePhoto(base64Jpeg: string): Promise<string | null> {
+  if (!base64Jpeg) throw new ApiError('validation', 'Não foi possível ler a foto escolhida.');
+  return photoFrom(
+    await apiRequest<PhotoResponse>(PHOTO_PATH, {
+      method: 'PUT',
+      body: { foto: `data:image/jpeg;base64,${base64Jpeg}` },
+    }),
+  );
+}
+
+export async function removeProfilePhoto(): Promise<void> {
+  await apiRequest<PhotoResponse>(PHOTO_PATH, { method: 'DELETE' });
+}
+
+export function logoutUser(): Promise<void> {
+  // O backend usa JWT sem endpoint de revogação; o logout remove a sessão deste dispositivo.
+  return clearAuth();
+}
+
+export async function forgotPassword(email: string): Promise<void> {
+  const response = await apiRequest<{ message: string }>('/api/auth/forgot-password', {
+    method: 'POST',
+    authenticated: false,
+    body: { email: normalizeEmail(email) },
+  });
+  if (typeof response?.message !== 'string') {
+    throw new ApiError('server', 'Resposta inválida ao solicitar recuperação de senha.');
   }
+}
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  let response: Response;
-
-  try {
-    response = await fetch(`${baseUrl}/api/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-      signal: controller.signal,
-    });
-  } catch {
-    throw new ApiError('network', 'Não foi possível conectar ao servidor.');
-  } finally {
-    clearTimeout(timer);
+export async function resetPassword(input: {
+  email: string;
+  code: string;
+  password: string;
+  confirmation: string;
+}): Promise<void> {
+  const email = normalizeEmail(input.email);
+  const code = input.code.trim();
+  if (!RESET_CODE_PATTERN.test(code))
+    throw new ApiError('validation', 'Digite o código de 6 dígitos que chegou no seu e-mail.');
+  validatePassword(input.password);
+  if (input.password !== input.confirmation)
+    throw new ApiError('validation', 'As senhas não coincidem.');
+  const response = await apiRequest<{ message: string }>('/api/auth/reset-password', {
+    method: 'POST',
+    authenticated: false,
+    body: { email, codigo: code, senha: input.password },
+  });
+  if (typeof response?.message !== 'string') {
+    throw new ApiError('server', 'Resposta inválida ao redefinir a senha.');
   }
-
-  let body: unknown;
-
-  try {
-    body = await response.json();
-  } catch {
-    throw new ApiError('server', `Resposta inválida do servidor (HTTP ${response.status}).`);
-  }
-
-  if (response.status === 400) {
-    const { message, errors } = (body ?? {}) as ErrorBody;
-    const fieldErrors = errors ?? undefined;
-
-    throw new ApiError('validation', fieldErrors?.email ?? message ?? 'Dados inválidos.', fieldErrors);
-  }
-
-  if (!response.ok) {
-    const { message } = (body ?? {}) as ErrorBody;
-
-    throw new ApiError('server', message ?? `Erro HTTP ${response.status}.`);
-  }
-
-  return body as ForgotPasswordResponse;
 }
