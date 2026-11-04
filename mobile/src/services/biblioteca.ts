@@ -9,6 +9,21 @@ export type BibliotecaItem = {
   livro: { id: string; titulo: string; autores: string[]; capa: string | null };
 };
 
+export type FiltroBiblioteca = {
+  status?: StatusLeitura | null;
+  somenteFavoritos?: boolean;
+};
+
+// Filtra a lista já carregada; status e favoritos se combinam.
+export function filtrarBiblioteca(
+  itens: BibliotecaItem[],
+  { status, somenteFavoritos = false }: FiltroBiblioteca = {},
+): BibliotecaItem[] {
+  return itens.filter(
+    (item) => (!status || item.statusLeitura === status) && (!somenteFavoritos || item.favorito),
+  );
+}
+
 export async function listarBiblioteca(
   signal?: AbortSignal,
   status?: StatusLeitura,

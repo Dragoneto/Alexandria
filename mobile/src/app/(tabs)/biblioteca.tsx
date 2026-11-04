@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,6 +19,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import {
   atualizarItemBiblioteca,
+  filtrarBiblioteca,
   listarBiblioteca,
   removerDaBiblioteca,
   type BibliotecaItem,
@@ -32,7 +33,9 @@ const STATUS_LEITURA: Record<string, string> = {
   ABANDONADO: 'Abandonado',
 };
 
-const FILTERS = [
+type FiltroStatus = StatusLeitura | 'TODOS';
+
+const FILTERS: { label: string; value: FiltroStatus }[] = [
   { label: 'Todos', value: 'TODOS' },
   { label: 'Quero ler', value: 'QUERO_LER' },
   { label: 'Lendo', value: 'LENDO' },
@@ -42,10 +45,12 @@ const FILTERS = [
 
 export default function Biblioteca() {
   const theme = useTheme();
+  const router = useRouter();
   const [items, setItems] = useState<BibliotecaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
-  const [filter, setFilter] = useState('TODOS');
+  const [filter, setFilter] = useState<FiltroStatus>('TODOS');
+  const [somenteFavoritos, setSomenteFavoritos] = useState(false);
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
 
@@ -74,10 +79,25 @@ export default function Biblioteca() {
     }, []),
   );
 
-  const filteredItems = useMemo(() => {
-    if (filter === 'TODOS') return items;
-    return items.filter((i) => i.statusLeitura === filter);
-  }, [filter, items]);
+  const filteredItems = useMemo(
+    () =>
+      filtrarBiblioteca(items, {
+        status: filter === 'TODOS' ? null : filter,
+        somenteFavoritos,
+      }),
+    [filter, somenteFavoritos, items],
+  );
+
+  const emptyMessage =
+    items.length === 0
+      ? 'Adicione livros pela tela Explorar para preencher sua biblioteca.'
+      : somenteFavoritos
+        ? 'Toque em Favoritar num livro para ele aparecer aqui, ou troque o filtro.'
+        : 'Escolha outro filtro para ver os demais livros.';
+
+  const abrirLivro = (livroId: string) => {
+    router.push({ pathname: '/livro/[id]', params: { id: livroId } });
+  };
 
   const counters = useMemo(() => {
     return items.reduce(
@@ -223,6 +243,21 @@ export default function Biblioteca() {
                   </TouchableOpacity>
                 );
               })}
+              <TouchableOpacity
+                onPress={() => setSomenteFavoritos((atual) => !atual)}
+                accessibilityRole="togglebutton"
+                accessibilityState={{ checked: somenteFavoritos }}
+                accessibilityLabel="Mostrar só favoritos"
+                style={[
+                  styles.filterChip,
+                  { borderColor: somenteFavoritos ? theme.accent : theme.border },
+                ]}>
+                <ThemedText
+                  themeColor={somenteFavoritos ? 'accent' : 'textSecondary'}
+                  style={styles.filterChipText}>
+                  Favoritos
+                </ThemedText>
+              </TouchableOpacity>
             </ScrollView>
 
             {/* LOADING / ERRO / VAZIO / GRID */}
@@ -246,38 +281,45 @@ export default function Biblioteca() {
                   Nenhum livro neste filtro
                 </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.emptyText}>
-                  Adicione livros pela tela Explorar para preencher sua biblioteca.
+                  {emptyMessage}
                 </ThemedText>
               </ThemedView>
             ) : (
               <View style={styles.grid}>
                 {filteredItems.map((item) => (
                   <ThemedView key={item.id} type="backgroundElement" style={styles.card}>
-                    {item.livro.capa ? (
-                      <Image
-                        source={{ uri: item.livro.capa }}
-                        style={[styles.cover, { backgroundColor: theme.backgroundSelected }]}
-                        contentFit="contain"
-                        accessibilityLabel={`Capa de ${item.livro.titulo}`}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.coverPlaceholder,
-                          { backgroundColor: theme.backgroundSelected },
-                        ]}>
-                        <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
-                          {item.livro.titulo}
+                    <TouchableOpacity
+                      onPress={() => abrirLivro(item.livro.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Abrir detalhes de ${item.livro.titulo}`}>
+                      {item.livro.capa ? (
+                        <Image
+                          source={{ uri: item.livro.capa }}
+                          style={[styles.cover, { backgroundColor: theme.backgroundSelected }]}
+                          contentFit="contain"
+                          accessibilityLabel={`Capa de ${item.livro.titulo}`}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.coverPlaceholder,
+                            { backgroundColor: theme.backgroundSelected },
+                          ]}>
+                          <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+                            {item.livro.titulo}
+                          </ThemedText>
+                        </View>
+                      )}
+
+                      <View style={styles.cardHeading}>
+                        <ThemedText style={styles.cardTitle}>{item.livro.titulo}</ThemedText>
+                        <ThemedText themeColor="textSecondary" style={styles.cardAuthor}>
+                          {item.livro.autores.join(', ') || 'Autoria não informada'}
                         </ThemedText>
                       </View>
-                    )}
+                    </TouchableOpacity>
 
-                    <View style={styles.cardBody}>
-                      <ThemedText style={styles.cardTitle}>{item.livro.titulo}</ThemedText>
-                      <ThemedText themeColor="textSecondary" style={styles.cardAuthor}>
-                        {item.livro.autores.join(', ') || 'Autoria não informada'}
-                      </ThemedText>
-
+                    <View style={styles.cardActions}>
                       <TouchableOpacity
                         disabled={savingStatusIds.includes(item.id)}
                         style={[styles.statusButton, { borderColor: theme.border }]}
@@ -393,7 +435,13 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   coverPlaceholderText: { fontWeight: '800', textAlign: 'center' },
-  cardBody: { padding: Spacing.three, gap: 8 },
+  cardHeading: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, gap: 8 },
+  cardActions: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.three,
+    paddingTop: 8,
+    gap: 8,
+  },
   cardTitle: { fontSize: 17, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   statusButton: {

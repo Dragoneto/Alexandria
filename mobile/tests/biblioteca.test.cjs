@@ -38,3 +38,22 @@ test('atualiza status e favorito pelo endpoint da biblioteca', async () => {
     item,
   );
 });
+
+test('filtra a lista carregada combinando status e favoritos', () => {
+  const { biblioteca } = createServices();
+  const itens = [
+    { id: 1, statusLeitura: 'LENDO', favorito: true },
+    { id: 2, statusLeitura: 'LENDO', favorito: false },
+    { id: 3, statusLeitura: 'LIDO', favorito: true },
+    { id: 4, statusLeitura: 'QUERO_LER', favorito: false },
+  ];
+  const ids = (filtro) => biblioteca.filtrarBiblioteca(itens, filtro).map((item) => item.id);
+
+  assert.deepEqual(ids(), [1, 2, 3, 4]);
+  assert.deepEqual(ids({ status: null }), [1, 2, 3, 4]);
+  assert.deepEqual(ids({ status: 'LENDO' }), [1, 2]);
+  assert.deepEqual(ids({ somenteFavoritos: true }), [1, 3]);
+  assert.deepEqual(ids({ status: 'LENDO', somenteFavoritos: true }), [1]);
+  assert.deepEqual(ids({ status: 'QUERO_LER', somenteFavoritos: true }), []);
+  assert.deepEqual(biblioteca.filtrarBiblioteca([], { somenteFavoritos: true }), []);
+});
