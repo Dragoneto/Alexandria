@@ -14,13 +14,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
+import { StatusNaBiblioteca } from '@/components/status-na-biblioteca';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAvaliacoesDoLivro } from '@/hooks/use-avaliacoes-do-livro';
+import { useItemDaBiblioteca } from '@/hooks/use-item-da-biblioteca';
 import { useTheme } from '@/hooks/use-theme';
-import { ApiError } from '@/services/api';
-import { adicionarNaBiblioteca } from '@/services/biblioteca';
 import {
   describeSearchError,
   getBookDetail,
@@ -65,8 +65,8 @@ export default function DetalheDoLivro() {
   const [expanded, setExpanded] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
   const [linkError, setLinkError] = useState('');
-  const [addState, setAddState] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [addError, setAddError] = useState('');
+  // A Open Library pode redirecionar a obra; a biblioteca guarda o id que veio no detalhe.
+  const biblioteca = useItemDaBiblioteca(book?.id ?? '');
   const avaliacoes = useAvaliacoesDoLivro(id);
   const minhaAvaliacao = avaliacoes.minha;
   const aguardandoAvaliacoes = avaliacoes.carregando && !avaliacoes.dados;
@@ -104,25 +104,6 @@ export default function DetalheDoLivro() {
       await Linking.openURL(url);
     } catch {
       setLinkError('Não foi possível abrir a página da obra.');
-    }
-  };
-
-  const adicionar = async () => {
-    if (!book) return;
-    setAddState('saving');
-    setAddError('');
-    try {
-      await adicionarNaBiblioteca(book.id);
-      setAddState('saved');
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 409) {
-        setAddState('saved'); // já estava na biblioteca
-        return;
-      }
-      setAddState('idle');
-      setAddError(
-        error instanceof ApiError ? error.message : 'Não foi possível adicionar o livro.',
-      );
     }
   };
 
@@ -253,27 +234,17 @@ export default function DetalheDoLivro() {
                   </ThemedText>
                 )}
 
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  disabled={addState !== 'idle'}
-                  onPress={() => void adicionar()}
-                  style={[
-                    styles.addButton,
-                    { backgroundColor: theme.accent, opacity: addState === 'idle' ? 1 : 0.6 },
-                  ]}>
-                  <ThemedText style={[styles.addButtonText, { color: theme.background }]}>
-                    {addState === 'saving'
-                      ? 'Adicionando…'
-                      : addState === 'saved'
-                        ? 'Na sua biblioteca ✓'
-                        : 'Adicionar à biblioteca'}
-                  </ThemedText>
-                </TouchableOpacity>
-                {!!addError && (
-                  <ThemedText themeColor="danger" style={styles.addHint}>
-                    {addError}
-                  </ThemedText>
-                )}
+                <StatusNaBiblioteca
+                  item={biblioteca.item}
+                  carregando={biblioteca.carregando}
+                  erro={biblioteca.erro}
+                  salvando={biblioteca.salvando}
+                  erroAcao={biblioteca.erroAcao}
+                  onTentarNovamente={biblioteca.tentarNovamente}
+                  onAdicionar={() => void biblioteca.adicionar()}
+                  onTrocarStatus={(status) => void biblioteca.trocarStatus(status)}
+                  onRemover={() => void biblioteca.remover()}
+                />
 
                 <TouchableOpacity
                   accessibilityRole="button"
@@ -405,13 +376,6 @@ const styles = StyleSheet.create({
   description: { marginTop: Spacing.two, fontSize: 15, lineHeight: 23 },
   link: { fontSize: 13, fontWeight: '800', paddingVertical: Spacing.two },
   linkError: { fontSize: 13, lineHeight: 20 },
-  addButton: {
-    marginTop: Spacing.four,
-    minHeight: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   addButtonText: { fontSize: 14, fontWeight: '800' },
   rateButton: {
     marginTop: Spacing.two,
@@ -421,6 +385,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addHint: { marginTop: Spacing.two, marginBottom: Spacing.two, fontSize: 12, textAlign: 'center' },
   attribution: { marginTop: Spacing.four, fontSize: 11, lineHeight: 17, textAlign: 'center' },
 });
