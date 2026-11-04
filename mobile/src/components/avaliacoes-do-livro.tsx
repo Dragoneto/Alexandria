@@ -4,7 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { resumoAvaliacoes, type AvaliacoesDoLivro as Dados } from '@/services/avaliacoes';
+import { estrelas, resumoAvaliacoes, type AvaliacoesDoLivro as Dados } from '@/services/avaliacoes';
 
 type Props = {
   dados: Dados | null;
@@ -15,10 +15,6 @@ type Props = {
   onTentarNovamente: () => void;
   onCarregarMais: () => void;
 };
-
-function estrelas(nota: number): string {
-  return '★'.repeat(nota) + '☆'.repeat(Math.max(0, 5 - nota));
-}
 
 export function AvaliacoesDoLivro({
   dados,

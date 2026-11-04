@@ -123,3 +123,19 @@ export function resumoAvaliacoes(total: number, media: number | null): string {
   const quantidade = total === 1 ? '1 avaliação' : `${total} avaliações`;
   return `Média ${formatarMedia(media)} de 5 · ${quantidade}`;
 }
+
+export function estrelas(nota: number): string {
+  const cheias = Math.min(5, Math.max(0, Math.round(nota)));
+  return '★'.repeat(cheias) + '☆'.repeat(5 - cheias);
+}
+
+export async function listarMinhasAvaliacoes(signal?: AbortSignal): Promise<AvaliacaoLida[]> {
+  const result = await apiRequest<{ avaliacoes?: AvaliacaoLida[] }>('/api/avaliacoes/minhas', {
+    signal,
+  });
+  return Array.isArray(result?.avaliacoes) ? result.avaliacoes : [];
+}
+
+export async function excluirAvaliacao(id: number): Promise<void> {
+  await apiRequest(`/api/avaliacoes/${id}`, { method: 'DELETE' });
+}

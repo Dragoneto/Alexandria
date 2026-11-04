@@ -102,7 +102,9 @@ export default function AvaliarLivro() {
       if (avaliacaoId !== null) await atualizarAvaliacao(avaliacaoId, { nota, resenha });
       else await criarAvaliacao({ livroId, nota, resenha });
       setSaving(false);
-      voltarAvaliado();
+      // Na edição volta para quem abriu o formulário (tela do livro ou Minhas avaliações).
+      if (editando && router.canGoBack()) router.back();
+      else voltarAvaliado();
     } catch (failure) {
       setSaving(false);
       if (!editando && failure instanceof ApiError && failure.status === 409) {
@@ -181,7 +183,7 @@ export default function AvaliarLivro() {
                   onPress={() => router.back()}
                   style={[styles.outlineButton, { borderColor: theme.accent }]}>
                   <ThemedText themeColor="accent" style={styles.buttonText}>
-                    Voltar ao livro
+                    Voltar
                   </ThemedText>
                 </TouchableOpacity>
               </ThemedView>
