@@ -102,6 +102,10 @@ sem subir o backend (`npm run mock-api`).
 
 As cores, o contraste e as regras para telas novas estão em [docs/tema.md](docs/tema.md).
 
+## Acessibilidade
+
+As regras para telas novas, o que foi verificado e as limitações estão em [docs/acessibilidade.md](docs/acessibilidade.md).
+
 ## Verificação
 
 ```sh

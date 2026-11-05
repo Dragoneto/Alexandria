@@ -50,7 +50,7 @@ function SessionRoutes() {
         <Stack.Screen name="livro/[id]" />
         <Stack.Screen name="avaliar/[id]" />
       </Stack.Protected>
-      <Stack.Protected guard={!user}>
+      <Stack.Protected guard={!user} redirectTo="/home">
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="cadastro" />
