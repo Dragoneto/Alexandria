@@ -20,6 +20,23 @@ test('bloqueia trocas simultaneas do mesmo livro, mas permite outro livro', asyn
   assert.deepEqual(h.saving, []);
 });
 
+test('avisa quando o status foi salvo', async () => {
+  const h = harness();
+  const mudanca = h.render()(1, 'LENDO');
+  h.requests[0].resolve({});
+  await mudanca;
+  assert.deepEqual(h.avisos, ['Status alterado para Lendo']);
+});
+
+test('não avisa sucesso quando o status falha', async () => {
+  const h = harness();
+  const mudanca = h.render()(1, 'LENDO');
+  h.requests[0].reject(new Error('Sem conexao'));
+  await mudanca;
+  assert.deepEqual(h.avisos, []);
+  assert.equal(h.alerts.length, 1);
+});
+
 test('falha restaura o status e libera uma nova tentativa', async () => {
   const h = harness();
   const first = h.render()(1, 'LENDO');

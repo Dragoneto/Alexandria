@@ -6,7 +6,7 @@ import { Mint, TextColor } from '@/constants/design-system';
 
 // Mesmas cores da bolinha, para o ícone e a bolinha combinarem
 const ATIVO = Mint.mint400;
-const INATIVO = TextColor.muted;
+const INATIVO = TextColor.secondary;
 
 export default function TabsLayout() {
   return (

@@ -23,6 +23,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
+import { useFoco } from '@/hooks/use-foco';
 import { getProfile, getProfilePhoto } from '@/services/auth';
 import { searchBooks, type BookSearchItem } from '@/services/open-library';
 
@@ -56,6 +57,7 @@ function dataDeHoje() {
 export default function HomeScreen() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
+  const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [firstName, setFirstName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
 
@@ -108,13 +110,14 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.search}>
+        <View style={[styles.search, buscaFocada && styles.searchFocada]}>
           <SymbolView
             name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
             size={18}
             tintColor={TextColor.secondary}
           />
           <TextInput
+            {...propsDeFoco}
             style={styles.searchInput}
             placeholder="Buscar livros ou autores"
             placeholderTextColor={TextColor.muted}
@@ -271,6 +274,11 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: Radius.pill,
     backgroundColor: Ink.ink700,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  searchFocada: {
+    borderColor: Mint.mint400,
   },
   searchInput: {
     flex: 1,

@@ -24,9 +24,9 @@ const TAMANHO_ICONE = 24;
 
 // Cores do nome da aba (as mesmas do ícone, definidas no _layout.tsx)
 const COR_ATIVA = Mint.mint400;
-const COR_INATIVA = TextColor.muted;
+const COR_INATIVA = TextColor.secondary;
 
-export function NavBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+export function NavBar({ state, descriptors, emitter, navigateToTab, insets }: BottomTabBarProps) {
   return (
     // Fundo da área da barra (mesma cor das telas) + espaço do "risquinho" do celular
     <View style={[styles.fundo, { paddingBottom: Math.max(insets.bottom, Space.three) }]}>
@@ -37,19 +37,19 @@ export function NavBar({ state, descriptors, navigation, insets }: BottomTabBarP
 
           function aoTocar() {
             // Avisa o Expo Router do toque (mantém funcionando os eventos "tabPress")
-            const evento = navigation.emit({
+            const evento = emitter.emit({
               type: 'tabPress',
               target: route.key,
               canPreventDefault: true,
             });
 
             if (!focado && !evento.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
+              navigateToTab(route.key);
             }
           }
 
           function aoSegurar() {
-            navigation.emit({ type: 'tabLongPress', target: route.key });
+            emitter.emit({ type: 'tabLongPress', target: route.key });
           }
 
           return (

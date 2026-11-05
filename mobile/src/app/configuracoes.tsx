@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     marginTop: Space.three,
     fontFamily: DSFonts.ui,
     fontSize: 13,
-    color: '#ff7b72',
+    color: Accent.coral,
     textAlign: 'center',
   },
 
@@ -211,6 +211,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: DSFonts.ui,
     fontSize: 13,
-    color: TextColor.muted,
+    color: TextColor.secondary,
   },
 });
