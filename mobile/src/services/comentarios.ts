@@ -273,6 +273,8 @@ export function mensagemDeFalhaComentario(falha: unknown): string {
       return 'Você só pode alterar os seus próprios comentários.';
     case 'removido':
       return 'Esse comentário foi removido. A conversa foi atualizada.';
+    case 'conflito':
+      return 'Esse comentário mudou em outra sessão. A conversa mostra a versão atual e o seu texto continua aqui: salve de novo para substituí-la.';
     case 'rede':
       return 'Sem conexão com o servidor. Seu texto continua aqui; tente de novo.';
     default:

@@ -128,6 +128,7 @@ test('distingue validação, sessão, permissão, removido, conflito, rede e ser
   h.fetch = async () => json({ error: 'Mudou', errors: { versao: 'Mudou' } }, 409);
   const conflito = await h.comentarios.editarComentario(7, 'Oi', 1).catch((erro) => erro);
   assert.equal(h.comentarios.classificarFalhaComentario(conflito), 'conflito');
+  assert.match(h.comentarios.mensagemDeFalhaComentario(conflito), /mudou em outra sessão.*seu texto continua aqui/);
 
   // O 400 de versão inválida também traz errors.versao, mas é validação
   h.fetch = async () => json({ error: 'Versão inválida', errors: { versao: 'Versão inválida' } }, 400);

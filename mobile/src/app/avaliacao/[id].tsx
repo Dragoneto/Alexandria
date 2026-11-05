@@ -95,6 +95,16 @@ export default function ConversaDaAvaliacao() {
     setErroEnvio('Esse comentário foi removido. Seu texto continua aqui.');
   }, [alvoId, tipoModo, conversa.comentarios]);
 
+  // Só depois de um conflito a edição passa para a versão recarregada: a pessoa já viu que o comentário mudou
+  const conflitoEm = useRef<number | null>(null);
+  useEffect(() => {
+    if (modo.tipo !== 'editar' || conflitoEm.current !== modo.alvo.id || !conversa.comentarios) return;
+    const atual = conversa.comentarios.find((comentario) => comentario.id === modo.alvo.id);
+    if (!atual || atual.removido || atual.versao === modo.alvo.versao) return;
+    conflitoEm.current = null;
+    setModo({ tipo: 'editar', alvo: atual });
+  }, [modo, conversa.comentarios]);
+
   const voltar = () => {
     if (router.canGoBack()) router.back();
     else router.replace('/home');
@@ -160,6 +170,11 @@ export default function ConversaDaAvaliacao() {
       if (classificarFalhaComentario(error) === 'removido') {
         if (modo.tipo === 'editar') setTexto(rascunho.current);
         setModo({ tipo: 'comentar' });
+        void conversa.recarregar();
+      }
+      // Mudou em outra sessão: o texto digitado fica e a conversa mostra a versão atual para revisar
+      if (classificarFalhaComentario(error) === 'conflito' && modo.tipo === 'editar') {
+        conflitoEm.current = modo.alvo.id;
         void conversa.recarregar();
       }
     } finally {

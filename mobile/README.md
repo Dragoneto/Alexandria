@@ -162,11 +162,12 @@ Para uma edição antiga não sobrescrever a mais nova, cada comentário tem uma
 que começa em 1 e sobe a cada edição. `editarComentario()` manda a versão que a pessoa
 estava vendo. Se o comentário mudou depois, por exemplo em outra sessão do mesmo autor,
 o backend não grava e devolve 409 com `errors.versao` e o `comentario` atual no corpo, e
-`classificarFalhaComentario()` devolve `'conflito'`. Nesse caso, a tela de comentários
-(#130) deve manter o texto digitado, recarregar a conversa para mostrar a versão atual
-e, quando a pessoa confirmar, tentar de novo com a versão nova. Versão faltando ou
-inválida dá 400. Se o comentário foi removido durante a edição, vem o 409 de comentário
-removido, e a tela não deve recriar o comentário com o texto digitado.
+`classificarFalhaComentario()` devolve `'conflito'`. Na conversa da avaliação, o texto
+digitado fica no campo, a conversa recarrega com a versão atual para a pessoa revisar,
+e o próximo Salvar parte dessa versão; uma atualização da conversa sem conflito não troca
+a versão da edição. Versão faltando ou inválida dá 400. Se o comentário foi removido
+durante a edição, vem o 409 de comentário removido, e a tela volta para comentário novo
+com o rascunho de antes da edição, sem recriar o comentário.
 
 ### Alterar senha
 
