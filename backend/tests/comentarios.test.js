@@ -73,6 +73,24 @@ test('apagar a avaliação leva os comentários dela, e a nova que herdar o id c
   assert.equal((await comentarios.findByAvaliacao(avaliacao.id)).length, 2);
 });
 
+test('idempotency key: a mesma key do mesmo usuário devolve o comentário já gravado, mesmo em gravações simultâneas', async () => {
+  const outra = await avaliacoes.create({ userId: autora.id, livro: livro('OL707W'), nota: 4, resenha: RESENHA });
+  const gravar = (userId, idempotencyKey) =>
+    comentarios.create({ avaliacaoId: outra.id, userId, texto: 'kkkk', idempotencyKey, payloadHash: 'hash' });
+
+  const juntos = await Promise.all([1, 2, 3].map(() => gravar(leitor.id, 'key-do-leitor-001')));
+  assert.equal(new Set(juntos.map((c) => c.id)).size, 1);
+  const salvo = await comentarios.findByIdempotencyKey(leitor.id, 'key-do-leitor-001');
+  assert.deepEqual([salvo.id, salvo.payload_hash], [juntos[0].id, 'hash']);
+
+  // A key é de cada usuário, e texto igual sem key é outra mensagem
+  const daAutora = await gravar(autora.id, 'key-do-leitor-001');
+  const semKey = [await gravar(leitor.id, null), await gravar(leitor.id, null)];
+  assert.equal(new Set([juntos[0].id, daAutora.id, ...semKey.map((c) => c.id)]).size, 4);
+  assert.equal((await comentarios.findByIdempotencyKey(autora.id, 'key-do-leitor-001')).id, daAutora.id);
+  assert.equal(await comentarios.findByIdempotencyKey(autora.id, 'key-que-ninguem-usou'), null);
+});
+
 /** Resposta falsa do Express: guarda status e corpo para a asserção. */
 async function chamar(handler, usuario, { params, body } = {}) {
   const res = {
