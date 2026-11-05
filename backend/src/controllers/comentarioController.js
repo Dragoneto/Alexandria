@@ -3,7 +3,10 @@ const comentarios = require('../repositories/comentarioRepository');
 const users = require('../repositories/userRepository');
 const { buscarAvaliacao, limparResenha } = require('./avaliacaoController');
 
+const ID_COMENTARIO = /^\d{1,9}$/;
 const TEXTO_MAXIMO = 2000;
+const NAO_ENCONTRADO = 'Comentário não encontrado';
+const REMOVIDO = 'Este comentário foi removido';
 
 // Mesma limpeza da resenha: texto só com espaços ou caracteres invisíveis conta como vazio
 function lerTexto(valor) {
@@ -44,6 +47,34 @@ function responderErro(res, error, contexto) {
   return res.status(500).json({ error: 'Erro interno do servidor' });
 }
 
+// 404 se não existe e 403 se é de outra pessoa; comentário removido não grava e cai no responderNaoGravou
+async function buscarDoAutor(req, res) {
+  const id = ID_COMENTARIO.test(req.params?.id ?? '') ? Number(req.params.id) : null;
+  if (id === null) {
+    res.status(400).json({ error: 'Identificador de comentário inválido' });
+    return null;
+  }
+
+  const comentario = await comentarios.findById(id);
+  if (!comentario) {
+    res.status(404).json({ error: NAO_ENCONTRADO });
+    return null;
+  }
+  if (comentario.user_id !== Number(req.user.id)) {
+    res.status(403).json({ error: 'Você só pode alterar o seu próprio comentário' });
+    return null;
+  }
+
+  return comentario;
+}
+
+// O repositório só altera comentário vivo: se não gravou, ele está removido (409) ou sumiu com a avaliação (404)
+async function responderNaoGravou(res, id) {
+  return (await comentarios.findById(id))
+    ? res.status(409).json({ error: REMOVIDO })
+    : res.status(404).json({ error: NAO_ENCONTRADO });
+}
+
 const list = async (req, res) => {
   try {
     const avaliacao = await buscarAvaliacao(req, res);
@@ -66,8 +97,10 @@ const create = async (req, res) => {
     if (paiId !== null && !(Number.isInteger(paiId) && paiId > 0 && paiId <= 999999999)) {
       return res.status(400).json({ error: 'Identificador de comentário inválido' });
     }
-    if (paiId !== null && (await comentarios.findById(paiId))?.avaliacao_id !== avaliacao.id) {
-      return res.status(404).json({ error: 'Comentário não encontrado' });
+    if (paiId !== null) {
+      const pai = await comentarios.findById(paiId);
+      if (pai?.avaliacao_id !== avaliacao.id) return res.status(404).json({ error: NAO_ENCONTRADO });
+      if (pai.apagado_em) return res.status(409).json({ error: REMOVIDO });
     }
 
     const { texto, erro } = lerTexto(req.body?.texto);
@@ -87,4 +120,37 @@ const create = async (req, res) => {
   }
 };
 
-module.exports = { list, create };
+const update = async (req, res) => {
+  try {
+    const comentario = await buscarDoAutor(req, res);
+    if (!comentario) return res;
+
+    const { texto, erro } = lerTexto(req.body?.texto);
+    if (erro) return res.status(400).json({ error: erro, errors: { texto: erro } });
+
+    const editado = await comentarios.update(comentario.id, req.user.id, texto);
+    if (!editado) return responderNaoGravou(res, comentario.id);
+
+    const [resposta] = await paraResposta([editado], req.user.id);
+    return res.json({ comentario: resposta });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao editar comentário');
+  }
+};
+
+const remove = async (req, res) => {
+  try {
+    const comentario = await buscarDoAutor(req, res);
+    if (!comentario) return res;
+
+    const removido = await comentarios.remove(comentario.id, req.user.id);
+    if (!removido) return responderNaoGravou(res, comentario.id);
+
+    const [resposta] = await paraResposta([removido], req.user.id);
+    return res.json({ comentario: resposta });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao excluir comentário');
+  }
+};
+
+module.exports = { list, create, update, remove };
