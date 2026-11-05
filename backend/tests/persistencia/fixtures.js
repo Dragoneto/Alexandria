@@ -33,10 +33,11 @@ async function subirApi() {
   const baseUrl = `http://127.0.0.1:${servidor.address().port}`;
 
   return {
-    async chamar(metodo, caminho, { leitor, corpo } = {}) {
+    async chamar(metodo, caminho, { leitor, corpo, headers } = {}) {
       const resposta = await fetch(`${baseUrl}${caminho}`, {
         method: metodo,
         headers: {
+          ...headers,
           ...(corpo === undefined ? {} : { 'Content-Type': 'application/json' }),
           ...(leitor ? { Authorization: `Bearer ${leitor.token}` } : {}),
         },

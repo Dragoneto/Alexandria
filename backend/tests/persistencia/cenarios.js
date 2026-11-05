@@ -4,9 +4,11 @@
 const assert = require('node:assert/strict');
 const { after, afterEach, before, beforeEach, describe, test } = require('node:test');
 const { setTimeout: esperar } = require('node:timers/promises');
+const jwt = require('jsonwebtoken');
 
 const avaliacoes = require('../../src/repositories/avaliacaoRepository');
 const comentarios = require('../../src/repositories/comentarioRepository');
+const { JWT_SECRET } = require('./ambiente');
 const { criarFixtures, encontrarInconsistencias, subirApi } = require('./fixtures');
 
 const semDatas = ({ criadoEm: _criadoEm, atualizadoEm: _atualizadoEm, ...resto }) => resto;
@@ -690,6 +692,90 @@ function definirCenarios(ambiente, cenariosDoModo) {
 
     // Sem contrato definido não há o que testar de verdade: um teste que inventasse a API só passaria a falsa
     // impressão de cobertura. Quem entregar cada card troca o todo por um cenário aqui, valendo para os dois modos.
+    describe('fluxo entre leitores (#169)', () => {
+      test('Ana avalia, Bia acha pelo livro e as duas conversam; cada uma só mexe no que é seu', async () => {
+        const ana = await f.novoLeitor('Ana');
+        const bia = await f.novoLeitor('Bia');
+        const avaliacao = await f.novaAvaliacao(ana, { livroId: 'OL169W' });
+
+        const doLivro = await api.chamar('GET', '/api/avaliacoes/livro/OL169W', { leitor: bia });
+        assert.equal(doLivro.status, 200);
+        assert.deepEqual(doLivro.corpo.avaliacoes.map((a) => a.id), [avaliacao.id]);
+
+        const comentario = await f.comentado(bia, avaliacao.id, 'Gostei da sua resenha');
+        const resposta = await f.comentado(ana, avaliacao.id, 'Obrigada, Bia!', comentario.id);
+        const reresposta = await f.comentado(bia, avaliacao.id, 'Por nada!', resposta.id);
+        const conversa = [comentario, resposta, reresposta];
+
+        for (const [leitor, proprios] of [
+          [ana, [resposta.id]],
+          [bia, [comentario.id, reresposta.id]],
+        ]) {
+          const { corpo } = await f.listar(leitor, avaliacao.id);
+          assert.deepEqual(
+            corpo.comentarios.map((c) => [c.id, c.paiId, c.podeEditar, c.podeExcluir]),
+            conversa.map((c) => [c.id, c.paiId, proprios.includes(c.id), proprios.includes(c.id)]),
+          );
+        }
+
+        assert.equal((await f.editar(ana, comentario.id, { texto: 'Mudei', versao: comentario.versao })).status, 403);
+        assert.equal((await f.excluir(ana, comentario.id)).status, 403);
+        assert.equal((await f.excluir(bia, resposta.id)).status, 403);
+
+        assert.equal((await f.excluir(bia, comentario.id)).status, 200);
+        const depois = (await f.listar(ana, avaliacao.id)).corpo.comentarios;
+        assert.deepEqual(
+          depois.map((c) => [c.id, c.removido, c.texto]),
+          [
+            [comentario.id, true, null],
+            [resposta.id, false, 'Obrigada, Bia!'],
+            [reresposta.id, false, 'Por nada!'],
+          ],
+        );
+        assert.equal((await f.comentar(ana, avaliacao.id, 'Oi', comentario.id)).status, 409);
+
+        assert.equal((await f.excluirAvaliacao(ana, avaliacao.id)).status, 200);
+        assert.equal((await f.listar(bia, avaliacao.id)).status, 404);
+        assert.equal((await f.comentar(bia, avaliacao.id, 'Ainda aqui?')).status, 404);
+        assert.equal((await f.excluir(bia, reresposta.id)).status, 404);
+      });
+
+      test('entradas inválidas, sessão expirada e reenvio não deixam lixo nem duplicam', async () => {
+        const { ana, bia, avaliacao, raiz } = await f.novaConversa();
+        const outra = await f.novaAvaliacao(bia);
+        const deFora = await f.comentado(ana, outra.id, 'Em outra avaliação');
+
+        for (const texto of ['', '   ', 'a'.repeat(2001)]) {
+          assert.equal((await f.comentar(bia, avaliacao.id, texto)).status, 400, `texto de ${texto.length}`);
+        }
+        assert.equal((await f.comentar(bia, avaliacao.id, 'a'.repeat(2000))).status, 201);
+        assert.equal((await f.comentar(bia, avaliacao.id, 'Oi', deFora.id)).status, 404);
+        assert.equal((await api.chamar('GET', '/api/avaliacoes/abc/comentarios', { leitor: bia })).status, 400);
+        assert.equal((await f.excluir(bia, 'x')).status, 400);
+        assert.equal((await f.comentar(bia, avaliacao.id, 'Oi', 'x')).status, 400);
+
+        const expirada = { ...bia, token: jwt.sign({ id: bia.id, email: bia.email }, JWT_SECRET, { expiresIn: -10 }) };
+        assert.equal((await f.listar(expirada, avaliacao.id)).status, 401);
+        assert.equal((await f.comentar(expirada, avaliacao.id, 'Oi')).status, 401);
+        assert.equal((await f.listar({}, avaliacao.id)).status, 401);
+
+        const envio = {
+          leitor: bia,
+          corpo: { texto: 'Clique duplo', paiId: raiz.id },
+          headers: { 'Idempotency-Key': 'clique-duplo-169-0001' },
+        };
+        const caminho = `/api/avaliacoes/${avaliacao.id}/comentarios`;
+        const duplo = await Promise.all([api.chamar('POST', caminho, envio), api.chamar('POST', caminho, envio)]);
+        const novaTentativa = await api.chamar('POST', caminho, envio);
+        const ids = [...duplo, novaTentativa].map((r) => r.corpo.comentario?.id);
+        assert.equal(new Set(ids).size, 1);
+
+        const textos = (await armazenados()).filter((c) => c.avaliacao_id === avaliacao.id).map((c) => c.texto);
+        assert.equal(textos.filter((t) => t === 'Clique duplo').length, 1);
+        assert.equal(textos.length, 5);
+      });
+    });
+
     describe('pendente: depende de funcionalidade que ainda não existe na API', () => {
       test.todo('#171 mesma chave e mesmo corpo devolvem o mesmo comentário, inclusive em envios simultâneos');
       test.todo('#171 mesma chave com corpo diferente dá conflito, e a chave de um usuário não vale para outro');
