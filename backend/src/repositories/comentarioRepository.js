@@ -8,6 +8,7 @@ const localFile = process.env.LOCAL_COMMENTS_FILE
   ? path.resolve(process.env.LOCAL_COMMENTS_FILE)
   : path.resolve(__dirname, '../../.data/comentarios.json');
 let pendingWrite = Promise.resolve();
+const RETENCAO_DA_KEY_MS = 24 * 60 * 60 * 1000;
 
 function usePostgres() {
   return pool !== null;
@@ -55,6 +56,16 @@ async function initialize() {
     await pool.query(
       'CREATE INDEX IF NOT EXISTS comentarios_avaliacao_id_idx ON comentarios (avaliacao_id)',
     );
+    // Idempotency key do envio: vale por usuário, e o envio sem key fica com NULL, que não conflita
+    await pool.query(`
+      ALTER TABLE comentarios
+        ADD COLUMN IF NOT EXISTS idempotency_key TEXT,
+        ADD COLUMN IF NOT EXISTS payload_hash TEXT
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS comentarios_idempotency_key_idx
+      ON comentarios (user_id, idempotency_key)
+    `);
     return;
   }
 
@@ -85,14 +96,38 @@ async function findByAvaliacao(avaliacaoId) {
     .sort((a, b) => a.id - b.id);
 }
 
-/** Grava o comentário (paiId vazio: direto na avaliação). Devolve null se a avaliação sumiu antes de gravar. */
-async function create({ avaliacaoId, userId, paiId, texto }) {
+/** O comentário que este usuário já gravou com essa idempotency key. */
+async function findByIdempotencyKey(userId, idempotencyKey) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'SELECT * FROM comentarios WHERE user_id = $1 AND idempotency_key = $2',
+      [userId, idempotencyKey],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return (
+    (await readLocalComments()).find(
+      (c) => c.user_id === Number(userId) && c.idempotency_key === idempotencyKey,
+    ) ?? null
+  );
+}
+
+/**
+ * Grava o comentário (paiId vazio: direto na avaliação). Devolve null se a avaliação sumiu antes de gravar.
+ * Com uma idempotency key que este usuário já usou, não grava outro: devolve o comentário que tem a key.
+ */
+async function create({ avaliacaoId, userId, paiId, texto, idempotencyKey = null, payloadHash = null }) {
   if (usePostgres()) {
     try {
+      // No conflito, o UPDATE não muda nada: só faz o RETURNING devolver a linha que já tem a key.
+      // O unique index faz a requisição simultânea esperar a primeira terminar
       const result = await pool.query(
-        `INSERT INTO comentarios (avaliacao_id, user_id, pai_id, texto)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [avaliacaoId, userId, paiId ?? null, texto],
+        `INSERT INTO comentarios (avaliacao_id, user_id, pai_id, texto, idempotency_key, payload_hash)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
+         RETURNING *`,
+        [avaliacaoId, userId, paiId ?? null, texto, idempotencyKey, payloadHash],
       );
       return result.rows[0];
     } catch (error) {
@@ -103,6 +138,11 @@ async function create({ avaliacaoId, userId, paiId, texto }) {
 
   return serializeWrite(async () => {
     const comentarios = await readLocalComments();
+    // Mesmo papel do unique index do Postgres: a key vale por usuário
+    const existente =
+      idempotencyKey &&
+      comentarios.find((c) => c.user_id === Number(userId) && c.idempotency_key === idempotencyKey);
+    if (existente) return existente;
     const agora = new Date().toISOString();
     const comentario = {
       id: comentarios.reduce((maior, candidato) => Math.max(maior, candidato.id), 0) + 1,
@@ -113,6 +153,8 @@ async function create({ avaliacaoId, userId, paiId, texto }) {
       criado_em: agora,
       atualizado_em: agora,
       apagado_em: null,
+      idempotency_key: idempotencyKey,
+      payload_hash: payloadHash,
     };
     await writeLocalComments([...comentarios, comentario]);
     return comentario;
@@ -173,4 +215,37 @@ async function removeByAvaliacao(avaliacaoId) {
   });
 }
 
-module.exports = { initialize, findById, findByAvaliacao, create, update, remove, removeByAvaliacao };
+/** Retention: a idempotency key vale por 24 horas. Depois disso ela é esquecida (vira NULL), e o comentário continua. */
+async function expireIdempotencyKeys() {
+  const limite = new Date(Date.now() - RETENCAO_DA_KEY_MS);
+  if (usePostgres()) {
+    // shortcut: varre a tabela a cada envio com key; se pesar, um índice parcial em criado_em resolve
+    await pool.query(
+      `UPDATE comentarios SET idempotency_key = NULL, payload_hash = NULL
+       WHERE idempotency_key IS NOT NULL AND criado_em < $1`,
+      [limite],
+    );
+    return;
+  }
+
+  await serializeWrite(async () => {
+    const comentarios = await readLocalComments();
+    const vencida = (c) => c.idempotency_key && new Date(c.criado_em) < limite;
+    if (!comentarios.some(vencida)) return;
+    await writeLocalComments(
+      comentarios.map((c) => (vencida(c) ? { ...c, idempotency_key: null, payload_hash: null } : c)),
+    );
+  });
+}
+
+module.exports = {
+  initialize,
+  findById,
+  findByAvaliacao,
+  findByIdempotencyKey,
+  create,
+  update,
+  remove,
+  removeByAvaliacao,
+  expireIdempotencyKeys,
+};
