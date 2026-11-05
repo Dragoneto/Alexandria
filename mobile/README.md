@@ -169,6 +169,23 @@ a versão da edição. Versão faltando ou inválida dá 400. Se o comentário f
 durante a edição, vem o 409 de comentário removido, e a tela volta para comentário novo
 com o rascunho de antes da edição, sem recriar o comentário.
 
+Limites contra spam: cada conta cria até 30 comentários ou respostas por minuto, em
+qualquer nível da conversa, numa janela deslizante. No backend, `COMENTARIOS_LIMITE` e
+`COMENTARIOS_JANELA_SEGUNDOS` mudam esses números. Conta toda tentativa de criação que passa
+pelo login, inclusive as que dão erro e os reenvios com a mesma `Idempotency-Key`; as
+recusadas com 429 não contam nem aumentam a espera. Passou do limite, o backend responde 429
+com o header `Retry-After` (em segundos, exposto também para o app web) e uma mensagem
+dizendo em quanto tempo tentar de novo. O app deve manter o rascunho, mostrar esse tempo e não
+reenviar sozinho; hoje a tela mantém o rascunho e não reenvia, mas ainda mostra a mensagem
+genérica de falha. Criar e editar recusam com 413 o corpo acima de 32 KB, medido pelo
+`Content-Length` ou, sem ele, pelo conteúdo lido; o servidor lê no máximo 1 MB por requisição.
+Campo fora do contrato dá 400: criar aceita `texto` e `paiId`; editar aceita `texto` e
+`versao`. A contagem fica na memória de cada instância do
+backend: com mais de uma instância, cada uma conta separado, e o limite real pode chegar a
+N vezes o configurado. Proteção entre instâncias pediria um armazenamento compartilhado. Os
+erros de comentário vão para o log só com o contexto e a mensagem do erro, nunca com o
+texto, o token ou a senha.
+
 ### Alterar senha
 
 `PUT /api/auth/password` troca a senha de quem está logado, informando a atual. A
