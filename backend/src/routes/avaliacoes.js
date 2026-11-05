@@ -15,6 +15,6 @@ router.post('/', create);
 router.put('/:id', update);
 router.delete('/:id', remove);
 router.get('/:id/comentarios', comentarios.list);
-router.post('/:id/comentarios', comentarios.create);
+router.post('/:id/comentarios', require('../middlewares/limiteDeComentarios'), comentarios.create);
 
 module.exports = router;
