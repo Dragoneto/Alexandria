@@ -60,3 +60,11 @@ CREATE TABLE IF NOT EXISTS comentarios (
 );
 
 CREATE INDEX IF NOT EXISTS comentarios_avaliacao_id_idx ON comentarios (avaliacao_id);
+
+-- Idempotency key do envio: o reenvio da mesma mensagem acha o comentário já gravado, em vez de gravar outro.
+-- Vale por usuário, e o envio sem key fica com NULL, que não conflita no unique index
+ALTER TABLE comentarios
+  ADD COLUMN IF NOT EXISTS idempotency_key TEXT,  -- Gerada pelo app para cada mensagem
+  ADD COLUMN IF NOT EXISTS payload_hash TEXT;     -- SHA-256 da mensagem: avaliação, pai e texto já limpo
+
+CREATE UNIQUE INDEX IF NOT EXISTS comentarios_idempotency_key_idx ON comentarios (user_id, idempotency_key);

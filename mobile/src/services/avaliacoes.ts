@@ -61,3 +61,65 @@ export async function criarAvaliacao(input: {
   });
   return result.avaliacao;
 }
+
+export type AvaliacaoLida = Avaliacao & { usuarioNome: string | null; minha: boolean };
+
+export type AvaliacoesDoLivro = {
+  avaliacoes: AvaliacaoLida[];
+  total: number;
+  media: number | null;
+  page: number;
+  hasMore: boolean;
+};
+
+export async function listarAvaliacoesDoLivro(
+  livroId: string,
+  page = 1,
+  signal?: AbortSignal,
+): Promise<AvaliacoesDoLivro> {
+  const result = await apiRequest<Partial<AvaliacoesDoLivro>>(
+    `/api/avaliacoes/livro/${encodeURIComponent(livroId)}?page=${page}`,
+    { signal },
+  );
+  return {
+    avaliacoes: Array.isArray(result?.avaliacoes) ? result.avaliacoes : [],
+    total: typeof result?.total === 'number' ? result.total : 0,
+    media: typeof result?.media === 'number' ? result.media : null,
+    page: typeof result?.page === 'number' ? result.page : page,
+    hasMore: result?.hasMore === true,
+  };
+}
+
+export async function buscarAvaliacao(id: number, signal?: AbortSignal): Promise<AvaliacaoLida> {
+  const result = await apiRequest<{ avaliacao: AvaliacaoLida }>(`/api/avaliacoes/${id}`, {
+    signal,
+  });
+  return result.avaliacao;
+}
+
+export async function atualizarAvaliacao(
+  id: number,
+  input: { nota: number | null; resenha: string },
+): Promise<Avaliacao> {
+  const result = await apiRequest<{ avaliacao: Avaliacao }>(`/api/avaliacoes/${id}`, {
+    method: 'PUT',
+    body: input,
+  });
+  return result.avaliacao;
+}
+
+// Junta a próxima página sem repetir avaliações que mudaram de posição entre as chamadas.
+export function juntarAvaliacoes(atuais: AvaliacaoLida[], novas: AvaliacaoLida[]): AvaliacaoLida[] {
+  const vistas = new Set(atuais.map((avaliacao) => avaliacao.id));
+  return [...atuais, ...novas.filter((avaliacao) => !vistas.has(avaliacao.id))];
+}
+
+export function formatarMedia(media: number | null): string {
+  return media === null ? '' : media.toFixed(1).replace('.', ',');
+}
+
+export function resumoAvaliacoes(total: number, media: number | null): string {
+  if (!total || media === null) return 'Nenhuma avaliação ainda';
+  const quantidade = total === 1 ? '1 avaliação' : `${total} avaliações`;
+  return `Média ${formatarMedia(media)} de 5 · ${quantidade}`;
+}

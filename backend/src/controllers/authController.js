@@ -11,6 +11,8 @@ const biblioteca = require('../repositories/bibliotecaRepository');
 const SENHA_MINIMA = 8;
 const SENHA_REGRA = /^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])(?=.*\d).{8,}$/;
 const SENHA_FRACA = `A senha precisa ter pelo menos ${SENHA_MINIMA} caracteres, com letra e número`;
+const SENHA_ATUAL_INCORRETA = 'A senha atual está incorreta';
+const SALT_ROUNDS = 10;
 const TTL_MINUTOS = Number(process.env.RESET_TOKEN_TTL_MINUTES) > 0
   ? Number(process.env.RESET_TOKEN_TTL_MINUTES)
   : 15;
@@ -30,6 +32,25 @@ const REDEFINICAO_INDISPONIVEL =
   'A redefinição de senha está indisponível no momento. Tente de novo mais tarde.';
 const FOTO_FORMATO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 const FOTO_TAMANHO_MAXIMO = 300 * 1024;
+
+function hashDaSenha(senha) {
+  return bcrypt.hash(senha, SALT_ROUNDS);
+}
+
+/** Erros por campo do pedido de troca de senha. As mensagens nunca incluem o valor enviado. */
+function errosDaTrocaDeSenha({ senhaAtual, novaSenha }) {
+  const ausente = (valor) => valor === undefined || valor === null || valor === '';
+  const erros = {};
+
+  if (ausente(senhaAtual)) erros.senhaAtual = 'Informe a senha atual';
+  else if (typeof senhaAtual !== 'string') erros.senhaAtual = 'A senha atual precisa ser um texto';
+
+  if (ausente(novaSenha)) erros.novaSenha = 'Informe a nova senha';
+  else if (typeof novaSenha !== 'string') erros.novaSenha = 'A nova senha precisa ser um texto';
+  else if (!SENHA_REGRA.test(novaSenha)) erros.novaSenha = SENHA_FRACA;
+
+  return erros;
+}
 
 // ==========================================
 // CADASTRO - POST /api/auth/register
@@ -63,8 +84,7 @@ const register = async (req, res) => {
     // 3. Hashear a senha com bcrypt (10 rounds de salt)
     //    Isso transforma "minhasenha123" em algo como "$2b$10$xK..."
     //    Mesmo que o banco seja invadido, a senha original não fica exposta
-    const saltRounds = 10;
-    const senhaHash = await bcrypt.hash(senha, saltRounds);
+    const senhaHash = await hashDaSenha(senha);
 
     // 4. Inserir o usuário no banco
     const usuarioCriado = await users.create({ nome, email, senhaHash });
@@ -309,8 +329,7 @@ const resetPassword = async (req, res) => {
     }
 
     // 3. Trocar a senha pelo hash da nova
-    const saltRounds = 10;
-    const senhaHash = await bcrypt.hash(senha, saltRounds);
+    const senhaHash = await hashDaSenha(senha);
     const usuarioAtualizado = await users.updatePassword(pedido.user_id, senhaHash);
 
     if (!usuarioAtualizado) {
@@ -329,6 +348,54 @@ const resetPassword = async (req, res) => {
     return res.status(500).json({
       error: 'Erro interno do servidor',
     });
+  }
+};
+
+// ==========================================
+// ALTERAR SENHA - PUT /api/auth/password (rota protegida)
+// ==========================================
+const changePassword = async (req, res) => {
+  try {
+    const { senhaAtual, novaSenha } = req.body ?? {};
+
+    // 1. Validar os campos. A conta vem só da sessão: id ou e-mail no corpo são ignorados
+    const erros = errosDaTrocaDeSenha({ senhaAtual, novaSenha });
+
+    if (Object.keys(erros).length) {
+      return res.status(400).json({ error: Object.values(erros)[0], errors: erros });
+    }
+
+    // 2. Buscar pelo id: o e-mail do token fica velho quando a pessoa edita o perfil
+    const usuario = await users.findCredentialsById(req.user.id);
+
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // 3. Conferir a senha atual. É 400, e não 401: no app, 401 significa sessão encerrada
+    //    e apaga o token do aparelho, e errar a senha não pode deslogar ninguém
+    const senhaCorreta = await bcrypt.compare(senhaAtual, usuario.senha_hash);
+
+    if (!senhaCorreta) {
+      return res.status(400).json({
+        error: SENHA_ATUAL_INCORRETA,
+        errors: { senhaAtual: SENHA_ATUAL_INCORRETA },
+      });
+    }
+
+    // 4. Gravar só o hash da nova senha. Os JWT já emitidos continuam valendo até expirar:
+    //    não há revogação no servidor (ver "Alterar senha" no mobile/README.md)
+    const usuarioAtualizado = await users.updatePassword(req.user.id, await hashDaSenha(novaSenha));
+
+    if (!usuarioAtualizado) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    return res.status(200).json({ message: 'Senha alterada com sucesso!' });
+
+  } catch (error) {
+    console.error('Erro ao alterar senha:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
@@ -394,6 +461,7 @@ module.exports = {
   updateProfile,
   forgotPassword,
   resetPassword,
+  changePassword,
   getPhoto,
   updatePhoto,
   deletePhoto,

@@ -15,7 +15,9 @@ import { BookCard } from '@/components/book-card';
 import { EmptyState } from '@/components/empty_state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import {
   describeSearchError,
@@ -58,6 +60,7 @@ export default function Explorar() {
   const params = useLocalSearchParams<{ q?: string | string[] }>();
   const initialQuery = firstParam(params.q).trim();
   const [query, setQuery] = useState(initialQuery);
+  const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [category, setCategory] = useState('Todos');
   const [order, setOrder] = useState<BookSearchOrder>('relevance');
@@ -274,18 +277,19 @@ export default function Explorar() {
             </ThemedText>
 
             <View style={[styles.searchBox, { borderColor: theme.border }]}>
-              <ThemedText themeColor="textMuted" style={styles.searchLabel}>
+              <ThemedText themeColor="textSecondary" style={styles.searchLabel}>
                 Buscar por título, autor ou assunto
               </ThemedText>
               <View style={styles.inputRow}>
                 <View style={styles.inputContainer}>
                   <TextInput
+                    {...propsDeFoco}
                     ref={inputRef}
                     accessibilityLabel="Busca de livros"
                     style={[
                       styles.input,
                       {
-                        borderColor: theme.border,
+                        borderColor: buscaFocada ? theme.accent : theme.border,
                         color: theme.text,
                         paddingRight: query ? 40 : 14,
                       },
@@ -304,7 +308,7 @@ export default function Explorar() {
                       onPress={handleClearQuery}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={styles.clearInputButton}>
-                      <ThemedText themeColor="textMuted" style={styles.clearInputIcon}>
+                      <ThemedText themeColor="textSecondary" style={styles.clearInputIcon}>
                         ✕
                       </ThemedText>
                     </TouchableOpacity>
@@ -316,7 +320,7 @@ export default function Explorar() {
                   onPress={handleSearch}
                   style={[
                     styles.searchButton,
-                    { backgroundColor: theme.accent, opacity: loading ? 0.65 : 1 },
+                    { backgroundColor: theme.accent, opacity: loading ? DisabledOpacity : 1 },
                   ]}>
                   {loading ? (
                     <ActivityIndicator color={theme.background} />
@@ -337,7 +341,7 @@ export default function Explorar() {
             <View style={styles.filterHeader}>
               <View>
                 <ThemedText style={styles.filterHeaderTitle}>Filtros</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.filterHeaderSubtitle}>
+                <ThemedText themeColor="textSecondary" style={styles.filterHeaderSubtitle}>
                   {hasActiveFilters ? 'Busca refinada' : 'Padrão'}
                 </ThemedText>
               </View>
@@ -346,7 +350,10 @@ export default function Explorar() {
                 onPress={clearFilters}
                 style={[
                   styles.clearButton,
-                  { borderColor: theme.border, opacity: hasActiveFilters ? 1 : 0.4 },
+                  {
+                    borderColor: theme.border,
+                    opacity: hasActiveFilters && !loading ? 1 : DisabledOpacity,
+                  },
                 ]}>
                 <ThemedText themeColor="accent" style={styles.clearButtonText}>
                   Limpar
@@ -354,7 +361,7 @@ export default function Explorar() {
               </TouchableOpacity>
             </View>
 
-            <ThemedText themeColor="textMuted" style={styles.filterBlockLabel}>
+            <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
               Categorias
             </ThemedText>
             <ScrollView
@@ -368,7 +375,11 @@ export default function Explorar() {
                     key={option}
                     disabled={loading}
                     onPress={() => setCategory(option)}
-                    style={[styles.chip, { borderColor: active ? theme.accent : theme.border }]}>
+                    style={[
+                      styles.chip,
+                      { borderColor: active ? theme.accent : theme.border },
+                      loading && { opacity: DisabledOpacity },
+                    ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}
                       style={styles.chipText}>
@@ -379,7 +390,7 @@ export default function Explorar() {
               })}
             </ScrollView>
 
-            <ThemedText themeColor="textMuted" style={styles.filterBlockLabel}>
+            <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
               Ordenação
             </ThemedText>
             <View style={[styles.segmented, { borderColor: theme.border }]}>
@@ -392,7 +403,8 @@ export default function Explorar() {
                     onPress={() => setOrder(option.value)}
                     style={[
                       styles.segment,
-                      active && { backgroundColor: 'rgba(100,255,218,0.1)' },
+                      active && { backgroundColor: withAlpha(Mint.mint400, 0.1) },
+                      loading && { opacity: DisabledOpacity },
                     ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}
@@ -404,7 +416,7 @@ export default function Explorar() {
               })}
             </View>
 
-            <ThemedText themeColor="textMuted" style={styles.filterBlockLabel}>
+            <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
               Qualidade
             </ThemedText>
             <View style={styles.qualityList}>
@@ -418,13 +430,14 @@ export default function Explorar() {
                     style={[
                       styles.qualityCard,
                       { borderColor: active ? theme.accent : theme.border },
+                      loading && { opacity: DisabledOpacity },
                     ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}
                       style={styles.qualityLabel}>
                       {option.label}
                     </ThemedText>
-                    <ThemedText themeColor="textMuted" style={styles.qualityDetail}>
+                    <ThemedText themeColor="textSecondary" style={styles.qualityDetail}>
                       {option.detail}
                     </ThemedText>
                   </TouchableOpacity>
@@ -499,10 +512,10 @@ export default function Explorar() {
                 <ThemedText style={styles.resultsTitle}>
                   Resultados para “{submittedQuery}”
                 </ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.resultsCaption}>
+                <ThemedText themeColor="textSecondary" style={styles.resultsCaption}>
                   {qualityCaption}
                 </ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.resultsCount}>
+                <ThemedText themeColor="textSecondary" style={styles.resultsCount}>
                   {total.toLocaleString('pt-BR')} obra(s) encontrada(s)
                 </ThemedText>
               </View>
@@ -534,14 +547,14 @@ export default function Explorar() {
                   </TouchableOpacity>
                 </View>
               ) : !hasMore && !loading && books.length > 0 ? (
-                <ThemedText themeColor="textMuted" style={styles.endText}>
+                <ThemedText themeColor="textSecondary" style={styles.endText}>
                   Você chegou ao fim dos resultados.
                 </ThemedText>
               ) : null}
             </>
             )}
 
-            <ThemedText themeColor="textMuted" style={styles.attribution}>
+            <ThemedText themeColor="textSecondary" style={styles.attribution}>
               Dados bibliográficos e capas fornecidos pela Open Library.
             </ThemedText>
           </View>

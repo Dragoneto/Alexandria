@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,10 +14,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import {
+  atualizarAvaliacao,
+  buscarAvaliacao,
   contarCaracteres,
   criarAvaliacao,
   RESENHA_MAXIMA,
@@ -35,17 +39,56 @@ function firstParam(value: string | string[] | undefined): string {
 export default function AvaliarLivro() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string | string[]; titulo?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    titulo?: string | string[];
+    avaliacaoId?: string | string[];
+  }>();
   const livroId = firstParam(params.id);
   const titulo = firstParam(params.titulo);
+  const avaliacaoParam = firstParam(params.avaliacaoId);
+  const avaliacaoId = /^[1-9]\d*$/.test(avaliacaoParam) ? Number(avaliacaoParam) : null;
+  const editando = avaliacaoId !== null;
   const [nota, setNota] = useState<number | null>(null);
   const [resenha, setResenha] = useState('');
+  const { focado: resenhaFocada, propsDeFoco } = useFoco();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [erros, setErros] = useState<ErrosAvaliacao>({});
   const [jaAvaliou, setJaAvaliou] = useState(false);
+  const [carregando, setCarregando] = useState(editando);
+  const [erroAoCarregar, setErroAoCarregar] = useState('');
+  const [removida, setRemovida] = useState(false);
+  const [recarregar, setRecarregar] = useState(0);
   const submitting = useRef(false);
   const tamanho = contarCaracteres(resenha);
+
+  useEffect(() => {
+    if (avaliacaoId === null) return;
+    const controller = new AbortController();
+    const carregar = async () => {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setCarregando(true);
+      setErroAoCarregar('');
+      try {
+        const atual = await buscarAvaliacao(avaliacaoId, controller.signal);
+        setNota(atual.nota);
+        setResenha(atual.resenha ?? '');
+      } catch (failure) {
+        if (controller.signal.aborted) return;
+        if (failure instanceof ApiError && failure.status === 404) setRemovida(true);
+        else
+          setErroAoCarregar(
+            failure instanceof Error ? failure.message : 'Não foi possível carregar a avaliação.',
+          );
+      } finally {
+        if (!controller.signal.aborted) setCarregando(false);
+      }
+    };
+    void carregar();
+    return () => controller.abort();
+  }, [avaliacaoId, recarregar]);
 
   const voltarAvaliado = () =>
     router.dismissTo({ pathname: '/livro/[id]', params: { id: livroId, avaliado: '1' } });
@@ -59,13 +102,18 @@ export default function AvaliarLivro() {
     submitting.current = true;
     setSaving(true);
     try {
-      await criarAvaliacao({ livroId, nota, resenha });
+      if (avaliacaoId !== null) await atualizarAvaliacao(avaliacaoId, { nota, resenha });
+      else await criarAvaliacao({ livroId, nota, resenha });
       setSaving(false);
       voltarAvaliado();
     } catch (failure) {
       setSaving(false);
-      if (failure instanceof ApiError && failure.status === 409) {
+      if (!editando && failure instanceof ApiError && failure.status === 409) {
         setJaAvaliou(true);
+        return;
+      }
+      if (editando && failure instanceof ApiError && failure.status === 404) {
+        setRemovida(true);
         return;
       }
       const doServidor = failure instanceof ApiError ? failure.fieldErrors : undefined;
@@ -74,7 +122,11 @@ export default function AvaliarLivro() {
         return;
       }
       setError(
-        failure instanceof Error ? failure.message : 'Não foi possível publicar a avaliação.',
+        failure instanceof Error
+          ? failure.message
+          : editando
+            ? 'Não foi possível salvar a avaliação.'
+            : 'Não foi possível publicar a avaliação.',
       );
     } finally {
       submitting.current = false;
@@ -105,13 +157,56 @@ export default function AvaliarLivro() {
             </Pressable>
 
             <ThemedText themeColor="accent" style={styles.eyebrow}>
-              Avaliar
+              {editando ? 'Editar avaliação' : 'Avaliar'}
             </ThemedText>
             <ThemedText type="title" style={styles.title}>
               {titulo || 'Este livro'}
             </ThemedText>
 
-            {jaAvaliou ? (
+            {carregando ? (
+              <ThemedView type="backgroundElement" style={styles.stateCard}>
+                <ActivityIndicator color={theme.accent} />
+                <ThemedText themeColor="textSecondary">Carregando sua avaliação…</ThemedText>
+              </ThemedView>
+            ) : removida ? (
+              <ThemedView
+                type="backgroundElement"
+                style={styles.stateCard}
+                accessibilityRole="alert">
+                <ThemedText type="subtitle" style={styles.stateTitle}>
+                  Esta avaliação não existe mais
+                </ThemedText>
+                <ThemedText themeColor="textSecondary">
+                  Ela pode ter sido excluída em outro aparelho.
+                </ThemedText>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => router.back()}
+                  style={[styles.outlineButton, { borderColor: theme.accent }]}>
+                  <ThemedText themeColor="accent" style={styles.buttonText}>
+                    Voltar ao livro
+                  </ThemedText>
+                </TouchableOpacity>
+              </ThemedView>
+            ) : erroAoCarregar ? (
+              <ThemedView
+                type="backgroundElement"
+                style={styles.stateCard}
+                accessibilityRole="alert">
+                <ThemedText type="subtitle" style={styles.stateTitle}>
+                  Não foi possível carregar
+                </ThemedText>
+                <ThemedText themeColor="textSecondary">{erroAoCarregar}</ThemedText>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => setRecarregar((atual) => atual + 1)}
+                  style={[styles.outlineButton, { borderColor: theme.accent }]}>
+                  <ThemedText themeColor="accent" style={styles.buttonText}>
+                    Tentar novamente
+                  </ThemedText>
+                </TouchableOpacity>
+              </ThemedView>
+            ) : jaAvaliou ? (
               <ThemedView
                 type="backgroundElement"
                 style={styles.stateCard}
@@ -133,7 +228,7 @@ export default function AvaliarLivro() {
               </ThemedView>
             ) : (
               <>
-                <ThemedText themeColor="textMuted" style={styles.label}>
+                <ThemedText themeColor="textSecondary" style={styles.label}>
                   Sua nota
                 </ThemedText>
                 <View style={styles.notas} accessibilityRole="radiogroup">
@@ -156,6 +251,7 @@ export default function AvaliarLivro() {
                             borderColor: ativa ? theme.accent : theme.border,
                             backgroundColor: ativa ? theme.accent : 'transparent',
                           },
+                          saving && { opacity: DisabledOpacity },
                         ]}>
                         <ThemedText
                           style={[
@@ -168,7 +264,7 @@ export default function AvaliarLivro() {
                     );
                   })}
                 </View>
-                <ThemedText themeColor="textMuted" style={styles.legend}>
+                <ThemedText themeColor="textSecondary" style={styles.legend}>
                   1 = não gostei · 5 = adorei
                 </ThemedText>
                 {!!erros.nota && (
@@ -180,10 +276,11 @@ export default function AvaliarLivro() {
                   </ThemedText>
                 )}
 
-                <ThemedText themeColor="textMuted" style={styles.label}>
+                <ThemedText themeColor="textSecondary" style={styles.label}>
                   Sua resenha
                 </ThemedText>
                 <TextInput
+                  {...propsDeFoco}
                   accessibilityLabel="Sua resenha"
                   value={resenha}
                   onChangeText={(texto) => {
@@ -196,7 +293,15 @@ export default function AvaliarLivro() {
                   placeholderTextColor={theme.textMuted}
                   style={[
                     styles.resenha,
-                    { borderColor: erros.resenha ? theme.danger : theme.border, color: theme.text },
+                    {
+                      borderColor: erros.resenha
+                        ? theme.danger
+                        : resenhaFocada
+                          ? theme.accent
+                          : theme.border,
+                      color: theme.text,
+                    },
+                    saving && { opacity: DisabledOpacity },
                   ]}
                 />
                 {erros.resenha ? (
@@ -207,7 +312,7 @@ export default function AvaliarLivro() {
                     {erros.resenha}
                   </ThemedText>
                 ) : (
-                  <ThemedText themeColor="textMuted" style={styles.counter}>
+                  <ThemedText themeColor="textSecondary" style={styles.counter}>
                     {tamanho < RESENHA_MINIMA
                       ? `Mínimo de ${RESENHA_MINIMA} caracteres`
                       : `${tamanho}/${RESENHA_MAXIMA}`}
@@ -226,13 +331,13 @@ export default function AvaliarLivro() {
                   onPress={() => void publicar()}
                   style={[
                     styles.submit,
-                    { backgroundColor: theme.accent, opacity: saving ? 0.6 : 1 },
+                    { backgroundColor: theme.accent, opacity: saving ? DisabledOpacity : 1 },
                   ]}>
                   {saving ? (
                     <ActivityIndicator color={theme.background} />
                   ) : (
                     <ThemedText style={[styles.buttonText, { color: theme.background }]}>
-                      Publicar avaliação
+                      {editando ? 'Salvar alterações' : 'Publicar avaliação'}
                     </ThemedText>
                   )}
                 </TouchableOpacity>

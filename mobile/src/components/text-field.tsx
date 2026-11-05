@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 're
 
 import {
   Accent,
+  DisabledOpacity,
   DSFonts,
   Ink,
   Mint,
@@ -46,6 +47,7 @@ export function TextField({
           styles.inputRow,
           { borderColor: accentColor ?? Ink.ink500 },
           focused && !error && styles.inputRowFocused,
+          inputProps.editable === false && styles.inputRowDisabled,
         ]}>
         <SymbolView
           name={icon}
@@ -132,6 +134,9 @@ const styles = StyleSheet.create({
   inputRowFocused: {
     backgroundColor: withAlpha(Mint.mint400, 0.06),
   },
+  inputRowDisabled: {
+    opacity: DisabledOpacity,
+  },
   icon: {
     width: 20,
     height: 20,
@@ -175,6 +180,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '500',
-    color: TextColor.muted,
+    color: TextColor.secondary,
   },
 });

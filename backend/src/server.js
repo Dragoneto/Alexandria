@@ -6,6 +6,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const avaliacaoRoutes = require('./routes/avaliacoes');
+const comentarioRoutes = require('./routes/comentarios');
 const users = require('./repositories/userRepository');
 const passwordResets = require('./repositories/passwordResetRepository');
 const avaliacoes = require('./repositories/avaliacaoRepository');
@@ -13,6 +14,7 @@ const comentarios = require('./repositories/comentarioRepository');
 const bibliotecaRoutes = require('./routes/biblioteca');
 const biblioteca = require('./repositories/bibliotecaRepository');
 const mailer = require('./services/mailer');
+const jsonErrorHandler = require('./middlewares/jsonErrorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -55,8 +57,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 
 app.use('/api/avaliacoes', avaliacaoRoutes);
+app.use('/api/comentarios', comentarioRoutes);
 app.use('/api/biblioteca', bibliotecaRoutes);
 
+// Fica depois do express.json() e das rotas para receber os erros deles
+app.use(jsonErrorHandler);
 
 // ==========================================
 // INICIAR SERVIDOR
@@ -93,10 +98,13 @@ async function start() {
     console.log(`   GET/PUT/DELETE /api/auth/profile/photo - Foto de perfil (requer token)`);
     console.log(`   POST /api/auth/forgot-password - Pedir código de redefinição por e-mail`);
     console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
+    console.log(`   PUT  /api/auth/password  - Alterar a senha informando a atual (requer token)`);
     console.log(`   GET  /api/books/search   - Buscar livros (requer token)`);
     console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
     console.log(`   POST /api/avaliacoes     - Avaliar um livro (requer token)`);
     console.log(`   PUT/DELETE /api/avaliacoes/:id - Editar ou excluir a própria avaliação (requer token)`);
+    console.log(`   GET/POST /api/avaliacoes/:id/comentarios - Ler, comentar e responder (requer token)`);
+    console.log(`   PUT/DELETE /api/comentarios/:id - Editar ou excluir o próprio comentário (requer token)`);
     console.log(`   GET  /api/avaliacoes/livro/:livroId | /minhas | /:id - Ler avaliações (requer token)`);
   });
 }
