@@ -85,6 +85,20 @@ abre `alexandriamobile://redefinir-senha?token=...` no aparelho e
 só e é guardado com hash. O `mock-api/` reproduz as duas rotas para mexer no app
 sem subir o backend (`npm run mock-api`).
 
+Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer token:
+
+| Serviço | Endpoint | Contrato |
+| --- | --- | --- |
+| `listarComentarios()` | `GET /api/avaliacoes/:id/comentarios` | Recebe `{ comentarios }` em ordem de criação, removidos incluídos. |
+| `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. |
+
+Cada comentário vem como `{ id, avaliacaoId, paiId, autor: { id, nome }, texto,
+removido, criadoEm, atualizadoEm, podeEditar, podeExcluir }`. O autor sai do
+token (o corpo não escolhe autor nem avaliação) e nunca leva e-mail nem foto.
+O texto é obrigatório, com até 2.000 caracteres, e o `paiId` precisa ser de um
+comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { texto } }`),
+401 sessão e 404 avaliação ou comentário inexistente.
+
 ### Alterar senha
 
 `PUT /api/auth/password` troca a senha de quem está logado, informando a atual. A
