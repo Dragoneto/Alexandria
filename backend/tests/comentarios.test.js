@@ -396,3 +396,30 @@ test('retention: depois de 24 horas a Idempotency-Key é esquecida, e o comentá
   // E a mesma key, já esquecida, grava outro comentário
   assert.notEqual((await enviar()).body.comentario.id, primeiro.id);
 });
+
+test('corpo acima de 32 KB dá 413 ao comentar e ao editar, e o maior comentário válido passa', async () => {
+  const conversa = await novaConversa('OL720W');
+  const naConversa = (body) => chamar(create, leitor, { params: { id: String(conversa.id) }, body });
+  const enorme = 'a'.repeat(33 * 1024);
+
+  const recusado = await naConversa({ texto: enorme });
+  assert.deepEqual([recusado.statusCode, recusado.body], [413, { error: 'O corpo da requisição passou de 32 KB' }]);
+  const valido = (await naConversa({ texto: '😀'.repeat(2000) })).body.comentario; // 2.000 caracteres de 4 bytes
+  assert.equal([...valido.texto].length, 2000);
+
+  assert.equal((await noComentario(update, leitor, valido.id, { texto: enorme, versao: 1 })).statusCode, 413);
+
+  // Mede em bytes, vale o limite exato, e responde antes de procurar a avaliação
+  assert.equal((await naConversa({ texto: 'a'.repeat(32 * 1024 - 12) })).statusCode, 400); // 32 KB exatos: só o texto passa do limite
+  assert.equal((await naConversa({ texto: '😀'.repeat(9000) })).statusCode, 413); // 36 KB, mas 18 mil unidades UTF-16
+  assert.equal((await chamar(create, leitor, { params: { id: '999999' }, body: { texto: enorme } })).statusCode, 413);
+
+  // Com Content-Length vale o tamanho enviado; corpo que nem serializa é grande demais, e não um erro 500
+  const enviado = { params: { id: String(conversa.id) }, body: { texto: 'Oi' }, headers: { 'content-length': String(40 * 1024) } };
+  assert.equal((await chamar(create, leitor, enviado)).statusCode, 413);
+  const aninhado = JSON.parse(`{"texto":${'['.repeat(5000)}${']'.repeat(5000)}}`);
+  assert.equal((await naConversa(aninhado)).statusCode, 413);
+  assert.equal((await noComentario(update, leitor, valido.id, { ...aninhado, versao: 1 })).statusCode, 413);
+  assert.equal((await comentarios.findById(valido.id)).texto, valido.texto);
+  assert.equal((await comentarios.findByAvaliacao(conversa.id)).length, 1);
+});

@@ -9,6 +9,8 @@ const ID_COMENTARIO = /^\d{1,9}$/;
 // Gerada pelo app para cada mensagem e repetida quando ele tenta de novo (um UUID serve)
 const IDEMPOTENCY_KEY = /^[\w-]{16,100}$/;
 const TEXTO_MAXIMO = 2000;
+// Folga sobre os 2.000 caracteres mesmo com todos escapados no JSON; o express.json() global aceita 1 MB por causa da foto
+const CORPO_MAXIMO_BYTES = 32 * 1024;
 const LIMITE_PADRAO = 20;
 const LIMITE_MAXIMO = 50;
 const NAO_ENCONTRADO = 'Comentário não encontrado';
@@ -54,6 +56,22 @@ async function paraResposta(lista, usuarioLogadoId) {
 function responderErro(res, error, contexto) {
   console.error(`${contexto}:`, error.message);
   return res.status(500).json({ error: 'Erro interno do servidor' });
+}
+
+// Responde 413 quando o corpo passa do limite; devolve true se já respondeu
+function corpoGrandeDemais(req, res) {
+  let bytes = Number(req.headers?.['content-length']);
+  if (!Number.isFinite(bytes)) {
+    // Sem Content-Length, mede o corpo lido; o que nem dá para serializar já passou do limite
+    try {
+      bytes = Buffer.byteLength(JSON.stringify(req.body ?? {}));
+    } catch {
+      bytes = Infinity;
+    }
+  }
+  if (bytes <= CORPO_MAXIMO_BYTES) return false;
+  res.status(413).json({ error: 'O corpo da requisição passou de 32 KB' });
+  return true;
 }
 
 // 404 se não existe e 403 se é de outra pessoa; comentário removido não grava e cai no responderNaoGravou
@@ -151,6 +169,7 @@ const list = async (req, res) => {
 
 const create = async (req, res) => {
   try {
+    if (corpoGrandeDemais(req, res)) return res;
     const avaliacao = await buscarAvaliacao(req, res);
     if (!avaliacao) return res;
 
@@ -208,6 +227,7 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
+    if (corpoGrandeDemais(req, res)) return res;
     const comentario = await buscarDoAutor(req, res);
     if (!comentario) return res;
 
