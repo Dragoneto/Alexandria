@@ -9,6 +9,8 @@ const ID_COMENTARIO = /^\d{1,9}$/;
 // Gerada pelo app para cada mensagem e repetida quando ele tenta de novo (um UUID serve)
 const IDEMPOTENCY_KEY = /^[\w-]{16,100}$/;
 const TEXTO_MAXIMO = 2000;
+const LIMITE_PADRAO = 20;
+const LIMITE_MAXIMO = 50;
 const NAO_ENCONTRADO = 'Comentário não encontrado';
 const REMOVIDO = 'Este comentário foi removido';
 const MUDOU = 'Este comentário mudou desde que você abriu. Revise a versão atual antes de salvar de novo';
@@ -86,10 +88,59 @@ async function responderNaoGravou(res, id, usuarioLogadoId) {
   return res.status(409).json({ error: MUDOU, errors: { versao: MUDOU }, comentario });
 }
 
+function lerPaginacao(query = {}) {
+  const { limite, cursor, paiId } = query;
+  if (limite === undefined && cursor === undefined && paiId === undefined) return null;
+
+  const valido = (valor) =>
+    valor === undefined || (typeof valor === 'string' && ID_COMENTARIO.test(valor) && Number(valor) > 0);
+  if (!valido(limite) || !valido(cursor) || !valido(paiId)) return { erro: true };
+  if (limite !== undefined && Number(limite) > LIMITE_MAXIMO) return { erro: true };
+
+  return {
+    limite: limite === undefined ? LIMITE_PADRAO : Number(limite),
+    cursor: cursor === undefined ? 0 : Number(cursor),
+    paiId: paiId === undefined ? null : Number(paiId),
+  };
+}
+
+async function responderPagina(res, avaliacao, { limite, cursor, paiId }, usuarioId) {
+  let pai = null;
+  if (paiId !== null) {
+    const encontrado = await comentarios.findById(paiId);
+    if (encontrado?.avaliacao_id !== avaliacao.id) return res.status(404).json({ error: NAO_ENCONTRADO });
+    [pai] = await paraResposta([encontrado], usuarioId);
+  }
+
+  const linhas = await comentarios.findPage({
+    avaliacaoId: avaliacao.id,
+    paiId,
+    cursor,
+    quantidade: limite + 1,
+  });
+  const pagina = linhas.slice(0, limite);
+  const respostas = await comentarios.countRespostas(pagina.map((comentario) => comentario.id));
+  const lista = await paraResposta(pagina, usuarioId);
+
+  return res.json({
+    comentarios: lista.map((comentario) => ({
+      ...comentario,
+      respostas: respostas.get(comentario.id) ?? 0,
+    })),
+    pai,
+    proximoCursor: pagina.at(-1)?.id ?? (cursor || null),
+    temMais: linhas.length > limite,
+  });
+}
+
 const list = async (req, res) => {
   try {
     const avaliacao = await buscarAvaliacao(req, res);
     if (!avaliacao) return res;
+
+    const paginacao = lerPaginacao(req.query);
+    if (paginacao?.erro) return res.status(400).json({ error: 'Paginação inválida' });
+    if (paginacao) return await responderPagina(res, avaliacao, paginacao, req.user.id);
 
     const lista = await comentarios.findByAvaliacao(avaliacao.id);
     return res.json({ comentarios: await paraResposta(lista, req.user.id) });

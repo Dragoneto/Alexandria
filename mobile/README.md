@@ -90,7 +90,8 @@ Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer 
 | Serviço | Endpoint | Contrato |
 | --- | --- | --- |
 | `listarComentarios()` | `GET /api/avaliacoes/:id/comentarios` | Recebe `{ comentarios }` em ordem de criação, removidos incluídos. |
-| `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. |
+| `listarPaginaComentarios()` | `GET /api/avaliacoes/:id/comentarios?limite&cursor&paiId` | Sem `paiId` traz comentários principais; com `paiId`, as respostas diretas dele. Limite padrão 20 e máximo 50. Recebe `{ comentarios, pai, proximoCursor, temMais }`, e cada comentário traz o total de `respostas`. |
+| `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. O último parâmetro, opcional, vira o header `Idempotency-Key`. |
 | `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto` e a `versao` que a pessoa estava vendo; recebe `{ comentario }` com a versão nova. Só o autor edita, e o pai e a avaliação não mudam. |
 | `excluirComentario()` | `DELETE /api/comentarios/:id` | Soft delete: recebe `{ comentario }` com `removido: true` e `texto: null`; as respostas continuam. |
 
@@ -110,8 +111,52 @@ da mesma mensagem. Se a avaliação, o `paiId` ou o texto mudar antes de tentar 
 comentário já gravado, como ele está agora, mesmo que o pai tenha sido removido depois.
 Com outra mensagem, devolve 409, o que só acontece se o app reaproveitar a key. Key
 fora do formato dá 400. A key vale só para quem enviou e é esquecida depois de 24 horas.
-Sem o header, cada envio grava um comentário novo. `comentar()` e `responder()` ainda
-não mandam a key.
+Sem o header, cada envio grava um comentário novo. `comentar()` e `responder()`
+recebem a key como último parâmetro; `novaChaveDeEnvio()` gera uma no formato aceito.
+Para isso `apiRequest` aceita `headers` extras, que não substituem os de
+autenticação.
+
+### Conversa da avaliação
+
+A tela `app/avaliacao/[id].tsx` abre pela lista de avaliações do livro e pelo
+botão "Ver conversa" de Minhas avaliações. Ela busca a avaliação
+(`GET /api/avaliacoes/:id`) e os comentários juntos e monta a árvore com
+`montarConversa()`: cada resposta logo abaixo do pai, com "Resposta a" e recuo
+limitado a três níveis. A atualização é só por HTTP, sem WebSocket: depois de
+cada envio, ao voltar para a tela e pelo botão Atualizar. Cada mensagem ganha uma
+`Idempotency-Key`, repetida nas novas tentativas enquanto o texto e o alvo forem
+os mesmos; em falha, o texto fica no campo. Editar e excluir só aparecem com
+`podeEditar`/`podeExcluir`. O rascunho fica só na memória da tela e some ao sair
+da conta, porque a rota está entre as protegidas.
+
+### Avaliações e biblioteca
+
+Avaliações (`src/services/avaliacoes.ts`), todas com Bearer token:
+
+| Serviço | Endpoint | Contrato |
+| --- | --- | --- |
+| `criarAvaliacao()` | `POST /api/avaliacoes` | Envia `livroId`, `nota` (1 a 5) e `resenha` (10 a 5.000 caracteres); recebe 201 `{ avaliacao }`. 409 se a pessoa já avaliou o livro, com o `avaliacaoId` existente. |
+| `listarAvaliacoesDoLivro()` | `GET /api/avaliacoes/livro/:livroId?page=` | Recebe `{ avaliacoes, total, media, page, hasMore }`, dez por página; cada item traz `usuarioNome` e `minha`. |
+| `buscarAvaliacao()` | `GET /api/avaliacoes/:id` | Recebe `{ avaliacao }`; qualquer pessoa logada lê. |
+| `atualizarAvaliacao()` | `PUT /api/avaliacoes/:id` | Envia `nota` e `resenha`; recebe `{ avaliacao }`. Só o autor altera (403). |
+| `listarMinhasAvaliacoes()` | `GET /api/avaliacoes/minhas` | Recebe `{ avaliacoes }` da pessoa logada. |
+| `excluirAvaliacao()` | `DELETE /api/avaliacoes/:id` | Só o autor exclui; 404 se já não existe. |
+
+Biblioteca (`src/services/biblioteca.ts`), todas com Bearer token. Os status são
+`QUERO_LER`, `LENDO`, `LIDO` e `ABANDONADO`:
+
+| Serviço | Endpoint | Contrato |
+| --- | --- | --- |
+| `listarBiblioteca()` | `GET /api/biblioteca?status=` | Recebe `{ itens }`; o filtro por status é opcional. |
+| `adicionarNaBiblioteca()` | `POST /api/biblioteca` | Envia `livroId` e `status` (padrão `QUERO_LER`); recebe 201 `{ item }`. 409 se o livro já está na biblioteca. |
+| `atualizarItemBiblioteca()` | `PATCH /api/biblioteca/:id` | Envia `status` e/ou `favorito`; recebe `{ item }`. 400 sem nenhum dos dois. |
+| `removerDaBiblioteca()` | `DELETE /api/biblioteca/:id` | Remove o item; 404 se já tinha saído. |
+
+Na aba Biblioteca, a busca por título ou autor (sem diferenciar acento e
+maiúscula), os filtros de status e o de favoritos são feitos no app, sobre a lista
+já carregada (`filtrarBiblioteca()`). Tocar no livro abre o detalhe, onde o status
+também pode ser consultado e trocado. Trocas de status atualizam a tela na hora e
+voltam ao valor anterior se o servidor recusar.
 
 Para uma edição antiga não sobrescrever a mais nova, cada comentário tem uma `versao`,
 que começa em 1 e sobe a cada edição. `editarComentario()` manda a versão que a pessoa

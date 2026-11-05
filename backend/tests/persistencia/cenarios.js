@@ -557,6 +557,91 @@ function definirCenarios(ambiente, cenariosDoModo) {
         assert.deepEqual(lista.map((c) => c.id), [...esperada, tardia.id]);
       });
 
+      const paginaDeComentarios = (leitor, avaliacaoId, busca) =>
+        api.chamar('GET', `/api/avaliacoes/${avaliacaoId}/comentarios?${busca}`, { leitor });
+      const idsDe = ({ corpo }) => corpo.comentarios.map((c) => c.id);
+
+      test('cursor: percorre os comentários principais sem repetir nem pular, com o total de respostas', async () => {
+        const { ana, bia, avaliacao, raiz, resposta } = await f.novaConversa();
+        const principais = [raiz.id];
+        for (let i = 0; i < 4; i += 1) {
+          principais.push((await f.comentado(ana, avaliacao.id, `Comentário ${i}`)).id);
+        }
+
+        const primeira = await paginaDeComentarios(bia, avaliacao.id, 'limite=2');
+        const segunda = await paginaDeComentarios(bia, avaliacao.id, `limite=2&cursor=${primeira.corpo.proximoCursor}`);
+        const terceira = await paginaDeComentarios(bia, avaliacao.id, `limite=2&cursor=${segunda.corpo.proximoCursor}`);
+
+        assert.deepEqual([...idsDe(primeira), ...idsDe(segunda), ...idsDe(terceira)], principais);
+        assert.deepEqual([primeira, segunda, terceira].map((p) => p.corpo.temMais), [true, true, false]);
+        assert.deepEqual(primeira.corpo.comentarios.map((c) => c.respostas), [1, 0]);
+        assert.equal(idsDe(primeira).includes(resposta.id), false);
+      });
+
+      test('cursor: respostas vêm por comentário, em mais de um nível, com o pai removido como contexto', async () => {
+        const { ana, bia, avaliacao, raiz, resposta, neta } = await f.novaConversa();
+        const irmas = [resposta.id];
+        for (let i = 0; i < 2; i += 1) {
+          irmas.push((await f.comentado(ana, avaliacao.id, `Resposta ${i}`, raiz.id)).id);
+        }
+        await f.excluir(bia, raiz.id);
+
+        const respostas = await paginaDeComentarios(ana, avaliacao.id, `limite=2&paiId=${raiz.id}`);
+        assert.deepEqual(idsDe(respostas), irmas.slice(0, 2));
+        assert.equal(respostas.corpo.temMais, true);
+        assert.deepEqual([respostas.corpo.pai.id, respostas.corpo.pai.removido, respostas.corpo.pai.texto], [raiz.id, true, null]);
+        assert.equal(respostas.corpo.comentarios[0].respostas, 1);
+
+        const netas = await paginaDeComentarios(ana, avaliacao.id, `paiId=${resposta.id}`);
+        assert.deepEqual(idsDe(netas), [neta.id]);
+      });
+
+      test('cursor: inclusão e exclusão entre as consultas não duplicam nem pulam', async () => {
+        const { ana, bia, avaliacao, raiz } = await f.novaConversa();
+        const principais = [raiz.id];
+        for (let i = 0; i < 3; i += 1) {
+          principais.push((await f.comentado(ana, avaliacao.id, `Comentário ${i}`)).id);
+        }
+
+        const primeira = await paginaDeComentarios(bia, avaliacao.id, 'limite=2');
+        await f.excluir(bia, raiz.id);
+        await f.excluir(ana, principais[2]);
+        const nova = await f.comentado(ana, avaliacao.id, 'Chegou depois');
+
+        const segunda = await paginaDeComentarios(bia, avaliacao.id, `limite=2&cursor=${primeira.corpo.proximoCursor}`);
+        assert.deepEqual(idsDe(segunda), principais.slice(2));
+        assert.equal(segunda.corpo.comentarios[0].removido, true);
+        assert.equal(segunda.corpo.temMais, true);
+
+        const fim = await paginaDeComentarios(bia, avaliacao.id, `limite=2&cursor=${segunda.corpo.proximoCursor}`);
+        assert.deepEqual(idsDe(fim), [nova.id]);
+        assert.equal(fim.corpo.temMais, false);
+
+        const vazia = await paginaDeComentarios(bia, avaliacao.id, `limite=2&cursor=${fim.corpo.proximoCursor}`);
+        assert.deepEqual(idsDe(vazia), []);
+        assert.equal(vazia.corpo.proximoCursor, fim.corpo.proximoCursor);
+      });
+
+      test('cursor: recusa parâmetro inválido e pai de outra avaliação; sem parâmetros traz tudo', async () => {
+        const { ana, bia, avaliacao, raiz } = await f.novaConversa();
+        const outra = await f.novaAvaliacao(bia);
+        const deFora = await f.comentado(ana, outra.id, 'Em outra avaliação');
+
+        for (const busca of ['limite=0', 'limite=51', 'limite=x', 'cursor=-1', 'paiId=1.5', 'limite=1&limite=2']) {
+          assert.equal((await paginaDeComentarios(ana, avaliacao.id, busca)).status, 400, busca);
+        }
+        assert.equal((await paginaDeComentarios(ana, avaliacao.id, `paiId=${deFora.id}`)).status, 404);
+        assert.equal((await paginaDeComentarios(ana, avaliacao.id, 'paiId=999999')).status, 404);
+
+        const padrao = await paginaDeComentarios(ana, avaliacao.id, `cursor=${raiz.id}`);
+        assert.equal(padrao.status, 200);
+        assert.deepEqual(idsDe(padrao), []);
+
+        const tudo = await f.listar(ana, avaliacao.id);
+        assert.equal(tudo.corpo.comentarios.length, 3);
+        assert.equal('temMais' in tudo.corpo, false);
+      });
+
       test('avaliações do livro: páginas sem repetição nem falta, a própria primeiro e empate desfeito pelo id', async () => {
         const LIVRO = 'OL999W';
         const eu = await f.novoLeitor('Eu');
@@ -608,7 +693,6 @@ function definirCenarios(ambiente, cenariosDoModo) {
     describe('pendente: depende de funcionalidade que ainda não existe na API', () => {
       test.todo('#171 mesma chave e mesmo corpo devolvem o mesmo comentário, inclusive em envios simultâneos');
       test.todo('#171 mesma chave com corpo diferente dá conflito, e a chave de um usuário não vale para outro');
-      test.todo('#168 cursor de comentários: páginas sem repetição nem falta, com inclusão e exclusão entre as consultas');
     });
 
     cenariosDoModo?.(() => ({ api, f }));
