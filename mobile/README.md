@@ -91,11 +91,11 @@ Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer 
 | --- | --- | --- |
 | `listarComentarios()` | `GET /api/avaliacoes/:id/comentarios` | Recebe `{ comentarios }` em ordem de criação, removidos incluídos. |
 | `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. |
-| `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto`; recebe `{ comentario }`. Só o autor edita, e o pai e a avaliação não mudam. |
+| `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto` e a `versao` que a pessoa estava vendo; recebe `{ comentario }` com a versão nova. Só o autor edita, e o pai e a avaliação não mudam. |
 | `excluirComentario()` | `DELETE /api/comentarios/:id` | Soft delete: recebe `{ comentario }` com `removido: true` e `texto: null`; as respostas continuam. |
 
 Cada comentário vem como `{ id, avaliacaoId, paiId, autor: { id, nome }, texto,
-removido, criadoEm, atualizadoEm, podeEditar, podeExcluir }`. O autor sai do
+removido, criadoEm, atualizadoEm, versao, podeEditar, podeExcluir }`. O autor sai do
 token (o corpo não escolhe autor nem avaliação) e nunca leva e-mail nem foto.
 O texto é obrigatório, com até 2.000 caracteres, e o `paiId` precisa ser de um
 comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { texto } }`),
@@ -112,6 +112,16 @@ Com outra mensagem, devolve 409, o que só acontece se o app reaproveitar a key.
 fora do formato dá 400. A key vale só para quem enviou e é esquecida depois de 24 horas.
 Sem o header, cada envio grava um comentário novo. `comentar()` e `responder()` ainda
 não mandam a key.
+
+Para uma edição antiga não sobrescrever a mais nova, cada comentário tem uma `versao`,
+que começa em 1 e sobe a cada edição. `editarComentario()` manda a versão que a pessoa
+estava vendo. Se o comentário mudou depois, por exemplo em outra sessão do mesmo autor,
+o backend não grava e devolve 409 com `errors.versao` e o `comentario` atual no corpo, e
+`classificarFalhaComentario()` devolve `'conflito'`. Nesse caso, a tela de comentários
+(#130) deve manter o texto digitado, recarregar a conversa para mostrar a versão atual
+e, quando a pessoa confirmar, tentar de novo com a versão nova. Versão faltando ou
+inválida dá 400. Se o comentário foi removido durante a edição, vem o 409 de comentário
+removido, e a tela não deve recriar o comentário com o texto digitado.
 
 ### Alterar senha
 
