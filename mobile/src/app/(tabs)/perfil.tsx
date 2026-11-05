@@ -240,6 +240,11 @@ export default function PerfilScreen() {
               label="Editar perfil"
               onPress={() => router.push('/editar_perfil')}
             />
+            <ActionButton
+              label="Minhas avaliações"
+              variant="ghost"
+              onPress={() => router.push('/minhas-avaliacoes')}
+            />
              <ActionButton
               label="Configurações"
               variant="ghost"

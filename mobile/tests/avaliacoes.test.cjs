@@ -149,3 +149,48 @@ test('junta páginas sem repetir avaliações e monta o resumo', () => {
   assert.equal(avaliacoes.resumoAvaliacoes(1, 5), 'Média 5,0 de 5 · 1 avaliação');
   assert.equal(avaliacoes.resumoAvaliacoes(12, 4.3), 'Média 4,3 de 5 · 12 avaliações');
 });
+
+test('lista as avaliações da sessão em /minhas, com o token de quem está logado', async () => {
+  const h = await logado();
+  const minhas = [
+    { id: 9, minha: true, nota: 4, resenha: 'Gostei bastante.', livro: { id: 'OL1W', titulo: 'A' } },
+    { id: 3, minha: true, nota: 2, resenha: 'Não me pegou.', livro: { id: 'OL2W', titulo: 'B' } },
+  ];
+  h.fetch = async (url, options) => {
+    assert.equal(url, 'http://localhost:3000/api/avaliacoes/minhas');
+    assert.equal(options.method, 'GET');
+    assert.equal(options.headers.Authorization, `Bearer ${session.token}`);
+    return json({ avaliacoes: minhas });
+  };
+  assert.deepEqual(await h.avaliacoes.listarMinhasAvaliacoes(), minhas);
+
+  h.fetch = async () => json({});
+  assert.deepEqual(await h.avaliacoes.listarMinhasAvaliacoes(), []);
+});
+
+test('exclui a própria avaliação pelo id e repassa 404 e 403', async () => {
+  const h = await logado();
+  h.fetch = async (url, options) => {
+    assert.equal(url, 'http://localhost:3000/api/avaliacoes/9');
+    assert.equal(options.method, 'DELETE');
+    return json({ message: 'Avaliação excluída!' });
+  };
+  await h.avaliacoes.excluirAvaliacao(9);
+
+  h.fetch = async () => json({ error: 'Avaliação não encontrada' }, 404);
+  await assert.rejects(h.avaliacoes.excluirAvaliacao(9), { status: 404 });
+
+  h.fetch = async () => json({ error: 'Você só pode alterar a sua própria avaliação' }, 403);
+  await assert.rejects(h.avaliacoes.excluirAvaliacao(5), {
+    status: 403,
+    message: 'Você só pode alterar a sua própria avaliação',
+  });
+});
+
+test('desenha a nota em estrelas dentro do intervalo de 0 a 5', () => {
+  const { avaliacoes } = createServices();
+  assert.equal(avaliacoes.estrelas(4), '★★★★☆');
+  assert.equal(avaliacoes.estrelas(5), '★★★★★');
+  assert.equal(avaliacoes.estrelas(0), '☆☆☆☆☆');
+  assert.equal(avaliacoes.estrelas(7), '★★★★★');
+});
