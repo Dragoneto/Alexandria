@@ -429,3 +429,31 @@ test('corpo acima de 32 KB dá 413 ao comentar e ao editar, e o maior comentári
   assert.equal((await comentarios.findById(valido.id)).texto, valido.texto);
   assert.equal((await comentarios.findByAvaliacao(conversa.id)).length, 1);
 });
+
+test('o log de erro leva só o contexto e a mensagem do erro, nunca o texto nem o token', async (t) => {
+  const conversa = await novaConversa('OL721W');
+  const meu = (await chamar(create, leitor, { params: { id: String(conversa.id) }, body: { texto: 'Para editar' } })).body.comentario;
+  const falhar = async () => {
+    throw new Error('falha simulada no banco');
+  };
+  t.mock.method(comentarios, 'create', falhar);
+  t.mock.method(comentarios, 'update', falhar);
+  const logs = [];
+  for (const nivel of ['error', 'warn', 'log']) t.mock.method(console, nivel, (...partes) => logs.push(partes.join(' ')));
+
+  const headers = { authorization: 'Bearer token-que-nao-pode-aparecer' };
+  const comentando = await chamar(create, leitor, {
+    params: { id: String(conversa.id) },
+    body: { texto: 'Texto completo que não pode aparecer no log' },
+    headers,
+  });
+  const editando = await chamar(update, leitor, {
+    params: { id: String(meu.id) },
+    body: { texto: 'Edição que não pode aparecer no log', versao: 1 },
+    headers,
+  });
+
+  assert.deepEqual([comentando.statusCode, comentando.body], [500, { error: 'Erro interno do servidor' }]);
+  assert.equal(editando.statusCode, 500);
+  assert.deepEqual(logs, ['Erro ao comentar: falha simulada no banco', 'Erro ao editar comentário: falha simulada no banco']);
+});
