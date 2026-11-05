@@ -76,3 +76,43 @@ export async function atualizarItemBiblioteca(
 export async function removerDaBiblioteca(id: number): Promise<void> {
   await apiRequest(`/api/biblioteca/${id}`, { method: 'DELETE' });
 }
+
+export function encontrarItemDoLivro(
+  itens: BibliotecaItem[],
+  livroId: string,
+): BibliotecaItem | null {
+  return itens.find((item) => item.livro?.id === livroId) ?? null;
+}
+
+// Uma ação por livro de cada vez; um segundo toque durante o envio é ignorado (devolve false).
+export async function comTrava(
+  pendentes: Set<string>,
+  chave: string,
+  acao: () => Promise<void>,
+): Promise<boolean> {
+  if (pendentes.has(chave)) return false;
+  pendentes.add(chave);
+  try {
+    await acao();
+    return true;
+  } finally {
+    pendentes.delete(chave);
+  }
+}
+
+// Mostra o status novo na hora e, se a API falhar, volta ao anterior antes de repassar o erro.
+export async function trocarStatusOtimista(
+  item: BibliotecaItem,
+  status: StatusLeitura,
+  aplicar: (item: BibliotecaItem) => void,
+): Promise<void> {
+  if (item.statusLeitura === status) return;
+  aplicar({ ...item, statusLeitura: status });
+  try {
+    const salvo = await atualizarItemBiblioteca(item.id, { status });
+    aplicar(salvo?.id === item.id ? salvo : { ...item, statusLeitura: status });
+  } catch (error) {
+    aplicar(item);
+    throw error;
+  }
+}
