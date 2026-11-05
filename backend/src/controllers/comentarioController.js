@@ -125,7 +125,12 @@ const create = async (req, res) => {
     const payloadHash =
       idempotencyKey &&
       crypto.createHash('sha256').update(JSON.stringify([avaliacao.id, paiId, texto])).digest('hex');
-    const dados = { avaliacaoId: avaliacao.id, userId: req.user.id, paiId, texto, idempotencyKey, payloadHash };
+    const destinatarios = [{ id: avaliacao.user_id, tipo: 'comentario' }];
+    if (paiId !== null && !anterior) {
+      const pai = await comentarios.findById(paiId);
+      if (pai) destinatarios.push({ id: pai.user_id, tipo: 'resposta' });
+    }
+    const dados = { avaliacaoId: avaliacao.id, userId: req.user.id, paiId, texto, idempotencyKey, payloadHash, destinatarios };
     const criado = anterior || (await comentarios.create(dados));
     // No Postgres a chave estrangeira barra a gravação; no arquivo, quem desfaz é esta conferência
     if (!criado || !(await avaliacoes.findById(avaliacao.id))) {
@@ -176,4 +181,4 @@ const remove = async (req, res) => {
   }
 };
 
-module.exports = { list, create, update, remove };
+module.exports = { list, create, update, remove, paraResposta };

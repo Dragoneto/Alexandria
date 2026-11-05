@@ -60,6 +60,16 @@ CREATE TABLE IF NOT EXISTS comentarios (
 );
 
 CREATE INDEX IF NOT EXISTS comentarios_avaliacao_id_idx ON comentarios (avaliacao_id);
+ALTER TABLE comentarios ADD COLUMN IF NOT EXISTS evento_id UUID;
+
+CREATE TABLE IF NOT EXISTS notificacoes (
+  id UUID PRIMARY KEY, evento_id UUID NOT NULL, destinatario_id INTEGER NOT NULL,
+  ator_id INTEGER NOT NULL, avaliacao_id INTEGER NOT NULL, comentario_id INTEGER NOT NULL,
+  tipo TEXT NOT NULL CHECK (tipo IN ('comentario', 'resposta')),
+  criado_em TIMESTAMPTZ NOT NULL, lida_em TIMESTAMPTZ,
+  UNIQUE (evento_id, destinatario_id)
+);
+CREATE INDEX IF NOT EXISTS notificacoes_destinatario_idx ON notificacoes (destinatario_id, criado_em DESC, id DESC);
 
 -- Idempotency key do envio: o reenvio da mesma mensagem acha o comentário já gravado, em vez de gravar outro.
 -- Vale por usuário, e o envio sem key fica com NULL, que não conflita no unique index

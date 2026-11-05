@@ -58,6 +58,7 @@ app.use('/api/books', bookRoutes);
 
 app.use('/api/avaliacoes', avaliacaoRoutes);
 app.use('/api/comentarios', comentarioRoutes);
+app.use('/api/notificacoes', require('./routes/notificacoes'));
 app.use('/api/biblioteca', bibliotecaRoutes);
 
 // Fica depois do express.json() e das rotas para receber os erros deles
@@ -87,6 +88,7 @@ async function start() {
   await passwordResets.initialize();
   await avaliacoes.initialize();
   await comentarios.initialize();
+  await require('./repositories/notificacaoRepository').recover();
   await biblioteca.initialize();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);

@@ -1,5 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const crypto = require('node:crypto');
+const notificacoes = require('./notificacaoRepository');
 
 const pool = require('../config/database');
 const { substituirArquivo } = require('./arquivoLocal');
@@ -62,6 +64,8 @@ async function initialize() {
         ADD COLUMN IF NOT EXISTS idempotency_key TEXT,
         ADD COLUMN IF NOT EXISTS payload_hash TEXT
     `);
+    await pool.query('ALTER TABLE comentarios ADD COLUMN IF NOT EXISTS evento_id UUID');
+    await notificacoes.initialize();
     await pool.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS comentarios_idempotency_key_idx
       ON comentarios (user_id, idempotency_key)
@@ -117,22 +121,32 @@ async function findByIdempotencyKey(userId, idempotencyKey) {
  * Grava o comentário (paiId vazio: direto na avaliação). Devolve null se a avaliação sumiu antes de gravar.
  * Com uma idempotency key que este usuário já usou, não grava outro: devolve o comentário que tem a key.
  */
-async function create({ avaliacaoId, userId, paiId, texto, idempotencyKey = null, payloadHash = null }) {
+async function create({ avaliacaoId, userId, paiId, texto, idempotencyKey = null, payloadHash = null, destinatarios = [] }) {
+  const eventoId = crypto.randomUUID();
   if (usePostgres()) {
+    const client = await pool.connect();
     try {
+      await client.query('BEGIN');
       // No conflito, o UPDATE não muda nada: só faz o RETURNING devolver a linha que já tem a key.
       // O unique index faz a requisição simultânea esperar a primeira terminar
-      const result = await pool.query(
-        `INSERT INTO comentarios (avaliacao_id, user_id, pai_id, texto, idempotency_key, payload_hash)
-         VALUES ($1, $2, $3, $4, $5, $6)
+      const result = await client.query(
+        `INSERT INTO comentarios (avaliacao_id, user_id, pai_id, texto, idempotency_key, payload_hash, evento_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
          RETURNING *`,
-        [avaliacaoId, userId, paiId ?? null, texto, idempotencyKey, payloadHash],
+        [avaliacaoId, userId, paiId ?? null, texto, idempotencyKey, payloadHash, eventoId],
       );
+      if (result.rows[0].evento_id === eventoId) {
+        await notificacoes.deliver(notificacoes.eventFor(result.rows[0], destinatarios), client);
+      }
+      await client.query('COMMIT');
       return result.rows[0];
     } catch (error) {
+      await client.query('ROLLBACK');
       if (error.code === '23503') return null;
       throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -155,7 +169,9 @@ async function create({ avaliacaoId, userId, paiId, texto, idempotencyKey = null
       apagado_em: null,
       idempotency_key: idempotencyKey,
       payload_hash: payloadHash,
+      evento_id: eventoId,
     };
+    comentario.notification_events = notificacoes.eventFor(comentario, destinatarios);
     await writeLocalComments([...comentarios, comentario]);
     return comentario;
   });
@@ -211,6 +227,7 @@ async function removeByAvaliacao(avaliacaoId) {
   await serializeWrite(async () => {
     const comentarios = await readLocalComments();
     const restantes = comentarios.filter((comentario) => comentario.avaliacao_id !== Number(avaliacaoId));
+    await notificacoes.deliver(comentarios.filter((c) => c.avaliacao_id === Number(avaliacaoId)).flatMap((c) => c.notification_events ?? []));
     if (restantes.length !== comentarios.length) await writeLocalComments(restantes);
   });
 }
@@ -238,7 +255,18 @@ async function expireIdempotencyKeys() {
   });
 }
 
+async function findContextPage(avaliacaoId, afterId, limit) {
+  if (pool) return (await pool.query(
+    'SELECT * FROM comentarios WHERE avaliacao_id = $1 AND id > $2 ORDER BY id LIMIT $3',
+    [avaliacaoId, afterId, limit],
+  )).rows;
+  return (await readLocalComments()).filter((c) => c.avaliacao_id === Number(avaliacaoId) && c.id > afterId)
+    .sort((a, b) => a.id - b.id).slice(0, limit);
+}
+
 module.exports = {
+  findContextPage,
+  notificationEvents: async () => (await readLocalComments()).flatMap((c) => c.notification_events ?? []),
   initialize,
   findById,
   findByAvaliacao,
