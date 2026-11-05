@@ -11,6 +11,7 @@ const COMENTARIO = {
   removido: false,
   criadoEm: '2026-11-04T10:00:00.000Z',
   atualizadoEm: '2026-11-04T10:00:00.000Z',
+  versao: 1,
   podeEditar: true,
   podeExcluir: true,
 };
@@ -74,14 +75,14 @@ test('editar e excluir usam a rota do comentário', async () => {
   const chamadas = [];
   h.fetch = async (url, options) => {
     chamadas.push([options.method, url, options.body]);
-    return json({ comentario: options.method === 'DELETE' ? REMOVIDO : COMENTARIO });
+    return json({ comentario: options.method === 'DELETE' ? REMOVIDO : { ...COMENTARIO, versao: 2 } });
   };
 
-  await h.comentarios.editarComentario(7, 'Novo texto');
+  assert.equal((await h.comentarios.editarComentario(7, 'Novo texto', 1)).versao, 2);
   assert.equal((await h.comentarios.excluirComentario(8)).removido, true);
 
   assert.deepEqual(chamadas, [
-    ['PUT', 'http://localhost:3000/api/comentarios/7', JSON.stringify({ texto: 'Novo texto' })],
+    ['PUT', 'http://localhost:3000/api/comentarios/7', JSON.stringify({ texto: 'Novo texto', versao: 1 })],
     ['DELETE', 'http://localhost:3000/api/comentarios/8', undefined],
   ]);
 });
@@ -90,6 +91,7 @@ test('resposta fora do contrato vira erro do servidor', async () => {
   const h = await logado();
   const invalidos = [{}, { comentarios: 'x' }, { comentarios: [{ id: 1 }] }];
   invalidos.push({ comentarios: [{ ...COMENTARIO, texto: null }] });
+  invalidos.push({ comentarios: [{ ...COMENTARIO, versao: '1' }] }, { comentarios: [{ ...COMENTARIO, versao: undefined }] });
 
   for (const corpo of invalidos) {
     h.fetch = async () => json(corpo);
@@ -97,7 +99,7 @@ test('resposta fora do contrato vira erro do servidor', async () => {
   }
 });
 
-test('distingue validação, sessão, permissão, removido, rede e servidor', async () => {
+test('distingue validação, sessão, permissão, removido, conflito, rede e servidor', async () => {
   const h = await logado();
   const casos = [
     [400, 'validacao'],
@@ -121,6 +123,17 @@ test('distingue validação, sessão, permissão, removido, rede e servidor', as
   const semRede = await h.comentarios.comentar(3, 'Oi').catch((erro) => erro);
   assert.equal(h.comentarios.classificarFalhaComentario(semRede), 'rede');
   assert.equal(await h.session.getAuth().then((atual) => atual?.token), session.token);
+
+  // O 409 com errors.versao é edição sobre uma versão antiga, não comentário removido
+  h.fetch = async () => json({ error: 'Mudou', errors: { versao: 'Mudou' } }, 409);
+  const conflito = await h.comentarios.editarComentario(7, 'Oi', 1).catch((erro) => erro);
+  assert.equal(h.comentarios.classificarFalhaComentario(conflito), 'conflito');
+  assert.match(h.comentarios.mensagemDeFalhaComentario(conflito), /mudou em outra sessão.*seu texto continua aqui/);
+
+  // O 400 de versão inválida também traz errors.versao, mas é validação
+  h.fetch = async () => json({ error: 'Versão inválida', errors: { versao: 'Versão inválida' } }, 400);
+  const invalida = await h.comentarios.editarComentario(7, 'Oi', 1).catch((erro) => erro);
+  assert.equal(h.comentarios.classificarFalhaComentario(invalida), 'validacao');
 });
 
 test('sessão expirada derruba a sessão salva, como nas outras rotas', async () => {

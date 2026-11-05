@@ -78,3 +78,6 @@ ALTER TABLE comentarios
   ADD COLUMN IF NOT EXISTS payload_hash TEXT;     -- SHA-256 da mensagem: avaliação, pai e texto já limpo
 
 CREATE UNIQUE INDEX IF NOT EXISTS comentarios_idempotency_key_idx ON comentarios (user_id, idempotency_key);
+
+-- Versão do comentário: começa em 1, e a edição confere a versão para não sobrescrever uma alteração mais nova
+ALTER TABLE comentarios ADD COLUMN IF NOT EXISTS versao INTEGER NOT NULL DEFAULT 1;

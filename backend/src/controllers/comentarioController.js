@@ -13,6 +13,8 @@ const LIMITE_PADRAO = 20;
 const LIMITE_MAXIMO = 50;
 const NAO_ENCONTRADO = 'Comentário não encontrado';
 const REMOVIDO = 'Este comentário foi removido';
+const MUDOU = 'Este comentário mudou desde que você abriu. Revise a versão atual antes de salvar de novo';
+const VERSAO_INVALIDA = 'Versão do comentário inválida';
 
 // Mesma limpeza da resenha: texto só com espaços ou caracteres invisíveis conta como vazio
 function lerTexto(valor) {
@@ -42,6 +44,7 @@ async function paraResposta(lista, usuarioLogadoId) {
       removido,
       criadoEm: new Date(comentario.criado_em).toISOString(),
       atualizadoEm: new Date(comentario.atualizado_em).toISOString(),
+      versao: comentario.versao ?? 1, // no arquivo local, comentário sem o campo está na versão 1
       podeEditar: meu,
       podeExcluir: meu,
     };
@@ -74,11 +77,15 @@ async function buscarDoAutor(req, res) {
   return comentario;
 }
 
-// O repositório só altera comentário vivo: se não gravou, ele está removido (409) ou sumiu com a avaliação (404)
-async function responderNaoGravou(res, id) {
-  return (await comentarios.findById(id))
-    ? res.status(409).json({ error: REMOVIDO })
-    : res.status(404).json({ error: NAO_ENCONTRADO });
+// O repositório só altera comentário vivo e, na edição, na versão esperada. Se não gravou, ele sumiu com a
+// avaliação (404), foi removido (409) ou mudou em outra sessão (409 com o atual, para revisar antes de tentar de novo)
+async function responderNaoGravou(res, id, usuarioLogadoId) {
+  const atual = await comentarios.findById(id);
+  // No arquivo local o id pode ter passado para o comentário de outra pessoa: o desta sumiu com a avaliação
+  if (atual?.user_id !== Number(usuarioLogadoId)) return res.status(404).json({ error: NAO_ENCONTRADO });
+  if (atual.apagado_em) return res.status(409).json({ error: REMOVIDO });
+  const [comentario] = await paraResposta([atual], usuarioLogadoId);
+  return res.status(409).json({ error: MUDOU, errors: { versao: MUDOU }, comentario });
 }
 
 function lerPaginacao(query = {}) {
@@ -206,9 +213,14 @@ const update = async (req, res) => {
 
     const { texto, erro } = lerTexto(req.body?.texto);
     if (erro) return res.status(400).json({ error: erro, errors: { texto: erro } });
+    // A versão que a pessoa estava vendo: se o comentário mudou depois, a edição não sobrescreve
+    const versao = req.body?.versao;
+    if (!(Number.isInteger(versao) && versao > 0 && versao <= 999999999)) {
+      return res.status(400).json({ error: VERSAO_INVALIDA, errors: { versao: VERSAO_INVALIDA } });
+    }
 
-    const editado = await comentarios.update(comentario.id, req.user.id, texto);
-    if (!editado) return responderNaoGravou(res, comentario.id);
+    const editado = await comentarios.update(comentario.id, req.user.id, texto, versao);
+    if (!editado) return responderNaoGravou(res, comentario.id, req.user.id);
 
     const [resposta] = await paraResposta([editado], req.user.id);
     return res.json({ comentario: resposta });
@@ -223,7 +235,7 @@ const remove = async (req, res) => {
     if (!comentario) return res;
 
     const removido = await comentarios.remove(comentario.id, req.user.id);
-    if (!removido) return responderNaoGravou(res, comentario.id);
+    if (!removido) return responderNaoGravou(res, comentario.id, req.user.id);
 
     const [resposta] = await paraResposta([removido], req.user.id);
     return res.json({ comentario: resposta });

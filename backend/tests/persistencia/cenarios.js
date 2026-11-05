@@ -59,6 +59,7 @@ function definirCenarios(ambiente, cenariosDoModo) {
           autor: { id: bia.id, nome: 'Bia' },
           texto: 'Comentário raiz da Bia',
           removido: false,
+          versao: 1,
           podeEditar: true,
           podeExcluir: true,
         });
@@ -88,7 +89,7 @@ function definirCenarios(ambiente, cenariosDoModo) {
         ]);
       });
 
-      test('editar muda só o texto e a data de atualização, nunca autor, avaliação, pai ou posição', async () => {
+      test('editar muda o texto, a data de atualização e a versão, nunca autor, avaliação, pai ou posição', async () => {
         const { ana, bia, avaliacao, raiz, resposta, neta } = await f.novaConversa();
         await esperar(5); // para a data de atualização ficar visivelmente depois da criação
 
@@ -103,6 +104,7 @@ function definirCenarios(ambiente, cenariosDoModo) {
         assert.deepEqual(semDatas(corpo.comentario), {
           ...semDatas(resposta),
           texto: 'Resposta corrigida',
+          versao: resposta.versao + 1,
         });
         assert.equal(corpo.comentario.criadoEm, resposta.criadoEm);
         assert.ok(corpo.comentario.atualizadoEm > corpo.comentario.criadoEm);
@@ -338,6 +340,54 @@ function definirCenarios(ambiente, cenariosDoModo) {
         );
         assert.ok(gravados.some((c) => c.id === resposta.id));
         assert.ok(!(await ambiente.comentariosBrutos()).includes('Editando enquanto apaga'));
+      });
+
+      test('duas sessões do mesmo autor: editar sobre a versão antiga dá 409 com o comentário atual, sem sobrescrever', async () => {
+        const { ana, bia, raiz } = await f.novaConversa();
+        const celular = f.outraSessao(bia); // as duas sessões abriram a conversa na mesma versão
+
+        assert.equal((await f.editar(celular, raiz.id, { texto: 'Do celular', versao: raiz.versao })).status, 200);
+        const antes = await armazenados();
+        const { status, corpo } = await f.editar(bia, raiz.id, { texto: 'Do computador', versao: raiz.versao });
+
+        assert.equal(status, 409);
+        assert.deepEqual(semDatas(corpo.comentario), { ...semDatas(raiz), texto: 'Do celular', versao: raiz.versao + 1 });
+        assert.equal(corpo.errors.versao, corpo.error);
+        assert.ok(!JSON.stringify(corpo).includes('@alexandria.test'), 'O 409 não pode trazer e-mail');
+        assert.equal((await f.editar(bia, raiz.id, { texto: 'Do futuro', versao: raiz.versao + 9 })).status, 409);
+        assert.deepEqual(await armazenados(), antes);
+
+        // Revisada a versão atual, a nova tentativa grava; a versão certa não abre a edição para outra pessoa
+        assert.equal((await f.editar(bia, raiz.id, { texto: 'Do computador', versao: raiz.versao + 1 })).status, 200);
+        assert.equal((await f.editar(ana, raiz.id, { texto: 'Invasão', versao: raiz.versao + 2 })).status, 403);
+
+        // Removido enquanto a outra sessão editava: vem o 409 de removido, sem versão nem comentário
+        assert.equal((await f.excluir(bia, raiz.id)).status, 200);
+        const removido = await f.editar(celular, raiz.id, { texto: 'Ainda editando', versao: raiz.versao + 2 });
+        assert.deepEqual(removido, { status: 409, corpo: { error: 'Este comentário foi removido' } });
+      });
+
+      test('edições simultâneas sobre a mesma versão: uma grava e a outra recebe 409', async (t) => {
+        const { bia, raiz } = await f.novaConversa();
+        // As duas edições chegam juntas ao repositório: só a gravação condicional impede que as duas gravem
+        const gravar = comentarios.update;
+        let liberar;
+        const juntas = new Promise((resolve) => (liberar = resolve));
+        let chegaram = 0;
+        t.mock.method(comentarios, 'update', async (...argumentos) => {
+          if (++chegaram === 2) liberar();
+          await Promise.race([juntas, esperar(1000)]);
+          return gravar(...argumentos);
+        });
+
+        const respostas = await Promise.all(
+          ['Primeira', 'Segunda'].map((texto) => f.editar(bia, raiz.id, { texto, versao: raiz.versao })),
+        );
+
+        assert.deepEqual(respostas.map((r) => r.status).sort(), [200, 409]);
+        const vencedora = respostas.find((r) => r.status === 200).corpo.comentario;
+        assert.equal(vencedora.versao, raiz.versao + 1);
+        assert.equal((await armazenados()).find((c) => c.id === raiz.id).texto, vencedora.texto);
       });
 
       test('comentário removido entre a checagem e a gravação da edição: 409 sem recriar o texto', async (t) => {
@@ -643,7 +693,6 @@ function definirCenarios(ambiente, cenariosDoModo) {
     describe('pendente: depende de funcionalidade que ainda não existe na API', () => {
       test.todo('#171 mesma chave e mesmo corpo devolvem o mesmo comentário, inclusive em envios simultâneos');
       test.todo('#171 mesma chave com corpo diferente dá conflito, e a chave de um usuário não vale para outro');
-      test.todo('#172 edição com versão antiga dá 409 sem sobrescrever, inclusive em duas sessões simultâneas');
     });
 
     cenariosDoModo?.(() => ({ api, f }));

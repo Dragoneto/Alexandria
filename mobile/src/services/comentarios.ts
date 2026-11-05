@@ -9,6 +9,8 @@ export type Comentario = {
   removido: boolean;
   criadoEm: string;
   atualizadoEm: string;
+  /** Sobe a cada edição; editarComentario() manda a versão que a pessoa estava vendo. */
+  versao: number;
   podeEditar: boolean;
   podeExcluir: boolean;
   respostas: number;
@@ -25,7 +27,7 @@ export const LIMITE_COMENTARIOS = 20;
 export const LIMITE_RESPOSTAS = 5;
 
 export type FalhaComentario =
-  'validacao' | 'sessao' | 'permissao' | 'removido' | 'rede' | 'servidor';
+  'validacao' | 'sessao' | 'permissao' | 'removido' | 'conflito' | 'rede' | 'servidor';
 
 export function comentarioFrom(valor: unknown): Comentario {
   const dados = (valor ?? {}) as Partial<Comentario>;
@@ -33,6 +35,7 @@ export function comentarioFrom(valor: unknown): Comentario {
   if (
     !Number.isInteger(dados.id) ||
     !Number.isInteger(dados.avaliacaoId) ||
+    !Number.isInteger(dados.versao) ||
     !Number.isInteger(autor?.id) ||
     typeof autor?.nome !== 'string' ||
     typeof dados.criadoEm !== 'string' ||
@@ -55,6 +58,7 @@ export function comentarioFrom(valor: unknown): Comentario {
     removido,
     criadoEm: dados.criadoEm,
     atualizadoEm: dados.atualizadoEm,
+    versao: dados.versao as number,
     podeEditar: !removido && dados.podeEditar === true,
     podeExcluir: !removido && dados.podeExcluir === true,
     respostas: Number.isInteger(dados.respostas) ? (dados.respostas as number) : 0,
@@ -140,10 +144,11 @@ export function responder(
   return publicar(avaliacaoId, texto, paiId, chave);
 }
 
-export async function editarComentario(id: number, texto: string): Promise<Comentario> {
+/** Se o comentário mudou depois da versão informada, o backend não grava: a falha é 'conflito'. */
+export async function editarComentario(id: number, texto: string, versao: number): Promise<Comentario> {
   const result = await apiRequest<{ comentario?: unknown }>(`/api/comentarios/${id}`, {
     method: 'PUT',
-    body: { texto },
+    body: { texto, versao },
   });
   return comentarioFrom(result?.comentario);
 }
@@ -159,6 +164,8 @@ export function classificarFalhaComentario(falha: unknown): FalhaComentario {
   if (!(falha instanceof ApiError)) return 'servidor';
   if (falha.kind === 'auth' || falha.status === 401) return 'sessao';
   if (falha.status === 403) return 'permissao';
+  // O 409 de versão antiga vem com errors.versao; os outros 409 são de comentário removido
+  if (falha.status === 409 && falha.fieldErrors?.versao) return 'conflito';
   if (falha.status === 404 || falha.status === 409) return 'removido';
   if (falha.kind === 'validation') return 'validacao';
   if (falha.kind === 'network' || falha.kind === 'timeout') return 'rede';
@@ -266,6 +273,8 @@ export function mensagemDeFalhaComentario(falha: unknown): string {
       return 'Você só pode alterar os seus próprios comentários.';
     case 'removido':
       return 'Esse comentário foi removido. A conversa foi atualizada.';
+    case 'conflito':
+      return 'Esse comentário mudou em outra sessão. A conversa mostra a versão atual e o seu texto continua aqui: salve de novo para substituí-la.';
     case 'rede':
       return 'Sem conexão com o servidor. Seu texto continua aqui; tente de novo.';
     default:

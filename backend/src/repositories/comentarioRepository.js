@@ -74,6 +74,8 @@ async function initialize() {
       'CREATE INDEX IF NOT EXISTS comentarios_principais_idx ON comentarios (avaliacao_id, id) WHERE pai_id IS NULL',
     );
     await pool.query('CREATE INDEX IF NOT EXISTS comentarios_pai_id_idx ON comentarios (pai_id, id)');
+    // Versão do comentário: a edição confere a versão para não sobrescrever uma alteração mais nova
+    await pool.query('ALTER TABLE comentarios ADD COLUMN IF NOT EXISTS versao INTEGER NOT NULL DEFAULT 1');
     return;
   }
 
@@ -226,17 +228,18 @@ async function create({ avaliacaoId, userId, paiId, texto, idempotencyKey = null
   });
 }
 
-async function update(id, userId, texto) {
+/** Só grava se o comentário ainda estiver na versão que a pessoa estava vendo, e sobe a versão. */
+async function update(id, userId, texto, versao) {
   if (usePostgres()) {
     const result = await pool.query(
-      `UPDATE comentarios SET texto = $1, atualizado_em = NOW()
-       WHERE id = $2 AND user_id = $3 AND apagado_em IS NULL RETURNING *`,
-      [texto, id, userId],
+      `UPDATE comentarios SET texto = $1, atualizado_em = NOW(), versao = versao + 1
+       WHERE id = $2 AND user_id = $3 AND apagado_em IS NULL AND versao = $4 RETURNING *`,
+      [texto, id, userId, versao],
     );
     return result.rows[0] ?? null;
   }
 
-  return alterarLocal(id, userId, { texto, atualizado_em: new Date().toISOString() });
+  return alterarLocal(id, userId, { texto, atualizado_em: new Date().toISOString(), versao: versao + 1 }, versao);
 }
 
 /** Soft delete: tira o texto e marca o comentário; as respostas de outras pessoas continuam. */
@@ -250,15 +253,19 @@ async function remove(id, userId) {
     return result.rows[0] ?? null;
   }
 
-  return alterarLocal(id, userId, { texto: null, apagado_em: new Date().toISOString() });
+  return alterarLocal(id, userId, { texto: null, apagado_em: new Date().toISOString() }, null);
 }
 
-// Mesmo filtro do WHERE do Postgres: só comentário vivo e do próprio autor
-function alterarLocal(id, userId, mudancas) {
+// Mesmo filtro do WHERE do Postgres: só comentário vivo, do próprio autor e na versão esperada (a exclusão passa null)
+function alterarLocal(id, userId, mudancas, versao) {
   return serializeWrite(async () => {
     const lista = await readLocalComments();
     const index = lista.findIndex(
-      (c) => c.id === Number(id) && c.user_id === Number(userId) && !c.apagado_em,
+      (c) =>
+        c.id === Number(id) &&
+        c.user_id === Number(userId) &&
+        !c.apagado_em &&
+        (versao === null || (c.versao ?? 1) === versao),
     );
     if (index === -1) return null;
     const alterado = { ...lista[index], ...mudancas };

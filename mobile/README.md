@@ -92,11 +92,11 @@ Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer 
 | `listarComentarios()` | `GET /api/avaliacoes/:id/comentarios` | Recebe `{ comentarios }` em ordem de criação, removidos incluídos. |
 | `listarPaginaComentarios()` | `GET /api/avaliacoes/:id/comentarios?limite&cursor&paiId` | Sem `paiId` traz comentários principais; com `paiId`, as respostas diretas dele. Limite padrão 20 e máximo 50. Recebe `{ comentarios, pai, proximoCursor, temMais }`, e cada comentário traz o total de `respostas`. |
 | `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. O último parâmetro, opcional, vira o header `Idempotency-Key`. |
-| `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto`; recebe `{ comentario }`. Só o autor edita, e o pai e a avaliação não mudam. |
+| `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto` e a `versao` que a pessoa estava vendo; recebe `{ comentario }` com a versão nova. Só o autor edita, e o pai e a avaliação não mudam. |
 | `excluirComentario()` | `DELETE /api/comentarios/:id` | Soft delete: recebe `{ comentario }` com `removido: true` e `texto: null`; as respostas continuam. |
 
 Cada comentário vem como `{ id, avaliacaoId, paiId, autor: { id, nome }, texto,
-removido, criadoEm, atualizadoEm, podeEditar, podeExcluir }`. O autor sai do
+removido, criadoEm, atualizadoEm, versao, podeEditar, podeExcluir }`. O autor sai do
 token (o corpo não escolhe autor nem avaliação) e nunca leva e-mail nem foto.
 O texto é obrigatório, com até 2.000 caracteres, e o `paiId` precisa ser de um
 comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { texto } }`),
@@ -157,6 +157,17 @@ maiúscula), os filtros de status e o de favoritos são feitos no app, sobre a l
 já carregada (`filtrarBiblioteca()`). Tocar no livro abre o detalhe, onde o status
 também pode ser consultado e trocado. Trocas de status atualizam a tela na hora e
 voltam ao valor anterior se o servidor recusar.
+
+Para uma edição antiga não sobrescrever a mais nova, cada comentário tem uma `versao`,
+que começa em 1 e sobe a cada edição. `editarComentario()` manda a versão que a pessoa
+estava vendo. Se o comentário mudou depois, por exemplo em outra sessão do mesmo autor,
+o backend não grava e devolve 409 com `errors.versao` e o `comentario` atual no corpo, e
+`classificarFalhaComentario()` devolve `'conflito'`. Na conversa da avaliação, o texto
+digitado fica no campo, a conversa recarrega com a versão atual para a pessoa revisar,
+e o próximo Salvar parte dessa versão; uma atualização da conversa sem conflito não troca
+a versão da edição. Versão faltando ou inválida dá 400. Se o comentário foi removido
+durante a edição, vem o 409 de comentário removido, e a tela volta para comentário novo
+com o rascunho de antes da edição, sem recriar o comentário.
 
 ### Alterar senha
 

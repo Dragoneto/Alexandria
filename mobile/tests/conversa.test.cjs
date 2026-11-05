@@ -14,6 +14,7 @@ function comentario(id, paiId, extra = {}) {
     removido: false,
     criadoEm: '2026-11-05T10:00:00.000Z',
     atualizadoEm: '2026-11-05T10:00:00.000Z',
+    versao: 1,
     podeEditar: false,
     podeExcluir: false,
     ...extra,
