@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -31,6 +32,7 @@ export function AvaliacoesDoLivro({
   onCarregarMais,
 }: Props) {
   const theme = useTheme();
+  const router = useRouter();
 
   return (
     <View style={styles.section}>
@@ -72,12 +74,19 @@ export function AvaliacoesDoLivro({
           </ThemedText>
 
           {dados.avaliacoes.map((avaliacao) => (
-            <ThemedView
+            <TouchableOpacity
               key={avaliacao.id}
-              type="backgroundElement"
+              accessibilityRole="button"
+              accessibilityLabel={`Abrir a conversa da avaliação de ${avaliacao.usuarioNome || 'Leitor'}`}
+              onPress={() =>
+                router.push({ pathname: '/avaliacao/[id]', params: { id: String(avaliacao.id) } })
+              }
               style={[
                 styles.card,
-                { borderColor: avaliacao.minha ? theme.accent : 'transparent' },
+                {
+                  backgroundColor: theme.backgroundElement,
+                  borderColor: avaliacao.minha ? theme.accent : 'transparent',
+                },
               ]}>
               <View style={styles.cardHeader}>
                 <ThemedText style={styles.author} numberOfLines={1}>
@@ -100,7 +109,7 @@ export function AvaliacoesDoLivro({
                   {avaliacao.resenha}
                 </ThemedText>
               )}
-            </ThemedView>
+            </TouchableOpacity>
           ))}
 
           {dados.hasMore && (
