@@ -18,12 +18,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
-import {
-  getProfile,
-  getProfilePhoto,
-  removeProfilePhoto,
-  saveProfilePhoto,
-} from '@/services/auth';
+import { getProfile, getProfilePhoto, removeProfilePhoto, saveProfilePhoto } from '@/services/auth';
 
 type ProfileData = {
   name: string;
@@ -236,21 +231,22 @@ export default function PerfilScreen() {
           </View>
 
           <View style={styles.actions}>
-            <ActionButton
-              label="Editar perfil"
-              onPress={() => router.push('/editar_perfil')}
-            />
+            <ActionButton label="Editar perfil" onPress={() => router.push('/editar_perfil')} />
             <ActionButton
               label="Minhas avaliações"
               variant="ghost"
               onPress={() => router.push('/minhas-avaliacoes')}
             />
-             <ActionButton
+            <ActionButton
+              label="Notificações"
+              variant="ghost"
+              onPress={() => router.push('/notificacoes')}
+            />
+            <ActionButton
               label="Configurações"
               variant="ghost"
               onPress={() => router.push('/configuracoes')}
-            />         
-
+            />
           </View>
         </View>
       </SafeAreaView>
