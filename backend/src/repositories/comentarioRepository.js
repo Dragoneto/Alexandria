@@ -118,6 +118,49 @@ async function create({ avaliacaoId, userId, paiId, texto }) {
   });
 }
 
+async function update(id, userId, texto) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      `UPDATE comentarios SET texto = $1, atualizado_em = NOW()
+       WHERE id = $2 AND user_id = $3 AND apagado_em IS NULL RETURNING *`,
+      [texto, id, userId],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return alterarLocal(id, userId, { texto, atualizado_em: new Date().toISOString() });
+}
+
+/** Soft delete: tira o texto e marca o comentário; as respostas de outras pessoas continuam. */
+async function remove(id, userId) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      `UPDATE comentarios SET texto = NULL, apagado_em = NOW()
+       WHERE id = $1 AND user_id = $2 AND apagado_em IS NULL RETURNING *`,
+      [id, userId],
+    );
+    return result.rows[0] ?? null;
+  }
+
+  return alterarLocal(id, userId, { texto: null, apagado_em: new Date().toISOString() });
+}
+
+// Mesmo filtro do WHERE do Postgres: só comentário vivo e do próprio autor
+function alterarLocal(id, userId, mudancas) {
+  return serializeWrite(async () => {
+    const lista = await readLocalComments();
+    const index = lista.findIndex(
+      (c) => c.id === Number(id) && c.user_id === Number(userId) && !c.apagado_em,
+    );
+    if (index === -1) return null;
+    const alterado = { ...lista[index], ...mudancas };
+    const atualizados = [...lista];
+    atualizados[index] = alterado;
+    await writeLocalComments(atualizados);
+    return alterado;
+  });
+}
+
 /** No arquivo não há chave estrangeira: quem apaga a avaliação chama isto para levar os comentários junto. */
 async function removeByAvaliacao(avaliacaoId) {
   if (usePostgres()) return; // ON DELETE CASCADE
@@ -129,4 +172,4 @@ async function removeByAvaliacao(avaliacaoId) {
   });
 }
 
-module.exports = { initialize, findById, findByAvaliacao, create, removeByAvaliacao };
+module.exports = { initialize, findById, findByAvaliacao, create, update, remove, removeByAvaliacao };

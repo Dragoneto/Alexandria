@@ -13,7 +13,7 @@ process.env.LOCAL_COMMENTS_FILE = path.join(dataDir, 'comentarios.json');
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 
-const { create, list } = require('../src/controllers/comentarioController');
+const { create, list, remove, update } = require('../src/controllers/comentarioController');
 const avaliacoes = require('../src/repositories/avaliacaoRepository');
 const comentarios = require('../src/repositories/comentarioRepository');
 const users = require('../src/repositories/userRepository');
@@ -174,4 +174,73 @@ test('avaliação apagada enquanto o comentário é gravado responde 404 sem dei
   const res = await chamar(create, autora, { params: { id: String(efemera.id) }, body: { texto: 'Chegou tarde' } });
   assert.equal(res.statusCode, 404);
   assert.deepEqual(await comentarios.findByAvaliacao(efemera.id), []);
+});
+
+const noComentario = (handler, usuario, id, body) => chamar(handler, usuario, { params: { id: String(id) }, body });
+
+test('edita só o próprio comentário, e a edição não muda autor, avaliação nem pai', async () => {
+  const raiz = (await naAvaliacao(autora, { texto: 'Pergunta da autora' })).body.comentario;
+  const resposta = (await naAvaliacao(leitor, { texto: 'Resposta do leitor', paiId: raiz.id })).body.comentario;
+
+  assert.equal((await noComentario(update, autora, resposta.id, { texto: 'Invasão' })).statusCode, 403);
+  assert.equal((await noComentario(update, leitor, resposta.id, { texto: '   ' })).statusCode, 400);
+  assert.equal((await noComentario(update, leitor, 'abc', { texto: 'Oi' })).statusCode, 400);
+  assert.equal((await noComentario(update, leitor, 999999, { texto: 'Oi' })).statusCode, 404);
+
+  const corpo = { texto: ' Resposta   corrigida ', paiId: null, avaliacaoId: 999, usuarioId: autora.id };
+  const { comentario } = (await noComentario(update, leitor, resposta.id, corpo)).body;
+  assert.deepEqual(
+    [comentario.texto, comentario.paiId, comentario.avaliacaoId, comentario.autor.id],
+    ['Resposta corrigida', raiz.id, avaliacao.id, leitor.id],
+  );
+});
+
+test('excluir é soft delete: o texto some, as respostas continuam e o removido não aceita mais nada', async () => {
+  const raiz = (await naAvaliacao(leitor, { texto: 'Vou apagar isto' })).body.comentario;
+  const resposta = (await naAvaliacao(autora, { texto: 'Resposta que fica', paiId: raiz.id })).body.comentario;
+
+  assert.equal((await noComentario(remove, autora, raiz.id)).statusCode, 403);
+  const { comentario } = (await noComentario(remove, leitor, raiz.id)).body;
+  assert.deepEqual(
+    [comentario.removido, comentario.texto, comentario.podeEditar, comentario.podeExcluir],
+    [true, null, false, false],
+  );
+
+  const lista = (await chamar(list, autora, { params: { id: String(avaliacao.id) } })).body.comentarios;
+  assert.equal(lista.find((c) => c.id === raiz.id).removido, true);
+  assert.equal(lista.find((c) => c.id === resposta.id).texto, 'Resposta que fica');
+
+  assert.equal((await noComentario(remove, leitor, raiz.id)).statusCode, 409);
+  assert.equal((await noComentario(update, leitor, raiz.id, { texto: 'Voltei' })).statusCode, 409);
+  assert.equal((await naAvaliacao(autora, { texto: 'Oi', paiId: raiz.id })).statusCode, 409);
+  assert.ok(!fs.readFileSync(process.env.LOCAL_COMMENTS_FILE, 'utf8').includes('Vou apagar isto'));
+});
+
+test('mudança entre a checagem e a gravação: removido no meio dá 409, avaliação apagada no meio dá 404', async (t) => {
+  const efemera = await avaliacoes.create({ userId: leitor.id, livro: livro('OL706W'), nota: 3, resenha: RESENHA });
+  const comentar = async (texto) =>
+    (await chamar(create, leitor, { params: { id: String(efemera.id) }, body: { texto } })).body.comentario;
+  const [primeiro, segundo] = [await comentar('Primeiro'), await comentar('Segundo')];
+  const { update: editar, remove: apagar } = comentarios;
+
+  t.mock.method(comentarios, 'update', async (...args) => {
+    await apagar(primeiro.id, leitor.id); // removido em outra aba antes de gravar
+    return editar(...args);
+  });
+  assert.equal((await noComentario(update, leitor, primeiro.id, { texto: 'Editado' })).statusCode, 409);
+
+  t.mock.method(comentarios, 'remove', async (...args) => {
+    await avaliacoes.remove(efemera.id, leitor.id); // a avaliação some antes de gravar
+    return apagar(...args);
+  });
+  assert.equal((await noComentario(remove, leitor, segundo.id)).statusCode, 404);
+});
+
+test('editar e excluir ficam no router de comentários, atrás do login', () => {
+  const { stack } = require('../src/routes/comentarios');
+  assert.equal(stack[0].handle, require('../src/middlewares/authMiddleware'));
+  assert.deepEqual(
+    stack.filter((c) => c.route).map((c) => [Object.keys(c.route.methods)[0], c.route.path]),
+    [['put', '/:id'], ['delete', '/:id']],
+  );
 });

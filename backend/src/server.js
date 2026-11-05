@@ -6,6 +6,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const bookRoutes = require('./routes/books');
 const avaliacaoRoutes = require('./routes/avaliacoes');
+const comentarioRoutes = require('./routes/comentarios');
 const users = require('./repositories/userRepository');
 const passwordResets = require('./repositories/passwordResetRepository');
 const avaliacoes = require('./repositories/avaliacaoRepository');
@@ -55,6 +56,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 
 app.use('/api/avaliacoes', avaliacaoRoutes);
+app.use('/api/comentarios', comentarioRoutes);
 app.use('/api/biblioteca', bibliotecaRoutes);
 
 
@@ -98,6 +100,7 @@ async function start() {
     console.log(`   POST /api/avaliacoes     - Avaliar um livro (requer token)`);
     console.log(`   PUT/DELETE /api/avaliacoes/:id - Editar ou excluir a própria avaliação (requer token)`);
     console.log(`   GET/POST /api/avaliacoes/:id/comentarios - Ler, comentar e responder (requer token)`);
+    console.log(`   PUT/DELETE /api/comentarios/:id - Editar ou excluir o próprio comentário (requer token)`);
     console.log(`   GET  /api/avaliacoes/livro/:livroId | /minhas | /:id - Ler avaliações (requer token)`);
   });
 }

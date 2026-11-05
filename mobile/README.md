@@ -90,13 +90,16 @@ Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer 
 | --- | --- | --- |
 | `listarComentarios()` | `GET /api/avaliacoes/:id/comentarios` | Recebe `{ comentarios }` em ordem de criação, removidos incluídos. |
 | `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. |
+| `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto`; recebe `{ comentario }`. Só o autor edita, e o pai e a avaliação não mudam. |
+| `excluirComentario()` | `DELETE /api/comentarios/:id` | Soft delete: recebe `{ comentario }` com `removido: true` e `texto: null`; as respostas continuam. |
 
 Cada comentário vem como `{ id, avaliacaoId, paiId, autor: { id, nome }, texto,
 removido, criadoEm, atualizadoEm, podeEditar, podeExcluir }`. O autor sai do
 token (o corpo não escolhe autor nem avaliação) e nunca leva e-mail nem foto.
 O texto é obrigatório, com até 2.000 caracteres, e o `paiId` precisa ser de um
 comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { texto } }`),
-401 sessão e 404 avaliação ou comentário inexistente.
+401 sessão, 403 comentário de outra pessoa, 404 avaliação ou comentário inexistente
+e 409 comentário removido (editar, excluir de novo ou responder).
 
 ## Sessão e navegação
 
