@@ -98,6 +98,10 @@ sem subir o backend (`npm run mock-api`).
 - Edição de perfil ainda não existe no backend. O acesso à antiga rota vazia foi
   removido; a tela de perfil nesta etapa apenas consulta dados e permite sair.
 
+## Tema
+
+As cores, o contraste e as regras para telas novas estão em [docs/tema.md](docs/tema.md).
+
 ## Verificação
 
 ```sh

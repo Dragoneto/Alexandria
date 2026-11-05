@@ -50,11 +50,11 @@ export const Accent = {
 
 /** Texto sobre fundo escuro */
 export const TextColor = {
-  /** Marfim — primário · 15,1:1 */
+  /** Marfim — primário · 17,00:1 sobre ink900, 12,90:1 sobre ink600 */
   primary: '#F1F5F9',
-  /** Névoa — secundário · 7,4:1 */
+  /** Névoa — secundário · 9,18:1 sobre ink900, 6,97:1 sobre ink600 */
   secondary: '#A9B7CE',
-  /** Sussurro — auxiliar · 3,6:1 · só >= 16px */
+  /** Sussurro — auxiliar · 4,45:1 sobre ink900, 3,38:1 sobre ink600 · só >= 16px */
   muted: '#6B7D99',
 } as const;
 
