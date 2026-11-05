@@ -80,7 +80,7 @@ Se a execução for interrompida à força, um schema `conversas_teste_*` pode f
 | Pai de outra avaliação | Coberto nos dois modos | Pai de outra avaliação, inexistente ou removido, sem gravar nada |
 | Exclusão concorrente da avaliação | Coberto nos dois modos | Corridas forçadas em comentar, responder, editar e excluir, e requisições HTTP realmente paralelas |
 | Integridade referencial e ausência de órfãos | Coberto nos dois modos | Invariantes conferidas depois de **todo** cenário. No PostgreSQL, também as restrições do próprio banco e a igualdade entre `init.sql` e `initialize()` |
-| Paginação determinística | **Parcial** | Coberta a ordem dos comentários e as páginas de avaliações do livro, com empate de data. Falta o cursor de comentários (#168) |
+| Paginação determinística | Coberto nos dois modos | Ordem dos comentários, páginas de avaliações do livro com empate de data e cursor de comentários e respostas (#168) |
 | Chave de idempotência | **Pendente** | Depende do #171, que ainda não existe na API |
 | Conflito de versão | **Pendente** | Depende do #172, que ainda não existe na API |
 

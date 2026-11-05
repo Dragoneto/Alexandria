@@ -90,6 +90,7 @@ Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer 
 | Serviço | Endpoint | Contrato |
 | --- | --- | --- |
 | `listarComentarios()` | `GET /api/avaliacoes/:id/comentarios` | Recebe `{ comentarios }` em ordem de criação, removidos incluídos. |
+| `listarPaginaComentarios()` | `GET /api/avaliacoes/:id/comentarios?limite&cursor&paiId` | Sem `paiId` traz comentários principais; com `paiId`, as respostas diretas dele. Limite padrão 20 e máximo 50. Recebe `{ comentarios, pai, proximoCursor, temMais }`, e cada comentário traz o total de `respostas`. |
 | `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. |
 | `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto`; recebe `{ comentario }`. Só o autor edita, e o pai e a avaliação não mudam. |
 | `excluirComentario()` | `DELETE /api/comentarios/:id` | Soft delete: recebe `{ comentario }` com `removido: true` e `texto: null`; as respostas continuam. |

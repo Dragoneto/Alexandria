@@ -11,7 +11,18 @@ export type Comentario = {
   atualizadoEm: string;
   podeEditar: boolean;
   podeExcluir: boolean;
+  respostas: number;
 };
+
+export type PaginaComentarios = {
+  comentarios: Comentario[];
+  pai: Comentario | null;
+  proximoCursor: number | null;
+  temMais: boolean;
+};
+
+export const LIMITE_COMENTARIOS = 20;
+export const LIMITE_RESPOSTAS = 5;
 
 export type FalhaComentario =
   'validacao' | 'sessao' | 'permissao' | 'removido' | 'rede' | 'servidor';
@@ -46,6 +57,7 @@ export function comentarioFrom(valor: unknown): Comentario {
     atualizadoEm: dados.atualizadoEm,
     podeEditar: !removido && dados.podeEditar === true,
     podeExcluir: !removido && dados.podeExcluir === true,
+    respostas: Number.isInteger(dados.respostas) ? (dados.respostas as number) : 0,
   };
 }
 
@@ -61,6 +73,41 @@ export async function listarComentarios(
     throw new ApiError('server', 'Resposta inválida ao carregar os comentários.');
   }
   return result.comentarios.map(comentarioFrom);
+}
+
+export async function listarPaginaComentarios(
+  avaliacaoId: number,
+  opcoes: { paiId?: number; cursor?: number | null } = {},
+  signal?: AbortSignal,
+): Promise<PaginaComentarios> {
+  const { paiId, cursor } = opcoes;
+  const limite = paiId === undefined ? LIMITE_COMENTARIOS : LIMITE_RESPOSTAS;
+  const busca = [`limite=${limite}`];
+  if (cursor != null) busca.push(`cursor=${cursor}`);
+  if (paiId !== undefined) busca.push(`paiId=${paiId}`);
+
+  const result = await apiRequest<{
+    comentarios?: unknown;
+    pai?: unknown;
+    proximoCursor?: unknown;
+    temMais?: unknown;
+  }>(`/api/avaliacoes/${avaliacaoId}/comentarios?${busca.join('&')}`, { signal });
+  if (!Array.isArray(result?.comentarios)) {
+    throw new ApiError('server', 'Resposta inválida ao carregar os comentários.');
+  }
+
+  return {
+    comentarios: result.comentarios.map(comentarioFrom),
+    pai: result.pai ? comentarioFrom(result.pai) : null,
+    proximoCursor: Number.isInteger(result.proximoCursor) ? (result.proximoCursor as number) : null,
+    temMais: result.temMais === true,
+  };
+}
+
+export function juntarComentarios(atuais: Comentario[], novos: Comentario[]): Comentario[] {
+  const porId = new Map(atuais.map((comentario) => [comentario.id, comentario]));
+  novos.forEach((comentario) => porId.set(comentario.id, comentario));
+  return [...porId.values()].sort((a, b) => a.id - b.id);
 }
 
 async function publicar(
@@ -162,6 +209,47 @@ export function montarConversa(lista: Comentario[]): ItemDaConversa[] {
   };
   raizes.forEach((raiz) => visitar(raiz, 0, null));
   return saida;
+}
+
+export type LinhaDaConversa =
+  | ({ tipo: 'comentario' } & ItemDaConversa)
+  | { tipo: 'respostas'; paiId: number; nivel: number; faltam: number; aberta: boolean };
+
+export function linhasDaConversa(
+  itens: ItemDaConversa[],
+  listas: Record<string, { temMais: boolean }>,
+): LinhaDaConversa[] {
+  const carregadas = new Map<number, number>();
+  itens.forEach(({ comentario: { paiId } }) => {
+    if (paiId !== null) carregadas.set(paiId, (carregadas.get(paiId) ?? 0) + 1);
+  });
+
+  const linhas: LinhaDaConversa[] = [];
+  const pendentes: Extract<LinhaDaConversa, { tipo: 'respostas' }>[] = [];
+  const fecharAte = (nivel: number) => {
+    while (pendentes.length && pendentes[pendentes.length - 1].nivel > nivel) {
+      linhas.push(pendentes.pop()!);
+    }
+  };
+
+  for (const item of itens) {
+    fecharAte(item.nivel);
+    linhas.push({ tipo: 'comentario', ...item });
+    const { id, respostas } = item.comentario;
+    const lista = listas[String(id)];
+    const faltam = Math.max(respostas - (carregadas.get(id) ?? 0), 0);
+    if (lista ? lista.temMais : faltam > 0) {
+      pendentes.push({
+        tipo: 'respostas',
+        paiId: id,
+        nivel: item.nivel + 1,
+        faltam,
+        aberta: !!lista,
+      });
+    }
+  }
+  fecharAte(-1);
+  return linhas;
 }
 
 export function recuoVisual(nivel: number): number {

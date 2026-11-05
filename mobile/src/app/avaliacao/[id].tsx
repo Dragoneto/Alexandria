@@ -28,6 +28,7 @@ import {
   comentar,
   editarComentario,
   excluirComentario,
+  linhasDaConversa,
   mensagemDeFalhaComentario,
   montarConversa,
   novaChaveDeEnvio,
@@ -60,6 +61,8 @@ export default function ConversaDaAvaliacao() {
   const avaliacaoId = /^[1-9]\d*$/.test(textoId) ? Number(textoId) : 0;
   const conversa = useConversa(avaliacaoId);
   const itens = useMemo(() => montarConversa(conversa.comentarios ?? []), [conversa.comentarios]);
+  const linhas = useMemo(() => linhasDaConversa(itens, conversa.listas), [itens, conversa.listas]);
+  const principais = conversa.listas.raiz;
 
   const { focado, propsDeFoco } = useFoco();
   const campo = useRef<TextInputInstance>(null);
@@ -138,9 +141,13 @@ export default function ConversaDaAvaliacao() {
     }
     const { chave } = envio.current;
     try {
-      if (modo.tipo === 'editar') await editarComentario(modo.alvo.id, limpo);
-      else if (modo.tipo === 'responder') await responder(avaliacaoId, modo.alvo.id, limpo, chave);
-      else await comentar(avaliacaoId, limpo, chave);
+      conversa.incluir(
+        modo.tipo === 'editar'
+          ? await editarComentario(modo.alvo.id, limpo)
+          : modo.tipo === 'responder'
+            ? await responder(avaliacaoId, modo.alvo.id, limpo, chave)
+            : await comentar(avaliacaoId, limpo, chave),
+      );
       envio.current = null;
       setAviso(modo.tipo === 'editar' ? 'Comentário atualizado.' : 'Comentário enviado.');
       setTexto(modo.tipo === 'editar' ? rascunho.current : '');
@@ -169,7 +176,7 @@ export default function ConversaDaAvaliacao() {
     setErroEnvio('');
     setAviso('');
     try {
-      await excluirComentario(alvo.id);
+      conversa.incluir(await excluirComentario(alvo.id));
       setAviso('Comentário excluído.');
     } catch (error) {
       if (classificarFalhaComentario(error) !== 'removido') {
@@ -311,7 +318,55 @@ export default function ConversaDaAvaliacao() {
                       </ThemedText>
                     </ThemedView>
                   ) : (
-                    itens.map(({ comentario, nivel, respondendoA }) => {
+                    linhas.map((linha) => {
+                      if (linha.tipo === 'respostas') {
+                        const lista = conversa.listas[String(linha.paiId)];
+                        const ocupada = !!lista?.carregando || conversa.carregando;
+                        return (
+                          <View
+                            key={`respostas-${linha.paiId}`}
+                            style={[
+                              styles.maisRow,
+                              { marginLeft: recuoVisual(linha.nivel) * RECUO },
+                            ]}>
+                            <TouchableOpacity
+                              accessibilityRole="button"
+                              disabled={ocupada}
+                              onPress={() => void conversa.carregarMais(linha.paiId)}
+                              style={[
+                                styles.smallButton,
+                                {
+                                  borderColor: theme.border,
+                                  opacity: ocupada ? DisabledOpacity : 1,
+                                },
+                              ]}>
+                              {lista?.carregando ? (
+                                <ActivityIndicator
+                                  accessibilityLabel="Carregando respostas"
+                                  color={theme.accent}
+                                />
+                              ) : (
+                                <ThemedText themeColor="accent" style={styles.smallButtonText}>
+                                  {lista?.erro
+                                    ? 'Tentar de novo'
+                                    : linha.aberta
+                                      ? 'Ver mais respostas'
+                                      : `Ver ${linha.faltam === 1 ? '1 resposta' : `${linha.faltam} respostas`}`}
+                                </ThemedText>
+                              )}
+                            </TouchableOpacity>
+                            {!!lista?.erro && (
+                              <ThemedText
+                                themeColor="danger"
+                                style={styles.errorText}
+                                accessibilityRole="alert">
+                                {lista.erro}
+                              </ThemedText>
+                            )}
+                          </View>
+                        );
+                      }
+                      const { comentario, nivel, respondendoA } = linha;
                       const confirmando = confirmandoId === comentario.id;
                       const excluindo = excluindoId === comentario.id;
                       const nome = comentario.autor.nome || 'Leitor';
@@ -441,6 +496,40 @@ export default function ConversaDaAvaliacao() {
                         </ThemedView>
                       );
                     })
+                  )}
+
+                  {principais?.temMais && (
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      disabled={principais.carregando || conversa.carregando}
+                      onPress={() => void conversa.carregarMais(null)}
+                      style={[
+                        styles.outlineButton,
+                        {
+                          borderColor: theme.accent,
+                          opacity:
+                            principais.carregando || conversa.carregando ? DisabledOpacity : 1,
+                        },
+                      ]}>
+                      {principais.carregando ? (
+                        <ActivityIndicator
+                          accessibilityLabel="Carregando mais comentários"
+                          color={theme.accent}
+                        />
+                      ) : (
+                        <ThemedText themeColor="accent" style={styles.buttonText}>
+                          {principais.erro ? 'Tentar de novo' : 'Carregar mais comentários'}
+                        </ThemedText>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                  {!!principais?.erro && (
+                    <ThemedText
+                      themeColor="danger"
+                      style={styles.errorText}
+                      accessibilityRole="alert">
+                      {principais.erro}
+                    </ThemedText>
                   )}
                 </>
               )}
@@ -618,6 +707,7 @@ const styles = StyleSheet.create({
   },
   buttonText: { fontSize: 14, fontWeight: '800' },
   errorText: { fontSize: 13, lineHeight: 20 },
+  maisRow: { gap: 4, alignItems: 'flex-start' },
   composer: { borderTopWidth: 1, alignItems: 'center' },
   composerInner: {
     width: '100%',
