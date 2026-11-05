@@ -13,6 +13,7 @@ const comentarios = require('./repositories/comentarioRepository');
 const bibliotecaRoutes = require('./routes/biblioteca');
 const biblioteca = require('./repositories/bibliotecaRepository');
 const mailer = require('./services/mailer');
+const jsonErrorHandler = require('./middlewares/jsonErrorHandler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,6 +58,8 @@ app.use('/api/books', bookRoutes);
 app.use('/api/avaliacoes', avaliacaoRoutes);
 app.use('/api/biblioteca', bibliotecaRoutes);
 
+// Fica depois do express.json() e das rotas para receber os erros deles
+app.use(jsonErrorHandler);
 
 // ==========================================
 // INICIAR SERVIDOR
@@ -93,6 +96,7 @@ async function start() {
     console.log(`   GET/PUT/DELETE /api/auth/profile/photo - Foto de perfil (requer token)`);
     console.log(`   POST /api/auth/forgot-password - Pedir código de redefinição por e-mail`);
     console.log(`   POST /api/auth/reset-password  - Definir a nova senha`);
+    console.log(`   PUT  /api/auth/password  - Alterar a senha informando a atual (requer token)`);
     console.log(`   GET  /api/books/search   - Buscar livros (requer token)`);
     console.log(`   GET  /api/books/:id      - Detalhe do livro (requer token)`);
     console.log(`   POST /api/avaliacoes     - Avaliar um livro (requer token)`);
