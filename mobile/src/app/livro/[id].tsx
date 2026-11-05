@@ -13,9 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAvaliacoesDoLivro } from '@/hooks/use-avaliacoes-do-livro';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import { adicionarNaBiblioteca } from '@/services/biblioteca';
@@ -65,6 +67,12 @@ export default function DetalheDoLivro() {
   const [linkError, setLinkError] = useState('');
   const [addState, setAddState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [addError, setAddError] = useState('');
+  const avaliacoes = useAvaliacoesDoLivro(id);
+  const minhaAvaliacao = avaliacoes.minha;
+  const aguardandoAvaliacoes = avaliacoes.carregando && !avaliacoes.dados;
+  // O parâmetro avaliado só vale até a lista nova chegar; depois manda o que a API disser.
+  const jaAvaliouSemLista = avaliado && (!avaliacoes.dados || avaliacoes.atualizando);
+  const avaliarBloqueado = !minhaAvaliacao && (jaAvaliouSemLista || aguardandoAvaliacoes);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -269,19 +277,25 @@ export default function DetalheDoLivro() {
 
                 <TouchableOpacity
                   accessibilityRole="button"
-                  disabled={avaliado}
+                  disabled={avaliarBloqueado}
                   onPress={() =>
                     router.push({
                       pathname: '/avaliar/[id]',
-                      params: { id: book.id, titulo: book.title },
+                      params: minhaAvaliacao
+                        ? { id: book.id, titulo: book.title, avaliacaoId: minhaAvaliacao.id }
+                        : { id: book.id, titulo: book.title },
                     })
                   }
                   style={[
                     styles.rateButton,
-                    { borderColor: theme.accent, opacity: avaliado ? 0.6 : 1 },
+                    { borderColor: theme.accent, opacity: avaliarBloqueado ? 0.6 : 1 },
                   ]}>
                   <ThemedText themeColor="accent" style={styles.addButtonText}>
-                    {avaliado ? 'Você avaliou este livro' : 'Avaliar este livro'}
+                    {minhaAvaliacao
+                      ? 'Editar minha avaliação'
+                      : jaAvaliouSemLista
+                        ? 'Você avaliou este livro'
+                        : 'Avaliar este livro'}
                   </ThemedText>
                 </TouchableOpacity>
 
@@ -297,6 +311,16 @@ export default function DetalheDoLivro() {
                     {linkError}
                   </ThemedText>
                 )}
+
+                <AvaliacoesDoLivro
+                  dados={avaliacoes.dados}
+                  carregando={avaliacoes.carregando}
+                  erro={avaliacoes.erro}
+                  carregandoMais={avaliacoes.carregandoMais}
+                  erroMais={avaliacoes.erroMais}
+                  onTentarNovamente={avaliacoes.tentarNovamente}
+                  onCarregarMais={() => void avaliacoes.carregarMais()}
+                />
               </>
             )}
 
