@@ -17,6 +17,9 @@ const NAO_ENCONTRADO = 'Comentário não encontrado';
 const REMOVIDO = 'Este comentário foi removido';
 const MUDOU = 'Este comentário mudou desde que você abriu. Revise a versão atual antes de salvar de novo';
 const VERSAO_INVALIDA = 'Versão do comentário inválida';
+// Campos que cada operação lê do corpo: qualquer outro é recusado, em vez de ignorado
+const CAMPOS_DE_CRIAR = ['texto', 'paiId'];
+const CAMPOS_DE_EDITAR = ['texto', 'versao'];
 
 // Mesma limpeza da resenha: texto só com espaços ou caracteres invisíveis conta como vazio
 function lerTexto(valor) {
@@ -71,6 +74,14 @@ function corpoGrandeDemais(req, res) {
   }
   if (bytes <= CORPO_MAXIMO_BYTES) return false;
   res.status(413).json({ error: 'O corpo da requisição passou de 32 KB' });
+  return true;
+}
+
+// Responde 400 quando o corpo traz campo fora do contrato; devolve true se já respondeu
+function camposForaDoContrato(req, res, aceitos) {
+  const estranhos = Object.keys(req.body ?? {}).filter((campo) => !aceitos.includes(campo));
+  if (!estranhos.length) return false;
+  res.status(400).json({ error: `Campo fora do contrato: ${estranhos.join(', ')}` });
   return true;
 }
 
@@ -172,6 +183,7 @@ const create = async (req, res) => {
     if (corpoGrandeDemais(req, res)) return res;
     const avaliacao = await buscarAvaliacao(req, res);
     if (!avaliacao) return res;
+    if (camposForaDoContrato(req, res, CAMPOS_DE_CRIAR)) return res;
 
     const idempotencyKey = req.headers?.['idempotency-key'] ?? null;
     if (idempotencyKey !== null && !IDEMPOTENCY_KEY.test(idempotencyKey)) {
@@ -230,6 +242,7 @@ const update = async (req, res) => {
     if (corpoGrandeDemais(req, res)) return res;
     const comentario = await buscarDoAutor(req, res);
     if (!comentario) return res;
+    if (camposForaDoContrato(req, res, CAMPOS_DE_EDITAR)) return res;
 
     const { texto, erro } = lerTexto(req.body?.texto);
     if (erro) return res.status(400).json({ error: erro, errors: { texto: erro } });

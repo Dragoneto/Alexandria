@@ -112,7 +112,10 @@ const naAvaliacao = (usuario, body) => chamar(create, usuario, { params: { id: S
 
 test('dois usuários: comenta na avaliação da outra pessoa, com o autor vindo só da sessão', async () => {
   await users.updatePhoto(leitor.id, `data:image/png;base64,${'A'.repeat(100)}`);
-  const res = await naAvaliacao(leitor, { texto: '  Também   achei o final corrido.  ', usuarioId: autora.id, avaliacaoId: 999 });
+  const comExtras = await naAvaliacao(leitor, { texto: 'Oi', usuarioId: autora.id, avaliacaoId: 999 });
+  assert.deepEqual([comExtras.statusCode, comExtras.body.error], [400, 'Campo fora do contrato: usuarioId, avaliacaoId']);
+  assert.equal((await naAvaliacao(leitor, { texto: 'Oi', versao: 1 })).statusCode, 400); // versao é só da edição
+  const res = await naAvaliacao(leitor, { texto: '  Também   achei o final corrido.  ' });
 
   assert.equal(res.statusCode, 201);
   const { comentario } = res.body;
@@ -206,7 +209,10 @@ test('edita só o próprio comentário, e a edição não muda autor, avaliaçã
   assert.equal((await noComentario(update, leitor, 'abc', { texto: 'Oi' })).statusCode, 400);
   assert.equal((await noComentario(update, leitor, 999999, { texto: 'Oi' })).statusCode, 404);
 
-  const corpo = { texto: ' Resposta   corrigida ', paiId: null, avaliacaoId: 999, usuarioId: autora.id, versao: 1 };
+  const comExtras = { texto: 'Mudando o pai', paiId: null, avaliacaoId: 999, usuarioId: autora.id, versao: 1 };
+  const recusada = await noComentario(update, leitor, resposta.id, comExtras);
+  assert.deepEqual([recusada.statusCode, recusada.body.error], [400, 'Campo fora do contrato: paiId, avaliacaoId, usuarioId']);
+  const corpo = { texto: ' Resposta   corrigida ', versao: 1 };
   const { comentario } = (await noComentario(update, leitor, resposta.id, corpo)).body;
   assert.deepEqual(
     [comentario.texto, comentario.paiId, comentario.avaliacaoId, comentario.autor.id, comentario.versao],
