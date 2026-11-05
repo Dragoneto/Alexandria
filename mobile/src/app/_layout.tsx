@@ -51,6 +51,7 @@ function SessionRoutes() {
         <Stack.Screen name="avaliar/[id]" />
         <Stack.Screen name="comentario/[id]" />
         <Stack.Screen name="minhas-avaliacoes" />
+        <Stack.Screen name="avaliacao/[id]" />
       </Stack.Protected>
       <Stack.Protected guard={!user} redirectTo="/home">
         <Stack.Screen name="index" />
