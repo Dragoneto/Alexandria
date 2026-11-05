@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
@@ -280,7 +281,11 @@ export default function Biblioteca() {
 
                       <TouchableOpacity
                         disabled={savingStatusIds.includes(item.id)}
-                        style={[styles.statusButton, { borderColor: theme.border }]}
+                        style={[
+                          styles.statusButton,
+                          { borderColor: theme.border },
+                          savingStatusIds.includes(item.id) && { opacity: DisabledOpacity },
+                        ]}
                         onPress={() => setStatusModalItemId(item.id)}>
                         <ThemedText themeColor="textSecondary" style={styles.statusButtonText}>
                           {savingStatusIds.includes(item.id)
@@ -292,7 +297,11 @@ export default function Biblioteca() {
                       <View style={styles.actionsRow}>
                         <TouchableOpacity
                           disabled={savingFavoriteId !== null}
-                          style={[styles.actionButton, { borderColor: theme.accent }]}
+                          style={[
+                            styles.actionButton,
+                            { borderColor: theme.accent },
+                            savingFavoriteId !== null && { opacity: DisabledOpacity },
+                          ]}
                           onPress={() => void handleFavorite(item)}>
                           <ThemedText themeColor="accent" style={styles.favButtonText}>
                             {item.favorito ? 'Favorito' : 'Favoritar'}

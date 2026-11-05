@@ -84,6 +84,8 @@ export const Space = {
 export const ScreenInset = 20;
 /** Alvo mínimo de toque */
 export const TouchMin = 44;
+/** Opacidade de controles desabilitados. Complementa o documento, que não define este estado. */
+export const DisabledOpacity = 0.6;
 
 export const Radius = {
   cover: 8,

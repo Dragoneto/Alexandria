@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
@@ -250,6 +251,7 @@ export default function AvaliarLivro() {
                             borderColor: ativa ? theme.accent : theme.border,
                             backgroundColor: ativa ? theme.accent : 'transparent',
                           },
+                          saving && { opacity: DisabledOpacity },
                         ]}>
                         <ThemedText
                           style={[
@@ -299,6 +301,7 @@ export default function AvaliarLivro() {
                           : theme.border,
                       color: theme.text,
                     },
+                    saving && { opacity: DisabledOpacity },
                   ]}
                 />
                 {erros.resenha ? (
@@ -328,7 +331,7 @@ export default function AvaliarLivro() {
                   onPress={() => void publicar()}
                   style={[
                     styles.submit,
-                    { backgroundColor: theme.accent, opacity: saving ? 0.6 : 1 },
+                    { backgroundColor: theme.accent, opacity: saving ? DisabledOpacity : 1 },
                   ]}>
                   {saving ? (
                     <ActivityIndicator color={theme.background} />

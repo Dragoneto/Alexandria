@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Mint, withAlpha } from '@/constants/design-system';
+import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAvaliacoesDoLivro } from '@/hooks/use-avaliacoes-do-livro';
 import { useTheme } from '@/hooks/use-theme';
@@ -260,7 +260,10 @@ export default function DetalheDoLivro() {
                   onPress={() => void adicionar()}
                   style={[
                     styles.addButton,
-                    { backgroundColor: theme.accent, opacity: addState === 'idle' ? 1 : 0.6 },
+                    {
+                      backgroundColor: theme.accent,
+                      opacity: addState === 'idle' ? 1 : DisabledOpacity,
+                    },
                   ]}>
                   <ThemedText style={[styles.addButtonText, { color: theme.background }]}>
                     {addState === 'saving'
@@ -289,7 +292,7 @@ export default function DetalheDoLivro() {
                   }
                   style={[
                     styles.rateButton,
-                    { borderColor: theme.accent, opacity: avaliarBloqueado ? 0.6 : 1 },
+                    { borderColor: theme.accent, opacity: avaliarBloqueado ? DisabledOpacity : 1 },
                   ]}>
                   <ThemedText themeColor="accent" style={styles.addButtonText}>
                     {minhaAvaliacao

@@ -15,7 +15,7 @@ import { BookCard } from '@/components/book-card';
 import { EmptyState } from '@/components/empty_state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Mint, withAlpha } from '@/constants/design-system';
+import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
@@ -320,7 +320,7 @@ export default function Explorar() {
                   onPress={handleSearch}
                   style={[
                     styles.searchButton,
-                    { backgroundColor: theme.accent, opacity: loading ? 0.65 : 1 },
+                    { backgroundColor: theme.accent, opacity: loading ? DisabledOpacity : 1 },
                   ]}>
                   {loading ? (
                     <ActivityIndicator color={theme.background} />
@@ -350,7 +350,10 @@ export default function Explorar() {
                 onPress={clearFilters}
                 style={[
                   styles.clearButton,
-                  { borderColor: theme.border, opacity: hasActiveFilters ? 1 : 0.4 },
+                  {
+                    borderColor: theme.border,
+                    opacity: hasActiveFilters && !loading ? 1 : DisabledOpacity,
+                  },
                 ]}>
                 <ThemedText themeColor="accent" style={styles.clearButtonText}>
                   Limpar
@@ -372,7 +375,11 @@ export default function Explorar() {
                     key={option}
                     disabled={loading}
                     onPress={() => setCategory(option)}
-                    style={[styles.chip, { borderColor: active ? theme.accent : theme.border }]}>
+                    style={[
+                      styles.chip,
+                      { borderColor: active ? theme.accent : theme.border },
+                      loading && { opacity: DisabledOpacity },
+                    ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}
                       style={styles.chipText}>
@@ -397,6 +404,7 @@ export default function Explorar() {
                     style={[
                       styles.segment,
                       active && { backgroundColor: withAlpha(Mint.mint400, 0.1) },
+                      loading && { opacity: DisabledOpacity },
                     ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}
@@ -422,6 +430,7 @@ export default function Explorar() {
                     style={[
                       styles.qualityCard,
                       { borderColor: active ? theme.accent : theme.border },
+                      loading && { opacity: DisabledOpacity },
                     ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}

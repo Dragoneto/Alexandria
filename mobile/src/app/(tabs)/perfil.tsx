@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionButton } from '@/components/action-button';
 import {
   Accent,
+  DisabledOpacity,
   DSFonts,
   Ink,
   Mint,
@@ -153,7 +154,11 @@ export default function PerfilScreen() {
             accessibilityLabel={photo ? 'Alterar foto de perfil' : 'Adicionar foto de perfil'}
             disabled={photoBusy || loading}
             onPress={handleChangePhoto}
-            style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}>
+            style={({ pressed }) => [
+              styles.avatar,
+              pressed && styles.pressed,
+              loading && styles.desabilitado,
+            ]}>
             {photo ? (
               <Image
                 source={{ uri: photo }}
@@ -176,7 +181,10 @@ export default function PerfilScreen() {
               accessibilityRole="button"
               disabled={photoBusy || loading}
               onPress={handleChangePhoto}
-              style={({ pressed }) => pressed && styles.pressed}>
+              style={({ pressed }) => [
+                pressed && styles.pressed,
+                (photoBusy || loading) && styles.desabilitado,
+              ]}>
               <Text style={styles.photoAction}>{photo ? 'Alterar foto' : 'Adicionar foto'}</Text>
             </Pressable>
             {photo && (
@@ -184,7 +192,10 @@ export default function PerfilScreen() {
                 accessibilityRole="button"
                 disabled={photoBusy}
                 onPress={handleRemovePhoto}
-                style={({ pressed }) => pressed && styles.pressed}>
+                style={({ pressed }) => [
+                  pressed && styles.pressed,
+                  photoBusy && styles.desabilitado,
+                ]}>
                 <Text style={styles.photoActionMuted}>Remover foto</Text>
               </Pressable>
             )}
@@ -304,6 +315,9 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.6,
+  },
+  desabilitado: {
+    opacity: DisabledOpacity,
   },
   title: {
     marginTop: Space.six,
