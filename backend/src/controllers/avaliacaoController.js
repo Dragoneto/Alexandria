@@ -266,4 +266,4 @@ const detail = async (req, res) => {
   }
 };
 
-module.exports = { create, update, remove, listByBook, listMine, detail };
+module.exports = { create, update, remove, listByBook, listMine, detail, buscarAvaliacao, limparResenha };
