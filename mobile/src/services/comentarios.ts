@@ -16,7 +16,7 @@ export type Comentario = {
 export type FalhaComentario =
   'validacao' | 'sessao' | 'permissao' | 'removido' | 'rede' | 'servidor';
 
-function comentarioFrom(valor: unknown): Comentario {
+export function comentarioFrom(valor: unknown): Comentario {
   const dados = (valor ?? {}) as Partial<Comentario>;
   const autor = dados.autor;
   if (

@@ -292,7 +292,7 @@ test('qualquer leitor vê uma avaliação pelo id, e minha só vale para o dono'
 
 test('as rotas fixas vêm antes de /:id', () => {
   const rotasGet = require('../src/routes/avaliacoes').stack.filter((c) => c.route?.methods.get);
-  assert.deepEqual(rotasGet.map((c) => c.route.path), ['/minhas', '/livro/:livroId', '/:id', '/:id/comentarios']);
+  assert.deepEqual(rotasGet.map((c) => c.route.path), ['/minhas', '/livro/:livroId', '/:id/comentarios/:comentarioId/contexto', '/:id', '/:id/comentarios']);
 });
 
 test('avaliar pelo id unificado grava o destino, e tentar de novo pelo id antigo devolve a existente', async () => {
