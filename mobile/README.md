@@ -102,6 +102,17 @@ comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { te
 401 sessão, 403 comentário de outra pessoa, 404 avaliação ou comentário inexistente
 e 409 comentário removido (editar, excluir de novo ou responder).
 
+Para o reenvio não duplicar a mensagem, o envio de comentário ou resposta aceita o
+header `Idempotency-Key`: uma key nova para cada mensagem (16 a 100 caracteres entre
+letras sem acento, números, `-` e `_`; um UUID serve), repetida a cada nova tentativa
+da mesma mensagem. Se a avaliação, o `paiId` ou o texto mudar antes de tentar de novo,
+é outra mensagem e leva outra key. A mesma key com a mesma mensagem devolve 201 com o
+comentário já gravado, como ele está agora, mesmo que o pai tenha sido removido depois.
+Com outra mensagem, devolve 409, o que só acontece se o app reaproveitar a key. Key
+fora do formato dá 400. A key vale só para quem enviou e é esquecida depois de 24 horas.
+Sem o header, cada envio grava um comentário novo. `comentar()` e `responder()` ainda
+não mandam a key.
+
 ### Alterar senha
 
 `PUT /api/auth/password` troca a senha de quem está logado, informando a atual. A
