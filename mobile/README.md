@@ -85,7 +85,6 @@ abre `alexandriamobile://redefinir-senha?token=...` no aparelho e
 só e é guardado com hash. O `mock-api/` reproduz as duas rotas para mexer no app
 sem subir o backend (`npm run mock-api`).
 
-<<<<<<< HEAD
 Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer token:
 
 | Serviço | Endpoint | Contrato |
@@ -99,7 +98,7 @@ token (o corpo não escolhe autor nem avaliação) e nunca leva e-mail nem foto.
 O texto é obrigatório, com até 2.000 caracteres, e o `paiId` precisa ser de um
 comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { texto } }`),
 401 sessão e 404 avaliação ou comentário inexistente.
-=======
+
 ### Alterar senha
 
 `PUT /api/auth/password` troca a senha de quem está logado, informando a atual. A
@@ -122,7 +121,6 @@ troca, todo token já emitido, neste aparelho ou em outro, segue aceito até exp
 (7 dias depois de emitido). `changePassword()` mantém a sessão deste aparelho e não
 gera token novo. Por isso, nenhuma tela deve dizer que outros aparelhos foram
 desconectados, e apagar o token do aparelho não conta como revogação.
->>>>>>> 0e3605ee30e18b1ad62105550260a9674b2fb851
 
 ## Sessão e navegação
 
