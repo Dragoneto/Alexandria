@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import {
@@ -49,6 +50,7 @@ export default function AvaliarLivro() {
   const editando = avaliacaoId !== null;
   const [nota, setNota] = useState<number | null>(null);
   const [resenha, setResenha] = useState('');
+  const { focado: resenhaFocada, propsDeFoco } = useFoco();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [erros, setErros] = useState<ErrosAvaliacao>({});
@@ -276,6 +278,7 @@ export default function AvaliarLivro() {
                   Sua resenha
                 </ThemedText>
                 <TextInput
+                  {...propsDeFoco}
                   accessibilityLabel="Sua resenha"
                   value={resenha}
                   onChangeText={(texto) => {
@@ -288,7 +291,14 @@ export default function AvaliarLivro() {
                   placeholderTextColor={theme.textMuted}
                   style={[
                     styles.resenha,
-                    { borderColor: erros.resenha ? theme.danger : theme.border, color: theme.text },
+                    {
+                      borderColor: erros.resenha
+                        ? theme.danger
+                        : resenhaFocada
+                          ? theme.accent
+                          : theme.border,
+                      color: theme.text,
+                    },
                   ]}
                 />
                 {erros.resenha ? (

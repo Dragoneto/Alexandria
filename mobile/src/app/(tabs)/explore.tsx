@@ -17,6 +17,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import {
   describeSearchError,
@@ -59,6 +60,7 @@ export default function Explorar() {
   const params = useLocalSearchParams<{ q?: string | string[] }>();
   const initialQuery = firstParam(params.q).trim();
   const [query, setQuery] = useState(initialQuery);
+  const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
   const [category, setCategory] = useState('Todos');
   const [order, setOrder] = useState<BookSearchOrder>('relevance');
@@ -281,12 +283,13 @@ export default function Explorar() {
               <View style={styles.inputRow}>
                 <View style={styles.inputContainer}>
                   <TextInput
+                    {...propsDeFoco}
                     ref={inputRef}
                     accessibilityLabel="Busca de livros"
                     style={[
                       styles.input,
                       {
-                        borderColor: theme.border,
+                        borderColor: buscaFocada ? theme.accent : theme.border,
                         color: theme.text,
                         paddingRight: query ? 40 : 14,
                       },

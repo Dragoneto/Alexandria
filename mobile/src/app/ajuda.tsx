@@ -25,6 +25,7 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { useFoco } from '@/hooks/use-foco';
 
 type Pergunta = { pergunta: string; resposta: string };
 
@@ -108,6 +109,7 @@ const FAQ: Secao[] = [
 export default function AjudaScreen() {
   const router = useRouter();
   const [busca, setBusca] = useState('');
+  const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [assunto, setAssunto] = useState<string | null>(null); // null = todos os assuntos
   const [aberta, setAberta] = useState<string | null>(null); // null = nenhuma pergunta aberta
 
@@ -169,13 +171,14 @@ export default function AjudaScreen() {
     </View>
 
 
-    <View style={styles.busca}>
+    <View style={[styles.busca, buscaFocada && styles.buscaFocada]}>
       <SymbolView
         name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
         size={18}
         tintColor={TextColor.secondary}
       />
       <TextInput
+        {...propsDeFoco}
         style={styles.buscaInput}
         placeholder="Buscar uma dúvida"
         placeholderTextColor={TextColor.muted}
@@ -399,7 +402,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: Radius.pill,
     backgroundColor: Ink.ink700,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
+  buscaFocada: { borderColor: Mint.mint400 },
   buscaInput: { flex: 1, fontFamily: DSFonts.ui, fontSize: 16, color: TextColor.primary },
 
   // Filtro por assunto
