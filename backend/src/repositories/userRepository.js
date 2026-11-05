@@ -83,6 +83,18 @@ async function findById(id) {
   return publicProfile(user);
 }
 
+/** Só para conferir a senha: findById nunca devolve o hash, e o e-mail do token pode estar velho. */
+async function findCredentialsById(id) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT id, senha_hash FROM users WHERE id = $1', [id]);
+    return result.rows[0] ?? null;
+  }
+
+  const users = await readLocalUsers();
+  const user = users.find((candidate) => candidate.id === Number(id));
+  return user ? { id: user.id, senha_hash: user.senha_hash } : null;
+}
+
 /** Só id e nome: as listas de avaliações nunca levam e-mail nem foto de quem avaliou. */
 async function findNames(ids) {
   if (usePostgres()) {
@@ -204,6 +216,7 @@ module.exports = {
   initialize,
   findByEmail,
   findById,
+  findCredentialsById,
   findNames,
   findPhoto,
   updatePhoto,

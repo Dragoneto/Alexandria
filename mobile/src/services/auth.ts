@@ -183,3 +183,26 @@ export async function resetPassword(input: {
     throw new ApiError('server', 'Resposta inválida ao redefinir a senha.');
   }
 }
+
+/**
+ * Troca a senha da conta da sessão. A sessão deste aparelho continua aberta, e as sessões já
+ * emitidas em outros aparelhos também: o backend não revoga JWT, então nenhuma tela deve dizer
+ * que elas foram encerradas.
+ */
+export async function changePassword(input: {
+  currentPassword: string;
+  password: string;
+  confirmation: string;
+}): Promise<void> {
+  if (!input.currentPassword) throw new ApiError('validation', 'Informe sua senha atual.');
+  validatePassword(input.password);
+  if (input.password !== input.confirmation)
+    throw new ApiError('validation', 'As senhas não coincidem.');
+  const response = await apiRequest<{ message: string }>('/api/auth/password', {
+    method: 'PUT',
+    body: { senhaAtual: input.currentPassword, novaSenha: input.password },
+  });
+  if (typeof response?.message !== 'string') {
+    throw new ApiError('server', 'Resposta inválida ao alterar a senha.');
+  }
+}

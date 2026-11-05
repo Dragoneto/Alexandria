@@ -70,6 +70,7 @@ de `src/database/init.sql` no banco de desenvolvimento antes de `npm start`.
 | `getProfile()` | `GET /api/auth/profile` | Envia Bearer token; recebe `{ user }`. |
 | `forgotPassword()` | `POST /api/auth/forgot-password` | Envia `email`; espera `{ message }`. |
 | `resetPassword()` | `POST /api/auth/reset-password` | Envia `token`, `senha`; espera `{ message }`. |
+| `changePassword()` | `PUT /api/auth/password` | Envia Bearer token, `senhaAtual`, `novaSenha`; espera `{ message }`. |
 
 O serviço converte `user.nome` em `name` para as telas. Cadastro não autentica:
 o usuário confirma o popup e faz login. Todos os detalhes HTTP ficam em
@@ -84,6 +85,7 @@ abre `alexandriamobile://redefinir-senha?token=...` no aparelho e
 só e é guardado com hash. O `mock-api/` reproduz as duas rotas para mexer no app
 sem subir o backend (`npm run mock-api`).
 
+<<<<<<< HEAD
 Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer token:
 
 | Serviço | Endpoint | Contrato |
@@ -97,6 +99,30 @@ token (o corpo não escolhe autor nem avaliação) e nunca leva e-mail nem foto.
 O texto é obrigatório, com até 2.000 caracteres, e o `paiId` precisa ser de um
 comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { texto } }`),
 401 sessão e 404 avaliação ou comentário inexistente.
+=======
+### Alterar senha
+
+`PUT /api/auth/password` troca a senha de quem está logado, informando a atual. A
+conta vem só da sessão: `id` ou `email` enviados no corpo são ignorados. A nova
+senha segue a mesma regra do cadastro, e só o hash é gravado. `PUT /api/auth/profile`
+nunca altera a senha, mesmo que receba campos com esse nome.
+
+| Status | Quando | Corpo |
+| --- | --- | --- |
+| 200 | Senha trocada | `{ message }` |
+| 400 | Campo ausente, tipo inválido, nova senha fora da regra ou senha atual incorreta | `{ error, errors }`, com `errors.senhaAtual` e/ou `errors.novaSenha` |
+| 401 | Token ausente, inválido ou expirado, ou conta que não existe mais | `{ error }` |
+| 404 | Conta apagada durante a troca | `{ error }` |
+
+Senha atual incorreta é 400 de propósito: no app, todo 401 apaga a sessão do
+aparelho, e errar a senha não pode deslogar ninguém.
+
+**As sessões já emitidas continuam valendo.** O backend não revoga JWT: depois da
+troca, todo token já emitido, neste aparelho ou em outro, segue aceito até expirar
+(7 dias depois de emitido). `changePassword()` mantém a sessão deste aparelho e não
+gera token novo. Por isso, nenhuma tela deve dizer que outros aparelhos foram
+desconectados, e apagar o token do aparelho não conta como revogação.
+>>>>>>> 0e3605ee30e18b1ad62105550260a9674b2fb851
 
 ## Sessão e navegação
 
@@ -109,6 +135,8 @@ comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { te
   não deve invalidar uma sessão nova. Sessões fictícias antigas são descartadas.
 - Logout remove a sessão local e bloqueia as rotas internas, inclusive ao voltar.
   O backend atual não oferece revogação de JWT no servidor.
+- Alterar a senha não encerra nenhuma sessão, nem neste aparelho nem em outros
+  (ver [Alterar senha](#alterar-senha)).
 - Edição de perfil ainda não existe no backend. O acesso à antiga rota vazia foi
   removido; a tela de perfil nesta etapa apenas consulta dados e permite sair.
 
@@ -133,6 +161,16 @@ Os testes executam os serviços reais com respostas de rede e armazenamento
 controlados. Cobrem contratos, erros, expiração, restauração e concorrência entre
 logout e requisições. Não substituem teste visual em aparelho nem teste com
 PostgreSQL e backend em execução.
+
+A alteração de senha também tem testes de API em
+`backend/tests/change-password.test.js`, que sobem o backend de verdade. Em
+`backend/`, `npm test` os executa com o JSON local. Para executar a mesma suíte no
+PostgreSQL, aponte `TEST_DATABASE_URL` para um banco descartável, porque as contas
+de teste ficam nele. O SSL fica desligado, a menos que `DB_SSL` diga outra coisa:
+
+```sh
+TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/banco_de_teste node --test tests/change-password.test.js
+```
 
 Para validar de ponta a ponta em um ambiente de desenvolvimento:
 
