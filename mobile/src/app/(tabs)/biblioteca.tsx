@@ -10,6 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,6 +20,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity, TouchMin } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import {
@@ -55,6 +57,8 @@ export default function Biblioteca() {
   const [erro, setErro] = useState('');
   const [filter, setFilter] = useState<FiltroStatus>('TODOS');
   const [somenteFavoritos, setSomenteFavoritos] = useState(false);
+  const [busca, setBusca] = useState('');
+  const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
 
@@ -89,16 +93,30 @@ export default function Biblioteca() {
       filtrarBiblioteca(items, {
         status: filter === 'TODOS' ? null : filter,
         somenteFavoritos,
+        busca,
       }),
-    [filter, somenteFavoritos, items],
+    [filter, somenteFavoritos, busca, items],
   );
 
-  const emptyMessage =
-    items.length === 0
-      ? 'Adicione livros pela tela Explorar para preencher sua biblioteca.'
-      : somenteFavoritos
-        ? 'Toque em Favoritar num livro para ele aparecer aqui, ou troque o filtro.'
-        : 'Escolha outro filtro para ver os demais livros.';
+  const buscaAtiva = busca.trim().length > 0;
+  const outrosFiltrosAtivos = filter !== 'TODOS' || somenteFavoritos;
+
+  let emptyMessage = 'Escolha outro filtro para ver os demais livros.';
+  if (items.length === 0) {
+    emptyMessage = 'Adicione livros pela tela Explorar para preencher sua biblioteca.';
+  } else if (buscaAtiva) {
+    emptyMessage = outrosFiltrosAtivos
+      ? 'Nenhum livro combina com a busca e os filtros escolhidos.'
+      : 'Nenhum livro da sua biblioteca combina com essa busca.';
+  } else if (somenteFavoritos) {
+    emptyMessage = 'Toque em Favoritar num livro para ele aparecer aqui, ou troque o filtro.';
+  }
+
+  const limparBuscaEFiltros = () => {
+    setBusca('');
+    setFilter('TODOS');
+    setSomenteFavoritos(false);
+  };
 
   const abrirLivro = (livroId: string) => {
     router.push({ pathname: '/livro/[id]', params: { id: livroId } });
@@ -241,6 +259,39 @@ export default function Biblioteca() {
               </ThemedView>
             </View>
 
+            <View style={styles.searchContainer}>
+              <TextInput
+                accessibilityLabel="Buscar na biblioteca por título ou autor"
+                style={[
+                  styles.searchInput,
+                  {
+                    borderColor: buscaFocada ? theme.accent : theme.border,
+                    color: theme.text,
+                    paddingRight: busca ? 40 : 14,
+                  },
+                ]}
+                placeholder="Buscar por título ou autor"
+                placeholderTextColor={theme.textMuted}
+                value={busca}
+                onChangeText={setBusca}
+                {...propsDeFoco}
+                returnKeyType="search"
+                autoCorrect={false}
+              />
+              {!!busca && (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Limpar busca"
+                  onPress={() => setBusca('')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.clearSearchButton}>
+                  <ThemedText themeColor="textSecondary" style={styles.clearSearchIcon}>
+                    ✕
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
+            </View>
+
             {/* FILTERS */}
             <ScrollView
               horizontal
@@ -323,11 +374,24 @@ export default function Biblioteca() {
             ) : filteredItems.length === 0 ? (
               <ThemedView type="backgroundElement" style={styles.emptyCard}>
                 <ThemedText type="subtitle" style={styles.emptyTitle}>
-                  Nenhum livro neste filtro
+                  {buscaAtiva && items.length > 0
+                    ? 'Nenhum livro encontrado'
+                    : 'Nenhum livro neste filtro'}
                 </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.emptyText}>
                   {emptyMessage}
                 </ThemedText>
+                {items.length > 0 && (buscaAtiva || outrosFiltrosAtivos) && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
+                    onPress={limparBuscaEFiltros}
+                    style={[styles.clearFiltersButton, { borderColor: theme.accent }]}>
+                    <ThemedText themeColor="accent" style={styles.clearFiltersText}>
+                      {buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
               </ThemedView>
             ) : (
               <View style={styles.grid}>
@@ -493,7 +557,25 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, borderRadius: 16, padding: Spacing.three, gap: 4 },
   statNumber: { fontSize: 22, fontWeight: '800' },
   statLabel: { fontSize: 12 },
-  filtersScroll: { marginTop: Spacing.four, marginBottom: Spacing.three },
+  searchContainer: { marginTop: Spacing.four, justifyContent: 'center' },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  clearSearchButton: {
+    position: 'absolute',
+    right: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearSearchIcon: { fontSize: 14 },
+  filtersScroll: { marginTop: Spacing.three, marginBottom: Spacing.three },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -507,6 +589,15 @@ const styles = StyleSheet.create({
   emptyCard: { borderRadius: 16, padding: Spacing.four, gap: 8 },
   emptyTitle: { fontSize: 18 },
   emptyText: { lineHeight: 22 },
+  clearFiltersButton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  clearFiltersText: { fontSize: 13, fontWeight: '800' },
   grid: { gap: Spacing.three },
   card: { borderRadius: 16, overflow: 'hidden' },
   cover: { width: '100%', height: 200 },
