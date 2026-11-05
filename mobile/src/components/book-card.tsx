@@ -37,7 +37,7 @@ export function BookCard({ book, onPress }: BookCardProps) {
         />
       ) : (
         <View style={[styles.coverPlaceholder, { backgroundColor: theme.backgroundSelected }]}>
-          <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+          <ThemedText themeColor="textSecondary" style={styles.coverPlaceholderText}>
             {book.title}
           </ThemedText>
         </View>
@@ -54,7 +54,7 @@ export function BookCard({ book, onPress }: BookCardProps) {
         <ThemedText themeColor="textSecondary" style={styles.cardAuthor} numberOfLines={2}>
           {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
         </ThemedText>
-        <ThemedText themeColor="textMuted" style={styles.cardDescription}>
+        <ThemedText themeColor="textSecondary" style={styles.cardDescription}>
           {book.firstPublishYear
             ? `Primeira publicação: ${book.firstPublishYear}`
             : 'Ano não informado'}

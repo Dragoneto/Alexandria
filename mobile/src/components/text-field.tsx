@@ -175,6 +175,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '500',
-    color: TextColor.muted,
+    color: TextColor.secondary,
   },
 });

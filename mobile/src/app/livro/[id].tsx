@@ -197,7 +197,7 @@ export default function DetalheDoLivro() {
                       styles.coverPlaceholder,
                       { backgroundColor: theme.backgroundSelected },
                     ]}>
-                    <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+                    <ThemedText themeColor="textSecondary" style={styles.coverPlaceholderText}>
                       {book.title}
                     </ThemedText>
                   </View>
@@ -213,7 +213,7 @@ export default function DetalheDoLivro() {
                       </View>
                     ))
                   ) : (
-                    <ThemedText themeColor="textMuted" style={styles.categoryText}>
+                    <ThemedText themeColor="textSecondary" style={styles.categoryText}>
                       Categoria não informada
                     </ThemedText>
                   )}
@@ -226,7 +226,7 @@ export default function DetalheDoLivro() {
                   {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
                 </ThemedText>
 
-                <ThemedText themeColor="textMuted" style={styles.sectionLabel}>
+                <ThemedText themeColor="textSecondary" style={styles.sectionLabel}>
                   Sinopse
                 </ThemedText>
                 {book.description ? (
@@ -248,7 +248,7 @@ export default function DetalheDoLivro() {
                     )}
                   </>
                 ) : (
-                  <ThemedText themeColor="textMuted" style={styles.description}>
+                  <ThemedText themeColor="textSecondary" style={styles.description}>
                     Este livro ainda não tem sinopse na Open Library.
                   </ThemedText>
                 )}
@@ -324,7 +324,7 @@ export default function DetalheDoLivro() {
               </>
             )}
 
-            <ThemedText themeColor="textMuted" style={styles.attribution}>
+            <ThemedText themeColor="textSecondary" style={styles.attribution}>
               Dados bibliográficos e capas fornecidos pela Open Library.
             </ThemedText>
           </View>

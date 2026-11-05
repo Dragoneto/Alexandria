@@ -225,7 +225,7 @@ export default function AvaliarLivro() {
               </ThemedView>
             ) : (
               <>
-                <ThemedText themeColor="textMuted" style={styles.label}>
+                <ThemedText themeColor="textSecondary" style={styles.label}>
                   Sua nota
                 </ThemedText>
                 <View style={styles.notas} accessibilityRole="radiogroup">
@@ -260,7 +260,7 @@ export default function AvaliarLivro() {
                     );
                   })}
                 </View>
-                <ThemedText themeColor="textMuted" style={styles.legend}>
+                <ThemedText themeColor="textSecondary" style={styles.legend}>
                   1 = não gostei · 5 = adorei
                 </ThemedText>
                 {!!erros.nota && (
@@ -272,7 +272,7 @@ export default function AvaliarLivro() {
                   </ThemedText>
                 )}
 
-                <ThemedText themeColor="textMuted" style={styles.label}>
+                <ThemedText themeColor="textSecondary" style={styles.label}>
                   Sua resenha
                 </ThemedText>
                 <TextInput
@@ -299,7 +299,7 @@ export default function AvaliarLivro() {
                     {erros.resenha}
                   </ThemedText>
                 ) : (
-                  <ThemedText themeColor="textMuted" style={styles.counter}>
+                  <ThemedText themeColor="textSecondary" style={styles.counter}>
                     {tamanho < RESENHA_MINIMA
                       ? `Mínimo de ${RESENHA_MINIMA} caracteres`
                       : `${tamanho}/${RESENHA_MAXIMA}`}

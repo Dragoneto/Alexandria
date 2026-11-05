@@ -33,7 +33,7 @@ export function AvaliacoesDoLivro({
 
   return (
     <View style={styles.section}>
-      <ThemedText themeColor="textMuted" style={styles.sectionLabel}>
+      <ThemedText themeColor="textSecondary" style={styles.sectionLabel}>
         Avaliações
       </ThemedText>
 

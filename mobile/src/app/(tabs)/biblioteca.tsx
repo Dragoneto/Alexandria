@@ -188,13 +188,13 @@ export default function Biblioteca() {
             <View style={styles.statsRow}>
               <ThemedView type="backgroundElement" style={styles.statCard}>
                 <ThemedText style={styles.statNumber}>{counters.total}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>
+                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
                   Total
                 </ThemedText>
               </ThemedView>
               <ThemedView type="backgroundElement" style={styles.statCard}>
                 <ThemedText style={styles.statNumber}>{counters.lendo}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>
+                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
                   Lendo
                 </ThemedText>
               </ThemedView>
@@ -266,7 +266,7 @@ export default function Biblioteca() {
                           styles.coverPlaceholder,
                           { backgroundColor: theme.backgroundSelected },
                         ]}>
-                        <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+                        <ThemedText themeColor="textSecondary" style={styles.coverPlaceholderText}>
                           {item.livro.titulo}
                         </ThemedText>
                       </View>
