@@ -130,3 +130,63 @@ test('sessão expirada derruba a sessão salva, como nas outras rotas', async ()
   await assert.rejects(h.comentarios.listarComentarios(3), { kind: 'auth', status: 401 });
   assert.equal(await h.session.getAuth(), null);
 });
+
+test('pede a página com limite, cursor e pai, e devolve o contexto da conversa', async () => {
+  const h = await logado();
+  const urls = [];
+  h.fetch = async (url) => {
+    urls.push(url);
+    return json({
+      comentarios: [{ ...RESPOSTA, respostas: 2 }],
+      pai: REMOVIDO,
+      proximoCursor: 9,
+      temMais: true,
+    });
+  };
+
+  await h.comentarios.listarPaginaComentarios(3);
+  const pagina = await h.comentarios.listarPaginaComentarios(3, { paiId: 8, cursor: 4 });
+
+  assert.deepEqual(urls, [
+    'http://localhost:3000/api/avaliacoes/3/comentarios?limite=20',
+    'http://localhost:3000/api/avaliacoes/3/comentarios?limite=5&cursor=4&paiId=8',
+  ]);
+  assert.equal(pagina.comentarios[0].respostas, 2);
+  assert.equal(pagina.pai.removido, true);
+  assert.equal(pagina.proximoCursor, 9);
+  assert.equal(pagina.temMais, true);
+});
+
+test('juntar páginas não duplica e troca o comentário pela versão mais nova', () => {
+  const { juntarComentarios } = createServices().comentarios;
+  const juntos = juntarComentarios(
+    [COMENTARIO, RESPOSTA],
+    [{ ...COMENTARIO, texto: 'Editado' }, REMOVIDO],
+  );
+
+  assert.deepEqual(
+    juntos.map((c) => c.id),
+    [7, 8, 9],
+  );
+  assert.equal(juntos[0].texto, 'Editado');
+});
+
+test('botão de respostas fica depois das respostas já carregadas e some quando não falta nada', () => {
+  const { montarConversa, linhasDaConversa } = createServices().comentarios;
+  const c = (id, paiId, respostas) => ({ ...COMENTARIO, id, paiId, respostas });
+  const itens = montarConversa([
+    c(1, null, 3),
+    c(2, 1, 1),
+    c(3, 2, 0),
+    c(4, null, 2),
+    c(5, null, 0),
+  ]);
+
+  const linhas = linhasDaConversa(itens, { 1: { temMais: true } }).map((linha) =>
+    linha.tipo === 'comentario'
+      ? linha.comentario.id
+      : `${linha.aberta ? 'mais' : 'ver'}:${linha.paiId}:${linha.faltam}`,
+  );
+
+  assert.deepEqual(linhas, [1, 2, 3, 'mais:1:2', 4, 'ver:4:2', 5]);
+});
