@@ -9,6 +9,37 @@ export type BibliotecaItem = {
   livro: { id: string; titulo: string; autores: string[]; capa: string | null };
 };
 
+export type FiltroBiblioteca = {
+  status?: StatusLeitura | null;
+  somenteFavoritos?: boolean;
+  busca?: string;
+};
+
+// Ignora maiúsculas, acentos e espaços repetidos.
+export function normalizarBusca(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Filtra a lista já carregada; busca, status e favoritos se combinam.
+export function filtrarBiblioteca(
+  itens: BibliotecaItem[],
+  { status, somenteFavoritos = false, busca = '' }: FiltroBiblioteca = {},
+): BibliotecaItem[] {
+  const termo = normalizarBusca(busca);
+  return itens.filter(
+    (item) =>
+      (!status || item.statusLeitura === status) &&
+      (!somenteFavoritos || item.favorito) &&
+      (!termo ||
+        normalizarBusca([item.livro.titulo, ...item.livro.autores].join(' ')).includes(termo)),
+  );
+}
+
 export async function listarBiblioteca(
   signal?: AbortSignal,
   status?: StatusLeitura,
