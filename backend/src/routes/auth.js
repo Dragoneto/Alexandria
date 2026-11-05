@@ -7,6 +7,7 @@ const {
   updateProfile,
   forgotPassword,
   resetPassword,
+  changePassword,
   getPhoto,
   updatePhoto,
   deletePhoto,
@@ -22,6 +23,7 @@ router.put('/profile', authMiddleware, updateProfile);  // PUT /api/auth/profile
 
 // Rotas protegidas (precisa de token JWT)
 router.get('/profile', authMiddleware, getProfile);  // GET /api/auth/profile
+router.put('/password', authMiddleware, changePassword);  // PUT /api/auth/password
 router.get('/profile/photo', authMiddleware, getPhoto);
 router.put('/profile/photo', authMiddleware, updatePhoto);
 router.delete('/profile/photo', authMiddleware, deletePhoto);
