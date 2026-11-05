@@ -63,20 +63,34 @@ export async function listarComentarios(
   return result.comentarios.map(comentarioFrom);
 }
 
-async function publicar(avaliacaoId: number, texto: string, paiId?: number): Promise<Comentario> {
+async function publicar(
+  avaliacaoId: number,
+  texto: string,
+  paiId?: number,
+  chave?: string,
+): Promise<Comentario> {
   const result = await apiRequest<{ comentario?: unknown }>(
     `/api/avaliacoes/${avaliacaoId}/comentarios`,
-    { method: 'POST', body: paiId === undefined ? { texto } : { texto, paiId } },
+    {
+      method: 'POST',
+      body: paiId === undefined ? { texto } : { texto, paiId },
+      headers: chave ? { 'Idempotency-Key': chave } : undefined,
+    },
   );
   return comentarioFrom(result?.comentario);
 }
 
-export function comentar(avaliacaoId: number, texto: string): Promise<Comentario> {
-  return publicar(avaliacaoId, texto);
+export function comentar(avaliacaoId: number, texto: string, chave?: string): Promise<Comentario> {
+  return publicar(avaliacaoId, texto, undefined, chave);
 }
 
-export function responder(avaliacaoId: number, paiId: number, texto: string): Promise<Comentario> {
-  return publicar(avaliacaoId, texto, paiId);
+export function responder(
+  avaliacaoId: number,
+  paiId: number,
+  texto: string,
+  chave?: string,
+): Promise<Comentario> {
+  return publicar(avaliacaoId, texto, paiId, chave);
 }
 
 export async function editarComentario(id: number, texto: string): Promise<Comentario> {
@@ -102,6 +116,12 @@ export function classificarFalhaComentario(falha: unknown): FalhaComentario {
   if (falha.kind === 'validation') return 'validacao';
   if (falha.kind === 'network' || falha.kind === 'timeout') return 'rede';
   return 'servidor';
+}
+
+// Chave de reenvio: a mesma em cada nova tentativa da mesma mensagem, para o backend não duplicar.
+export function novaChaveDeEnvio(): string {
+  const aleatorio = () => Math.random().toString(36).slice(2, 10).padEnd(8, '0');
+  return `c-${Date.now().toString(36)}-${aleatorio()}${aleatorio()}`;
 }
 
 export const TEXTO_COMENTARIO_MAXIMO = 2000;

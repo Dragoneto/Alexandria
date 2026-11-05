@@ -75,3 +75,44 @@ test('mensagens de falha dizem o que aconteceu sem perder o texto', () => {
   assert.equal(msg(new ApiError('validation', 'O comentário é obrigatório', 400)), 'O comentário é obrigatório');
   assert.match(msg(new Error('qualquer')), /Tente de novo/);
 });
+
+test('a chave de reenvio segue o formato do backend e muda a cada mensagem', () => {
+  const chaves = new Set();
+  for (let i = 0; i < 50; i += 1) {
+    const chave = comentarios.novaChaveDeEnvio();
+    assert.match(chave, /^[\w-]{16,100}$/);
+    chaves.add(chave);
+  }
+  assert.equal(chaves.size, 50);
+});
+
+test('comentar e responder mandam a Idempotency-Key só quando recebem uma', async () => {
+  const { createServices: criar, json, session } = require('./helpers/services.cjs');
+  const h = criar();
+  await h.session.saveAuth(session);
+  const headers = [];
+  h.fetch = async (_url, options) => {
+    headers.push(options.headers);
+    return json({ comentario: comentario(1, null) }, 201);
+  };
+
+  await h.comentarios.comentar(3, 'oi', 'chave-de-teste-123456');
+  await h.comentarios.responder(3, 1, 'oi', 'chave-de-teste-654321');
+  await h.comentarios.comentar(3, 'sem chave');
+
+  assert.equal(headers[0]['Idempotency-Key'], 'chave-de-teste-123456');
+  assert.equal(headers[1]['Idempotency-Key'], 'chave-de-teste-654321');
+  assert.equal('Idempotency-Key' in headers[2], false);
+  assert.equal(headers[0].Authorization, `Bearer ${session.token}`);
+});
+
+test('headers extras não substituem a autenticação', async () => {
+  const { createServices: criar, json, session } = require('./helpers/services.cjs');
+  const h = criar();
+  await h.session.saveAuth(session);
+  h.fetch = async (_url, options) => json({ ok: true, auth: options.headers.Authorization });
+
+  const resposta = await h.api.apiRequest('/api/x', { headers: { Authorization: 'Bearer falso' } });
+
+  assert.equal(resposta.auth, `Bearer ${session.token}`);
+});

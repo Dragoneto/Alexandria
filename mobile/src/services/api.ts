@@ -21,6 +21,8 @@ type RequestOptions = {
   timeoutMs?: number;
   /** Cancelamento pedido por quem chamou; a requisição rejeita com o erro original do abort. */
   signal?: AbortSignal;
+  /** Headers extras da rota (ex.: Idempotency-Key); não substituem os de autenticação. */
+  headers?: Record<string, string>;
 };
 
 function errorBody(value: unknown) {
@@ -66,6 +68,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     const response = await fetch(`${config.baseUrl}${path}`, {
       method,
       headers: {
+        ...options.headers,
         Accept: 'application/json',
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
         ...(session ? { Authorization: `Bearer ${session.token}` } : {}),

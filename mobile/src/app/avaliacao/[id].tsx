@@ -30,6 +30,7 @@ import {
   excluirComentario,
   mensagemDeFalhaComentario,
   montarConversa,
+  novaChaveDeEnvio,
   recuoVisual,
   responder,
   TEXTO_COMENTARIO_MAXIMO,
@@ -73,6 +74,7 @@ export default function ConversaDaAvaliacao() {
   const confirmacaoPronta = useRef(false);
   // Rascunho guardado enquanto a pessoa edita outro comentário.
   const rascunho = useRef('');
+  const envio = useRef<{ assinatura: string; chave: string } | null>(null);
 
   const travado = enviando || excluindoId !== null;
   const tamanho = contarCaracteres(texto);
@@ -129,10 +131,17 @@ export default function ConversaDaAvaliacao() {
     setErroEnvio('');
     setAviso('');
     const limpo = limparResenha(texto);
+    // Mesma mensagem (texto e alvo) reaproveita a chave; mudou algo, é outra mensagem.
+    const assinatura = `${modo.tipo}:${alvoId ?? ''}:${limpo}`;
+    if (envio.current?.assinatura !== assinatura) {
+      envio.current = { assinatura, chave: novaChaveDeEnvio() };
+    }
+    const { chave } = envio.current;
     try {
       if (modo.tipo === 'editar') await editarComentario(modo.alvo.id, limpo);
-      else if (modo.tipo === 'responder') await responder(avaliacaoId, modo.alvo.id, limpo);
-      else await comentar(avaliacaoId, limpo);
+      else if (modo.tipo === 'responder') await responder(avaliacaoId, modo.alvo.id, limpo, chave);
+      else await comentar(avaliacaoId, limpo, chave);
+      envio.current = null;
       setAviso(modo.tipo === 'editar' ? 'Comentário atualizado.' : 'Comentário enviado.');
       setTexto(modo.tipo === 'editar' ? rascunho.current : '');
       rascunho.current = '';
