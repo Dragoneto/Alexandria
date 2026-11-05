@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { Mint, withAlpha } from '@/constants/design-system';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BookSearchItem } from '@/services/open-library';
@@ -37,7 +38,7 @@ export function BookCard({ book, onPress }: BookCardProps) {
         />
       ) : (
         <View style={[styles.coverPlaceholder, { backgroundColor: theme.backgroundSelected }]}>
-          <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+          <ThemedText themeColor="textSecondary" style={styles.coverPlaceholderText}>
             {book.title}
           </ThemedText>
         </View>
@@ -54,7 +55,7 @@ export function BookCard({ book, onPress }: BookCardProps) {
         <ThemedText themeColor="textSecondary" style={styles.cardAuthor} numberOfLines={2}>
           {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
         </ThemedText>
-        <ThemedText themeColor="textMuted" style={styles.cardDescription}>
+        <ThemedText themeColor="textSecondary" style={styles.cardDescription}>
           {book.firstPublishYear
             ? `Primeira publicação: ${book.firstPublishYear}`
             : 'Ano não informado'}
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(100,255,218,0.08)',
+    backgroundColor: withAlpha(Mint.mint400, 0.08),
   },
   categoryText: { fontSize: 11, fontWeight: '800' },
   cardTitle: { fontSize: 17, fontWeight: '700' },

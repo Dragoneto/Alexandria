@@ -2,9 +2,12 @@ import { Image } from 'expo-image';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -14,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity, TouchMin } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
@@ -51,6 +55,7 @@ export default function Biblioteca() {
 
   const pendingStatus = useRef(new Set<number>());
   const [savingStatusIds, setSavingStatusIds] = useState<number[]>([]);
+  const [aviso, setAviso] = useState('');
 
   // Recarrega toda vez que a aba ganha foco (ex.: depois de adicionar um livro)
   useFocusEffect(
@@ -90,6 +95,18 @@ export default function Biblioteca() {
     );
   }, [items]);
 
+  const avisar = (texto: string) => {
+    setAviso(texto);
+    // No Android e no web, a região ao vivo já anuncia; o iOS precisa do anúncio direto.
+    if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(texto);
+  };
+
+  // Alert.alert não faz nada no web, então lá o erro aparece no aviso da tela.
+  const avisarErro = (titulo: string, mensagem: string) => {
+    if (Platform.OS === 'web') avisar(`${titulo}. ${mensagem}`);
+    else Alert.alert(titulo, mensagem);
+  };
+
   const handleStatusChange = async (id: number, status: StatusLeitura) => {
     if (pendingStatus.current.has(id)) return;
     const anterior = items.find((item) => item.id === id);
@@ -104,13 +121,14 @@ export default function Biblioteca() {
     setStatusModalItemId(null);
     try {
       await atualizarItemBiblioteca(id, { status });
+      avisar(`Status alterado para ${STATUS_LEITURA[status]}`);
     } catch (error) {
       setItems((prev) =>
         prev.map((item) =>
           item.id === id ? { ...item, statusLeitura: anterior.statusLeitura } : item,
         ),
       );
-      Alert.alert(
+      avisarErro(
         'Não foi possível alterar o status',
         error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
       );
@@ -127,11 +145,12 @@ export default function Biblioteca() {
     setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, favorito } : i)));
     try {
       await atualizarItemBiblioteca(item.id, { favorito });
+      avisar(favorito ? 'Adicionado aos favoritos' : 'Removido dos favoritos');
     } catch (error) {
       setItems((prev) =>
         prev.map((i) => (i.id === item.id ? { ...i, favorito: item.favorito } : i)),
       );
-      Alert.alert(
+      avisarErro(
         'Não foi possível alterar o favorito',
         error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
       );
@@ -150,13 +169,15 @@ export default function Biblioteca() {
           try {
             await removerDaBiblioteca(id);
             setItems((prev) => prev.filter((i) => i.id !== id));
+            avisar('Livro removido da biblioteca');
           } catch (error) {
             // 404 = já não estava no servidor; então pode sumir da tela também
             if (error instanceof ApiError && error.status === 404) {
               setItems((prev) => prev.filter((i) => i.id !== id));
+              avisar('Livro removido da biblioteca');
               return;
             }
-            Alert.alert(
+            avisarErro(
               'Não foi possível remover',
               error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
             );
@@ -188,13 +209,13 @@ export default function Biblioteca() {
             <View style={styles.statsRow}>
               <ThemedView type="backgroundElement" style={styles.statCard}>
                 <ThemedText style={styles.statNumber}>{counters.total}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>
+                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
                   Total
                 </ThemedText>
               </ThemedView>
               <ThemedView type="backgroundElement" style={styles.statCard}>
                 <ThemedText style={styles.statNumber}>{counters.lendo}</ThemedText>
-                <ThemedText themeColor="textMuted" style={styles.statLabel}>
+                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
                   Lendo
                 </ThemedText>
               </ThemedView>
@@ -203,6 +224,8 @@ export default function Biblioteca() {
             {/* FILTERS */}
             <ScrollView
               horizontal
+              accessibilityRole="radiogroup"
+              accessibilityLabel="Filtrar livros por status"
               showsHorizontalScrollIndicator={false}
               style={styles.filtersScroll}>
               {FILTERS.map((option) => {
@@ -210,6 +233,9 @@ export default function Biblioteca() {
                 return (
                   <TouchableOpacity
                     key={option.value}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Filtrar por ${option.label}`}
+                    aria-checked={active}
                     onPress={() => setFilter(option.value)}
                     style={[
                       styles.filterChip,
@@ -218,16 +244,27 @@ export default function Biblioteca() {
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}
                       style={styles.filterChipText}>
-                      {option.label}
+                      {active ? `✓ ${option.label}` : option.label}
                     </ThemedText>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
 
+            {/* Sempre montado: a região ao vivo pode não anunciar um elemento recém-criado. */}
+            <ThemedText
+              accessibilityLiveRegion="polite"
+              themeColor="textSecondary"
+              style={styles.aviso}>
+              {aviso}
+            </ThemedText>
+
             {/* LOADING / ERRO / VAZIO / GRID */}
             {loading ? (
-              <ThemedView type="backgroundElement" style={styles.emptyCard}>
+              <ThemedView
+                accessibilityLiveRegion="polite"
+                type="backgroundElement"
+                style={styles.emptyCard}>
                 <ActivityIndicator color={theme.accent} />
                 <ThemedText themeColor="textSecondary">Carregando sua biblioteca…</ThemedText>
               </ThemedView>
@@ -236,7 +273,11 @@ export default function Biblioteca() {
                 <ThemedText type="subtitle" style={styles.emptyTitle}>
                   Não foi possível carregar
                 </ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.emptyText}>
+                <ThemedText
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  themeColor="textSecondary"
+                  style={styles.emptyText}>
                   {erro}
                 </ThemedText>
               </ThemedView>
@@ -266,7 +307,7 @@ export default function Biblioteca() {
                           styles.coverPlaceholder,
                           { backgroundColor: theme.backgroundSelected },
                         ]}>
-                        <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+                        <ThemedText themeColor="textSecondary" style={styles.coverPlaceholderText}>
                           {item.livro.titulo}
                         </ThemedText>
                       </View>
@@ -279,8 +320,16 @@ export default function Biblioteca() {
                       </ThemedText>
 
                       <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel={`Status de leitura de ${item.livro.titulo}: ${STATUS_LEITURA[item.statusLeitura]}. Alterar`}
+                        aria-disabled={savingStatusIds.includes(item.id)}
+                        aria-busy={savingStatusIds.includes(item.id)}
                         disabled={savingStatusIds.includes(item.id)}
-                        style={[styles.statusButton, { borderColor: theme.border }]}
+                        style={[
+                          styles.statusButton,
+                          { borderColor: theme.border },
+                          savingStatusIds.includes(item.id) && { opacity: DisabledOpacity },
+                        ]}
                         onPress={() => setStatusModalItemId(item.id)}>
                         <ThemedText themeColor="textSecondary" style={styles.statusButtonText}>
                           {savingStatusIds.includes(item.id)
@@ -291,14 +340,25 @@ export default function Biblioteca() {
 
                       <View style={styles.actionsRow}>
                         <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`${item.favorito ? 'Favorito' : 'Favoritar'}: ${item.livro.titulo}`}
+                          aria-selected={item.favorito}
+                          aria-disabled={savingFavoriteId !== null}
+                          aria-busy={savingFavoriteId === item.id}
                           disabled={savingFavoriteId !== null}
-                          style={[styles.actionButton, { borderColor: theme.accent }]}
+                          style={[
+                            styles.actionButton,
+                            { borderColor: theme.accent },
+                            savingFavoriteId !== null && { opacity: DisabledOpacity },
+                          ]}
                           onPress={() => void handleFavorite(item)}>
                           <ThemedText themeColor="accent" style={styles.favButtonText}>
                             {item.favorito ? 'Favorito' : 'Favoritar'}
                           </ThemedText>
                         </TouchableOpacity>
                         <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remover ${item.livro.titulo} da biblioteca`}
                           style={[styles.actionButton, { borderColor: theme.danger }]}
                           onPress={() => handleRemove(item.id, item.livro.titulo)}>
                           <ThemedText themeColor="danger" style={styles.removeButtonText}>
@@ -321,28 +381,42 @@ export default function Biblioteca() {
         transparent
         animationType="fade"
         onRequestClose={() => setStatusModalItemId(null)}>
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setStatusModalItemId(null)}>
-          <ThemedView type="backgroundElement" style={styles.modalCard}>
-            <ThemedText type="smallBold" style={styles.modalTitle}>
+        {/* O fundo fica ao lado das opções: se as envolvesse, o leitor de tela não as alcançaria. */}
+        <View style={styles.modalOverlay}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Fechar"
+            style={StyleSheet.absoluteFill}
+            onPress={() => setStatusModalItemId(null)}
+          />
+          <ThemedView
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Status de leitura"
+            type="backgroundElement"
+            style={styles.modalCard}>
+            <ThemedText type="smallBold" accessibilityRole="header" style={styles.modalTitle}>
               Status de leitura
             </ThemedText>
-            {Object.entries(STATUS_LEITURA).map(([value, label]) => (
-              <TouchableOpacity
-                key={value}
-                style={styles.modalOption}
-                onPress={() => {
-                  if (statusModalItemId !== null) {
-                    handleStatusChange(statusModalItemId, value as StatusLeitura);
-                  }
-                }}>
-                <ThemedText themeColor="textSecondary">{label}</ThemedText>
-              </TouchableOpacity>
-            ))}
+            {Object.entries(STATUS_LEITURA).map(([value, label]) => {
+              const atual = items.find((i) => i.id === statusModalItemId)?.statusLeitura === value;
+              return (
+                <TouchableOpacity
+                  key={value}
+                  accessibilityRole="radio"
+                  accessibilityLabel={label}
+                  aria-checked={atual}
+                  style={styles.modalOption}
+                  onPress={() => {
+                    if (statusModalItemId !== null) {
+                      handleStatusChange(statusModalItemId, value as StatusLeitura);
+                    }
+                  }}>
+                  <ThemedText themeColor="textSecondary">{atual ? `✓ ${label}` : label}</ThemedText>
+                </TouchableOpacity>
+              );
+            })}
           </ThemedView>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </ThemedView>
   );
@@ -380,6 +454,7 @@ const styles = StyleSheet.create({
     marginRight: Spacing.two,
   },
   filterChipText: { fontSize: 13, fontWeight: '700' },
+  aviso: { marginBottom: Spacing.two, fontSize: 14 },
   emptyCard: { borderRadius: 16, padding: Spacing.four, gap: 8 },
   emptyTitle: { fontSize: 18 },
   emptyText: { lineHeight: 22 },
@@ -422,5 +497,5 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   modalTitle: { marginBottom: Spacing.two },
-  modalOption: { paddingVertical: Spacing.two },
+  modalOption: { minHeight: TouchMin, justifyContent: 'center' },
 });

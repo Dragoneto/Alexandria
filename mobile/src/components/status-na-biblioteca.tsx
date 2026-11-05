@@ -105,7 +105,7 @@ export function StatusNaBiblioteca({
 
   return (
     <ThemedView type="backgroundElement" style={styles.card}>
-      <ThemedText themeColor="textMuted" style={styles.label}>
+      <ThemedText themeColor="textSecondary" style={styles.label}>
         Status de leitura na sua biblioteca
       </ThemedText>
       <View
@@ -138,7 +138,7 @@ export function StatusNaBiblioteca({
         })}
       </View>
       {salvando === 'status' && (
-        <ThemedText themeColor="textMuted" style={styles.hint} accessibilityLiveRegion="polite">
+        <ThemedText themeColor="textSecondary" style={styles.hint} accessibilityLiveRegion="polite">
           Salvando…
         </ThemedText>
       )}

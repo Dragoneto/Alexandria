@@ -2,6 +2,7 @@ import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-nat
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity } from '@/constants/design-system';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { resumoAvaliacoes, type AvaliacoesDoLivro as Dados } from '@/services/avaliacoes';
@@ -33,7 +34,7 @@ export function AvaliacoesDoLivro({
 
   return (
     <View style={styles.section}>
-      <ThemedText themeColor="textMuted" style={styles.sectionLabel}>
+      <ThemedText themeColor="textSecondary" style={styles.sectionLabel}>
         Avaliações
       </ThemedText>
 
@@ -109,7 +110,7 @@ export function AvaliacoesDoLivro({
               onPress={onCarregarMais}
               style={[
                 styles.outlineButton,
-                { borderColor: theme.accent, opacity: carregandoMais ? 0.6 : 1 },
+                { borderColor: theme.accent, opacity: carregandoMais ? DisabledOpacity : 1 },
               ]}>
               {carregandoMais ? (
                 <ActivityIndicator

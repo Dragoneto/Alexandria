@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: Space.six,
   },
-  contador: { fontFamily: DSFonts.ui, fontSize: 13, color: TextColor.muted },
+  contador: { fontFamily: DSFonts.ui, fontSize: 13, color: TextColor.secondary },
   botao: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -309,6 +309,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: DSFonts.ui,
     fontSize: 13,
-    color: TextColor.muted,
+    color: TextColor.secondary,
   },
 });
