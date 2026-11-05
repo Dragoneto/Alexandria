@@ -23,6 +23,7 @@ function erroDaNota(nota) {
 
 function limparResenha(texto) {
   return texto
+    .toWellFormed() // surrogate solto: o PostgreSQL grava U+FFFD no lugar, então o JSON local faz o mesmo
     .normalize('NFC')
     .replace(/\r\n?/g, '\n')
     .replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\n' || c === '\t' || c === '‍' ? c : ''))
