@@ -81,6 +81,7 @@ function createServices({ os = 'android', storage = new Map(), env = {} } = {}) 
   harness.avaliacoes = load('@/services/avaliacoes');
   harness.biblioteca = load('@/services/biblioteca');
   harness.comentarios = load('@/services/comentarios');
+  harness.contexto = load('@/services/comentario-contexto');
   harness.config = load('@/constants/env');
   return harness;
 }
