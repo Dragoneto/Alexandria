@@ -36,8 +36,25 @@ function createServices({ os = 'android', storage = new Map(), env = {} } = {}) 
       },
     },
   };
+  harness.asyncStorage = {
+    getItem: async (key) => storage.get(key) ?? null,
+    setItem: async (key, value) => {
+      storage.set(key, value);
+    },
+    removeItem: async (key) => {
+      storage.delete(key);
+    },
+    getAllKeys: async () => [...storage.keys()],
+    multiGet: async (keys) => keys.map((key) => [key, storage.get(key) ?? null]),
+    multiRemove: async (keys) => {
+      keys.forEach((key) => storage.delete(key));
+    },
+  };
   function load(id) {
     if (id === 'expo-secure-store') return secureStore;
+    if (id === '@react-native-async-storage/async-storage') {
+      return { __esModule: true, default: harness.asyncStorage };
+    }
     if (id === 'react-native') return { Platform: { OS: os } };
     if (!id.startsWith('@/')) throw new Error(`Import inesperado: ${id}`);
     if (modules.has(id)) return modules.get(id).exports;
@@ -83,6 +100,7 @@ function createServices({ os = 'android', storage = new Map(), env = {} } = {}) 
   harness.comentarios = load('@/services/comentarios');
   harness.contexto = load('@/services/comentario-contexto');
   harness.notificacoes = load('@/services/notificacoes');
+  harness.rascunhos = load('@/services/rascunhos');
   harness.config = load('@/constants/env');
   return harness;
 }

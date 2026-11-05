@@ -19,8 +19,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useAuth } from '@/contexts/auth-context';
 import { useConversa } from '@/hooks/use-conversa';
 import { useFoco } from '@/hooks/use-foco';
+import { useRascunhos } from '@/hooks/use-rascunhos';
 import { useTheme } from '@/hooks/use-theme';
 import { contarCaracteres, limparResenha } from '@/services/avaliacoes';
 import {
@@ -78,6 +80,17 @@ export default function ConversaDaAvaliacao() {
   // Rascunho guardado enquanto a pessoa edita outro comentário.
   const rascunho = useRef('');
   const envio = useRef<{ assinatura: string; chave: string } | null>(null);
+  const { user } = useAuth();
+  const rascunhos = useRascunhos({
+    usuarioId: user?.id ?? null,
+    avaliacaoId,
+    paiId: modo.tipo === 'responder' ? modo.alvo.id : null,
+    ativo: modo.tipo !== 'editar' && avaliacaoId > 0,
+    texto,
+    setTexto,
+    comentarios: conversa.comentarios,
+    inexistente: conversa.inexistente,
+  });
 
   const travado = enviando || excluindoId !== null;
   const tamanho = contarCaracteres(texto);
@@ -150,6 +163,8 @@ export default function ConversaDaAvaliacao() {
       envio.current = { assinatura, chave: novaChaveDeEnvio() };
     }
     const { chave } = envio.current;
+    const paiEnviado = modo.tipo === 'responder' ? modo.alvo.id : null;
+    const eraEdicao = modo.tipo === 'editar';
     try {
       conversa.incluir(
         modo.tipo === 'editar'
@@ -159,6 +174,7 @@ export default function ConversaDaAvaliacao() {
             : await comentar(avaliacaoId, limpo, chave),
       );
       envio.current = null;
+      if (!eraEdicao) void rascunhos.confirmarEnvio(paiEnviado);
       setAviso(modo.tipo === 'editar' ? 'Comentário atualizado.' : 'Comentário enviado.');
       setTexto(modo.tipo === 'editar' ? rascunho.current : '');
       rascunho.current = '';
@@ -206,6 +222,50 @@ export default function ConversaDaAvaliacao() {
     }
   };
 
+  const usarRascunho = async (orfao: (typeof rascunhos.orfaos)[number]) => {
+    await rascunhos.usarComoComentario(orfao);
+    if (modo.tipo !== 'comentar') cancelarModo();
+  };
+
+  const caixasDeOrfaos = rascunhos.orfaos.map((orfao) => (
+    <ThemedView
+      key={`orfao-${orfao.paiId ?? 'raiz'}`}
+      type="backgroundSelected"
+      style={styles.orfao}
+      accessibilityRole="alert">
+      <ThemedText themeColor="textSecondary" style={styles.modoText}>
+        {conversa.inexistente
+          ? 'A avaliação foi removida. Este texto não foi enviado:'
+          : 'O comentário que você respondia foi removido. Este texto não foi enviado:'}
+      </ThemedText>
+      <ThemedText selectable style={styles.comentarioTexto}>
+        {orfao.texto}
+      </ThemedText>
+      <View style={styles.acoes}>
+        {!conversa.inexistente && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            disabled={enviando}
+            onPress={() => void usarRascunho(orfao)}
+            style={[styles.smallButton, { borderColor: theme.border }]}>
+            <ThemedText themeColor="accent" style={styles.smallButtonText}>
+              Usar como comentário
+            </ThemedText>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Descartar texto não enviado"
+          onPress={() => void rascunhos.descartarOrfao(orfao.paiId)}
+          style={[styles.smallButton, { borderColor: theme.border }]}>
+          <ThemedText themeColor="danger" style={styles.smallButtonText}>
+            Descartar
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+    </ThemedView>
+  ));
+
   const avaliacao = conversa.avaliacao;
   const carregandoInicio = conversa.carregando && !avaliacao;
 
@@ -246,6 +306,7 @@ export default function ConversaDaAvaliacao() {
                   <ThemedText themeColor="textSecondary">
                     Ela pode ter sido apagada pelo autor.
                   </ThemedText>
+                  {caixasDeOrfaos}
                 </ThemedView>
               ) : carregandoInicio ? (
                 <ThemedView
@@ -556,6 +617,7 @@ export default function ConversaDaAvaliacao() {
               type="backgroundElement"
               style={[styles.composer, { borderTopColor: theme.border }]}>
               <View style={styles.composerInner}>
+                {caixasDeOrfaos}
                 {modo.tipo !== 'comentar' && (
                   <View style={styles.modoRow}>
                     <ThemedText
@@ -595,6 +657,24 @@ export default function ConversaDaAvaliacao() {
                   accessibilityLiveRegion="polite">
                   {aviso}
                 </ThemedText>
+
+                {rascunhos.restaurado && !!texto && (
+                  <View style={styles.modoRow}>
+                    <ThemedText themeColor="textSecondary" style={styles.modoText}>
+                      Rascunho restaurado
+                    </ThemedText>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel="Descartar rascunho"
+                      disabled={enviando}
+                      onPress={() => void rascunhos.descartarAtual()}
+                      style={[styles.smallButton, { borderColor: theme.border }]}>
+                      <ThemedText themeColor="danger" style={styles.smallButtonText}>
+                        Descartar
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 <View style={styles.inputRow}>
                   <TextInput
@@ -733,6 +813,7 @@ const styles = StyleSheet.create({
   },
   modoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   modoText: { flex: 1, fontSize: 13, fontWeight: '700' },
+  orfao: { borderRadius: 12, padding: Spacing.three, gap: 8 },
   avisoText: { fontSize: 13 },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.two },
   input: {
