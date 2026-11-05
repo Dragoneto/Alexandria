@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { createServices, session, json } = require('./helpers/services.cjs');
-const comentario = (id, extra = {}) => ({ id, avaliacaoId: 2, paiId: null, autor: { id: 3, nome: 'Leitor' }, texto: 'Olá', removido: false, criadoEm: '2026-11-05T12:00:00Z', atualizadoEm: '2026-11-05T12:00:00Z', ...extra });
+const comentario = (id, extra = {}) => ({ id, avaliacaoId: 2, paiId: null, autor: { id: 3, nome: 'Leitor' }, texto: 'Olá', removido: false, criadoEm: '2026-11-05T12:00:00Z', atualizadoEm: '2026-11-05T12:00:00Z', versao: 1, ...extra });
 const payload = () => ({ avaliacaoId: 2, comentarioId: 4, livroId: 'OL1W', alvo: comentario(4), ancestrais: [], comentarios: [comentario(4)], proximoCursor: null, ancestralAnteriorId: null });
 
 test('valida links e cria destino estável para notificação', () => {
