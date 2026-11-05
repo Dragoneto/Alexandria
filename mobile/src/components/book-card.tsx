@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { Mint, withAlpha } from '@/constants/design-system';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BookSearchItem } from '@/services/open-library';
@@ -83,7 +84,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(100,255,218,0.08)',
+    backgroundColor: withAlpha(Mint.mint400, 0.08),
   },
   categoryText: { fontSize: 11, fontWeight: '800' },
   cardTitle: { fontSize: 17, fontWeight: '700' },

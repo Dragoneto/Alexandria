@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
 import {
+  Accent,
   DSFonts,
   Ink,
   Mint,
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     fontFamily: DSFonts.ui,
     fontSize: 13,
     lineHeight: 20,
-    color: '#ff7b72',
+    color: Accent.coral,
     textAlign: 'center',
   },
   card: {

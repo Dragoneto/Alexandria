@@ -15,6 +15,7 @@ import { BookCard } from '@/components/book-card';
 import { EmptyState } from '@/components/empty_state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
@@ -392,7 +393,7 @@ export default function Explorar() {
                     onPress={() => setOrder(option.value)}
                     style={[
                       styles.segment,
-                      active && { backgroundColor: 'rgba(100,255,218,0.1)' },
+                      active && { backgroundColor: withAlpha(Mint.mint400, 0.1) },
                     ]}>
                     <ThemedText
                       themeColor={active ? 'accent' : 'textSecondary'}

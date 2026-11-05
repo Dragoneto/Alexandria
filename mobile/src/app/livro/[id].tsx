@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAvaliacoesDoLivro } from '@/hooks/use-avaliacoes-do-livro';
 import { useTheme } from '@/hooks/use-theme';
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(100,255,218,0.08)',
+    backgroundColor: withAlpha(Mint.mint400, 0.08),
   },
   categoryText: { fontSize: 11, fontWeight: '800' },
   title: { marginTop: Spacing.three, fontSize: 28, lineHeight: 34 },
