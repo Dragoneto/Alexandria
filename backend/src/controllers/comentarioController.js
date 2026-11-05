@@ -107,7 +107,9 @@ const create = async (req, res) => {
       return res.status(400).json({ error: 'Identificador de comentário inválido' });
     }
 
-    // Reenvio de mensagem já gravada não confere o pai de novo: ele pode ter sido removido depois
+    // Reenvio de mensagem já gravada não confere o pai de novo: ele pode ter sido removido depois.
+    // Antes de procurar, as keys com mais de 24 horas são esquecidas
+    if (idempotencyKey) await comentarios.expireIdempotencyKeys();
     const anterior =
       idempotencyKey && (await comentarios.findByIdempotencyKey(req.user.id, idempotencyKey));
     if (paiId !== null && !anterior) {

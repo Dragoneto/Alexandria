@@ -7,6 +7,7 @@ const localFile = process.env.LOCAL_COMMENTS_FILE
   ? path.resolve(process.env.LOCAL_COMMENTS_FILE)
   : path.resolve(__dirname, '../../.data/comentarios.json');
 let pendingWrite = Promise.resolve();
+const RETENCAO_DA_KEY_MS = 24 * 60 * 60 * 1000;
 
 function usePostgres() {
   return pool !== null;
@@ -213,6 +214,29 @@ async function removeByAvaliacao(avaliacaoId) {
   });
 }
 
+/** Retention: a idempotency key vale por 24 horas. Depois disso ela é esquecida (vira NULL), e o comentário continua. */
+async function expireIdempotencyKeys() {
+  const limite = new Date(Date.now() - RETENCAO_DA_KEY_MS);
+  if (usePostgres()) {
+    // shortcut: varre a tabela a cada envio com key; se pesar, um índice parcial em criado_em resolve
+    await pool.query(
+      `UPDATE comentarios SET idempotency_key = NULL, payload_hash = NULL
+       WHERE idempotency_key IS NOT NULL AND criado_em < $1`,
+      [limite],
+    );
+    return;
+  }
+
+  await serializeWrite(async () => {
+    const comentarios = await readLocalComments();
+    const vencida = (c) => c.idempotency_key && new Date(c.criado_em) < limite;
+    if (!comentarios.some(vencida)) return;
+    await writeLocalComments(
+      comentarios.map((c) => (vencida(c) ? { ...c, idempotency_key: null, payload_hash: null } : c)),
+    );
+  });
+}
+
 module.exports = {
   initialize,
   findById,
@@ -222,4 +246,5 @@ module.exports = {
   update,
   remove,
   removeByAvaliacao,
+  expireIdempotencyKeys,
 };

@@ -360,3 +360,26 @@ test('Idempotency-Key fora do formato dá 400 sem gravar, e um UUID serve', asyn
     assert.equal((await comKey(leitor, key, { texto: key }, conversa.id)).statusCode, 201);
   }
 });
+
+test('retention: depois de 24 horas a Idempotency-Key é esquecida, e o comentário continua', async (t) => {
+  const conversa = await novaConversa('OL714W');
+  const enviar = () => comKey(leitor, 'key-de-ontem-00001', { texto: 'Bom dia' }, conversa.id);
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const primeiro = (await enviar()).body.comentario;
+
+  t.mock.timers.tick(24 * 60 * 60 * 1000); // ainda vale
+  assert.equal((await enviar()).body.comentario.id, primeiro.id);
+
+  // Venceu: a limpeza ao mesmo tempo que outra gravação não perde nenhuma das duas
+  t.mock.timers.tick(1);
+  const [, junto] = await Promise.all([
+    comentarios.expireIdempotencyKeys(),
+    comentarios.create({ avaliacaoId: conversa.id, userId: autora.id, texto: 'Junto da limpeza' }),
+  ]);
+  const antigo = await comentarios.findById(primeiro.id);
+  assert.deepEqual([antigo.texto, antigo.idempotency_key, antigo.payload_hash], ['Bom dia', null, null]);
+  assert.ok(await comentarios.findById(junto.id));
+
+  // E a mesma key, já esquecida, grava outro comentário
+  assert.notEqual((await enviar()).body.comentario.id, primeiro.id);
+});
