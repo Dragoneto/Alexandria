@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 
 const jsonErrorHandler = require('../../src/middlewares/jsonErrorHandler');
 const avaliacoesRepo = require('../../src/repositories/avaliacaoRepository');
+const comentariosRepo = require('../../src/repositories/comentarioRepository');
 const usersRepo = require('../../src/repositories/userRepository');
 const avaliacaoRoutes = require('../../src/routes/avaliacoes');
 const comentarioRoutes = require('../../src/routes/comentarios');
@@ -72,7 +73,17 @@ function criarFixtures(api) {
       leitor,
       corpo: paiId === undefined ? { texto } : { texto, paiId },
     });
-  const editar = (leitor, id, corpo) => api.chamar('PUT', `/api/comentarios/${id}`, { leitor, corpo });
+  // Cenário que não fala de versão edita a versão atual, como quem acabou de abrir a conversa
+  async function editar(leitor, id, corpo) {
+    const atual = 'versao' in corpo || !/^\d+$/.test(String(id)) ? null : await comentariosRepo.findById(Number(id));
+    const comVersao = atual ? { versao: atual.versao ?? 1, ...corpo } : corpo;
+    return api.chamar('PUT', `/api/comentarios/${id}`, { leitor, corpo: comVersao });
+  }
+  /** A mesma pessoa em outro aparelho: outro token, mesma conta. */
+  const outraSessao = (leitor) => ({
+    ...leitor,
+    token: jwt.sign({ id: leitor.id, email: leitor.email, sessao: 'outra' }, JWT_SECRET, { expiresIn: '1h' }),
+  });
   const excluir = (leitor, id) => api.chamar('DELETE', `/api/comentarios/${id}`, { leitor });
   const excluirAvaliacao = (leitor, id) => api.chamar('DELETE', `/api/avaliacoes/${id}`, { leitor });
 
@@ -94,7 +105,7 @@ function criarFixtures(api) {
     return { ana, bia, avaliacao, raiz, resposta, neta };
   }
 
-  return { novoLeitor, novaAvaliacao, listar, comentar, comentado, editar, excluir, excluirAvaliacao, novaConversa };
+  return { novoLeitor, outraSessao, novaAvaliacao, listar, comentar, comentado, editar, excluir, excluirAvaliacao, novaConversa };
 }
 
 /** Tudo o que não pode existir no armazenamento, em qualquer modo e depois de qualquer cenário. */

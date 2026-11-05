@@ -82,7 +82,7 @@ Se a execução for interrompida à força, um schema `conversas_teste_*` pode f
 | Integridade referencial e ausência de órfãos | Coberto nos dois modos | Invariantes conferidas depois de **todo** cenário. No PostgreSQL, também as restrições do próprio banco e a igualdade entre `init.sql` e `initialize()` |
 | Paginação determinística | **Parcial** | Coberta a ordem dos comentários e as páginas de avaliações do livro, com empate de data. Falta o cursor de comentários (#168) |
 | Chave de idempotência | **Pendente** | Depende do #171, que ainda não existe na API |
-| Conflito de versão | **Pendente** | Depende do #172, que ainda não existe na API |
+| Conflito de versão | Coberto nos dois modos | Versão antiga vinda de outra sessão do mesmo autor dá 409 com o comentário atual, sem sobrescrever; edições simultâneas sobre a mesma versão: uma grava e a outra recebe 409 |
 
 Os itens pendentes aparecem como `# TODO` na saída dos testes. Sem contrato definido, um teste inventaria a API e daria uma falsa impressão de cobertura. Quem entregar cada card troca o `test.todo` de `tests/persistencia/cenarios.js` por um cenário real.
 
@@ -106,7 +106,7 @@ As duas foram corrigidas, e o comportamento do PostgreSQL foi mantido como refer
 
 **Diferenças que continuam entre os modos:**
 
-- **O JSON local reaproveita ids.** O próximo id é o maior + 1, então a avaliação criada depois de apagar a de maior id herda o número. Se isso acontecer entre a checagem e a gravação de um comentário, ele cai na avaliação nova, enquanto o PostgreSQL responde 404. O cenário está marcado como `todo` só no JSON local, e essa falha aparece na saída de propósito.
+- **O JSON local reaproveita ids.** O próximo id é o maior + 1, então a avaliação criada depois de apagar a de maior id herda o número. Se isso acontecer entre a checagem e a gravação de um comentário, ele cai na avaliação nova, enquanto o PostgreSQL responde 404. O cenário está marcado como `todo` só no JSON local, e essa falha aparece na saída de propósito. O mesmo vale para os comentários: depois que a avaliação é apagada, o id de um comentário pode passar para um novo, na versão 1, e uma edição antiga com essa versão grava nele; no PostgreSQL ela recebe 404.
 - **O JSON local não tem chave estrangeira.** Quem protege é o controlador, então gravar direto pelo repositório pode criar um órfão no arquivo, o que o PostgreSQL recusa.
 - **O JSON local não é atômico entre arquivos.** Se o processo morrer entre gravar a avaliação e levar os comentários dela, ficam órfãos. O modo também só é seguro com um único processo da API.
 

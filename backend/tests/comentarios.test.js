@@ -206,12 +206,24 @@ test('edita só o próprio comentário, e a edição não muda autor, avaliaçã
   assert.equal((await noComentario(update, leitor, 'abc', { texto: 'Oi' })).statusCode, 400);
   assert.equal((await noComentario(update, leitor, 999999, { texto: 'Oi' })).statusCode, 404);
 
-  const corpo = { texto: ' Resposta   corrigida ', paiId: null, avaliacaoId: 999, usuarioId: autora.id };
+  const corpo = { texto: ' Resposta   corrigida ', paiId: null, avaliacaoId: 999, usuarioId: autora.id, versao: 1 };
   const { comentario } = (await noComentario(update, leitor, resposta.id, corpo)).body;
   assert.deepEqual(
-    [comentario.texto, comentario.paiId, comentario.avaliacaoId, comentario.autor.id],
-    ['Resposta corrigida', raiz.id, avaliacao.id, leitor.id],
+    [comentario.texto, comentario.paiId, comentario.avaliacaoId, comentario.autor.id, comentario.versao],
+    ['Resposta corrigida', raiz.id, avaliacao.id, leitor.id, 2],
   );
+});
+
+test('versão faltando ou inválida dá 400, mas quem não é o dono recebe 403 antes de conferir a versão', async () => {
+  const meu = (await naAvaliacao(leitor, { texto: 'Para editar' })).body.comentario;
+  for (const versao of [undefined, null, '1', 0, -1, 1.5, 1e10]) {
+    const res = await noComentario(update, leitor, meu.id, { texto: 'Novo', versao });
+    assert.deepEqual([res.statusCode, res.body.errors?.versao], [400, 'Versão do comentário inválida'], String(versao));
+  }
+  // A maior versão aceita passa na validação e só não confere
+  assert.equal((await noComentario(update, leitor, meu.id, { texto: 'Novo', versao: 999999999 })).statusCode, 409);
+  assert.equal((await noComentario(update, autora, meu.id, { texto: 'Invasão' })).statusCode, 403);
+  assert.equal((await comentarios.findById(meu.id)).texto, 'Para editar');
 });
 
 test('excluir é soft delete: o texto some, as respostas continuam e o removido não aceita mais nada', async () => {
@@ -230,7 +242,7 @@ test('excluir é soft delete: o texto some, as respostas continuam e o removido 
   assert.equal(lista.find((c) => c.id === resposta.id).texto, 'Resposta que fica');
 
   assert.equal((await noComentario(remove, leitor, raiz.id)).statusCode, 409);
-  assert.equal((await noComentario(update, leitor, raiz.id, { texto: 'Voltei' })).statusCode, 409);
+  assert.equal((await noComentario(update, leitor, raiz.id, { texto: 'Voltei', versao: 1 })).statusCode, 409);
   assert.equal((await naAvaliacao(autora, { texto: 'Oi', paiId: raiz.id })).statusCode, 409);
   assert.ok(!fs.readFileSync(process.env.LOCAL_COMMENTS_FILE, 'utf8').includes('Vou apagar isto'));
 });
@@ -246,7 +258,7 @@ test('mudança entre a checagem e a gravação: removido no meio dá 409, avalia
     await apagar(primeiro.id, leitor.id); // removido em outra aba antes de gravar
     return editar(...args);
   });
-  assert.equal((await noComentario(update, leitor, primeiro.id, { texto: 'Editado' })).statusCode, 409);
+  assert.equal((await noComentario(update, leitor, primeiro.id, { texto: 'Editado', versao: 1 })).statusCode, 409);
 
   t.mock.method(comentarios, 'remove', async (...args) => {
     await avaliacoes.remove(efemera.id, leitor.id); // a avaliação some antes de gravar
