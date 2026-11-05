@@ -112,7 +112,10 @@ const naAvaliacao = (usuario, body) => chamar(create, usuario, { params: { id: S
 
 test('dois usuários: comenta na avaliação da outra pessoa, com o autor vindo só da sessão', async () => {
   await users.updatePhoto(leitor.id, `data:image/png;base64,${'A'.repeat(100)}`);
-  const res = await naAvaliacao(leitor, { texto: '  Também   achei o final corrido.  ', usuarioId: autora.id, avaliacaoId: 999 });
+  const comExtras = await naAvaliacao(leitor, { texto: 'Oi', usuarioId: autora.id, avaliacaoId: 999 });
+  assert.deepEqual([comExtras.statusCode, comExtras.body.error], [400, 'Campo fora do contrato: usuarioId, avaliacaoId']);
+  assert.equal((await naAvaliacao(leitor, { texto: 'Oi', versao: 1 })).statusCode, 400); // versao é só da edição
+  const res = await naAvaliacao(leitor, { texto: '  Também   achei o final corrido.  ' });
 
   assert.equal(res.statusCode, 201);
   const { comentario } = res.body;
@@ -206,7 +209,10 @@ test('edita só o próprio comentário, e a edição não muda autor, avaliaçã
   assert.equal((await noComentario(update, leitor, 'abc', { texto: 'Oi' })).statusCode, 400);
   assert.equal((await noComentario(update, leitor, 999999, { texto: 'Oi' })).statusCode, 404);
 
-  const corpo = { texto: ' Resposta   corrigida ', paiId: null, avaliacaoId: 999, usuarioId: autora.id, versao: 1 };
+  const comExtras = { texto: 'Mudando o pai', paiId: null, avaliacaoId: 999, usuarioId: autora.id, versao: 1 };
+  const recusada = await noComentario(update, leitor, resposta.id, comExtras);
+  assert.deepEqual([recusada.statusCode, recusada.body.error], [400, 'Campo fora do contrato: paiId, avaliacaoId, usuarioId']);
+  const corpo = { texto: ' Resposta   corrigida ', versao: 1 };
   const { comentario } = (await noComentario(update, leitor, resposta.id, corpo)).body;
   assert.deepEqual(
     [comentario.texto, comentario.paiId, comentario.avaliacaoId, comentario.autor.id, comentario.versao],
@@ -395,4 +401,59 @@ test('retention: depois de 24 horas a Idempotency-Key é esquecida, e o comentá
 
   // E a mesma key, já esquecida, grava outro comentário
   assert.notEqual((await enviar()).body.comentario.id, primeiro.id);
+});
+
+test('corpo acima de 32 KB dá 413 ao comentar e ao editar, e o maior comentário válido passa', async () => {
+  const conversa = await novaConversa('OL720W');
+  const naConversa = (body) => chamar(create, leitor, { params: { id: String(conversa.id) }, body });
+  const enorme = 'a'.repeat(33 * 1024);
+
+  const recusado = await naConversa({ texto: enorme });
+  assert.deepEqual([recusado.statusCode, recusado.body], [413, { error: 'O corpo da requisição passou de 32 KB' }]);
+  const valido = (await naConversa({ texto: '😀'.repeat(2000) })).body.comentario; // 2.000 caracteres de 4 bytes
+  assert.equal([...valido.texto].length, 2000);
+
+  assert.equal((await noComentario(update, leitor, valido.id, { texto: enorme, versao: 1 })).statusCode, 413);
+
+  // Mede em bytes, vale o limite exato, e responde antes de procurar a avaliação
+  assert.equal((await naConversa({ texto: 'a'.repeat(32 * 1024 - 12) })).statusCode, 400); // 32 KB exatos: só o texto passa do limite
+  assert.equal((await naConversa({ texto: '😀'.repeat(9000) })).statusCode, 413); // 36 KB, mas 18 mil unidades UTF-16
+  assert.equal((await chamar(create, leitor, { params: { id: '999999' }, body: { texto: enorme } })).statusCode, 413);
+
+  // Com Content-Length vale o tamanho enviado; corpo que nem serializa é grande demais, e não um erro 500
+  const enviado = { params: { id: String(conversa.id) }, body: { texto: 'Oi' }, headers: { 'content-length': String(40 * 1024) } };
+  assert.equal((await chamar(create, leitor, enviado)).statusCode, 413);
+  const aninhado = JSON.parse(`{"texto":${'['.repeat(5000)}${']'.repeat(5000)}}`);
+  assert.equal((await naConversa(aninhado)).statusCode, 413);
+  assert.equal((await noComentario(update, leitor, valido.id, { ...aninhado, versao: 1 })).statusCode, 413);
+  assert.equal((await comentarios.findById(valido.id)).texto, valido.texto);
+  assert.equal((await comentarios.findByAvaliacao(conversa.id)).length, 1);
+});
+
+test('o log de erro leva só o contexto e a mensagem do erro, nunca o texto nem o token', async (t) => {
+  const conversa = await novaConversa('OL721W');
+  const meu = (await chamar(create, leitor, { params: { id: String(conversa.id) }, body: { texto: 'Para editar' } })).body.comentario;
+  const falhar = async () => {
+    throw new Error('falha simulada no banco');
+  };
+  t.mock.method(comentarios, 'create', falhar);
+  t.mock.method(comentarios, 'update', falhar);
+  const logs = [];
+  for (const nivel of ['error', 'warn', 'log']) t.mock.method(console, nivel, (...partes) => logs.push(partes.join(' ')));
+
+  const headers = { authorization: 'Bearer token-que-nao-pode-aparecer' };
+  const comentando = await chamar(create, leitor, {
+    params: { id: String(conversa.id) },
+    body: { texto: 'Texto completo que não pode aparecer no log' },
+    headers,
+  });
+  const editando = await chamar(update, leitor, {
+    params: { id: String(meu.id) },
+    body: { texto: 'Edição que não pode aparecer no log', versao: 1 },
+    headers,
+  });
+
+  assert.deepEqual([comentando.statusCode, comentando.body], [500, { error: 'Erro interno do servidor' }]);
+  assert.equal(editando.statusCode, 500);
+  assert.deepEqual(logs, ['Erro ao comentar: falha simulada no banco', 'Erro ao editar comentário: falha simulada no banco']);
 });

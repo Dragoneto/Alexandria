@@ -97,9 +97,6 @@ function definirCenarios(ambiente, cenariosDoModo) {
 
         const { status, corpo } = await f.editar(ana, resposta.id, {
           texto: '  Resposta   corrigida ',
-          paiId: null,
-          avaliacaoId: 999,
-          usuarioId: bia.id,
         });
 
         assert.equal(status, 200);

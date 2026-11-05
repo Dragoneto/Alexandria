@@ -16,7 +16,7 @@ function prepararVariaveis(especificas) {
   for (const nome of ['DATABASE_URL', 'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'DB_SSL']) {
     delete process.env[nome];
   }
-  Object.assign(process.env, { JWT_SECRET, ...especificas });
+  Object.assign(process.env, { JWT_SECRET, COMENTARIOS_LIMITE: '1000000', ...especificas });
 }
 
 function repositorios() {
