@@ -1,9 +1,13 @@
+const crypto = require('node:crypto');
+
 const avaliacoes = require('../repositories/avaliacaoRepository');
 const comentarios = require('../repositories/comentarioRepository');
 const users = require('../repositories/userRepository');
 const { buscarAvaliacao, limparResenha } = require('./avaliacaoController');
 
 const ID_COMENTARIO = /^\d{1,9}$/;
+// Gerada pelo app para cada mensagem e repetida quando ele tenta de novo (um UUID serve)
+const IDEMPOTENCY_KEY = /^[\w-]{16,100}$/;
 const TEXTO_MAXIMO = 2000;
 const NAO_ENCONTRADO = 'Comentário não encontrado';
 const REMOVIDO = 'Este comentário foi removido';
@@ -92,12 +96,21 @@ const create = async (req, res) => {
     const avaliacao = await buscarAvaliacao(req, res);
     if (!avaliacao) return res;
 
+    const idempotencyKey = req.headers?.['idempotency-key'] ?? null;
+    if (idempotencyKey !== null && !IDEMPOTENCY_KEY.test(idempotencyKey)) {
+      return res.status(400).json({ error: 'Idempotency-Key inválida' });
+    }
+
     // Sem paiId é comentário direto na avaliação; com paiId, resposta a um comentário desta avaliação
     const paiId = req.body?.paiId ?? null;
     if (paiId !== null && !(Number.isInteger(paiId) && paiId > 0 && paiId <= 999999999)) {
       return res.status(400).json({ error: 'Identificador de comentário inválido' });
     }
-    if (paiId !== null) {
+
+    // Reenvio de mensagem já gravada não confere o pai de novo: ele pode ter sido removido depois
+    const anterior =
+      idempotencyKey && (await comentarios.findByIdempotencyKey(req.user.id, idempotencyKey));
+    if (paiId !== null && !anterior) {
       const pai = await comentarios.findById(paiId);
       if (pai?.avaliacao_id !== avaliacao.id) return res.status(404).json({ error: NAO_ENCONTRADO });
       if (pai.apagado_em) return res.status(409).json({ error: REMOVIDO });
@@ -106,11 +119,19 @@ const create = async (req, res) => {
     const { texto, erro } = lerTexto(req.body?.texto);
     if (erro) return res.status(400).json({ error: erro, errors: { texto: erro } });
 
-    const criado = await comentarios.create({ avaliacaoId: avaliacao.id, userId: req.user.id, paiId, texto });
+    // Mesma mensagem é mesma avaliação, mesmo pai e mesmo texto já limpo
+    const payloadHash =
+      idempotencyKey &&
+      crypto.createHash('sha256').update(JSON.stringify([avaliacao.id, paiId, texto])).digest('hex');
+    const dados = { avaliacaoId: avaliacao.id, userId: req.user.id, paiId, texto, idempotencyKey, payloadHash };
+    const criado = anterior || (await comentarios.create(dados));
     // No Postgres a chave estrangeira barra a gravação; no arquivo, quem desfaz é esta conferência
     if (!criado || !(await avaliacoes.findById(avaliacao.id))) {
       await comentarios.removeByAvaliacao(avaliacao.id);
       return res.status(404).json({ error: 'Avaliação não encontrada' });
+    }
+    if (idempotencyKey && criado.payload_hash !== payloadHash) {
+      return res.status(409).json({ error: 'Idempotency-Key já usada em outra mensagem' });
     }
 
     const [comentario] = await paraResposta([criado], req.user.id);
