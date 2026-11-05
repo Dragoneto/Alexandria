@@ -301,6 +301,22 @@ export default function MinhasAvaliacoes() {
                               Excluir
                             </ThemedText>
                           </TouchableOpacity>
+                          {/* Por último, para não mudar a posição do Excluir. */}
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={`Ver a conversa da avaliação de ${avaliacao.livro.titulo}`}
+                            disabled={ocupado}
+                            onPress={() =>
+                              router.push({
+                                pathname: '/avaliacao/[id]',
+                                params: { id: String(avaliacao.id) },
+                              })
+                            }
+                            style={[styles.smallButton, { borderColor: theme.accent }]}>
+                            <ThemedText themeColor="accent" style={styles.smallButtonText}>
+                              Ver conversa
+                            </ThemedText>
+                          </TouchableOpacity>
                         </View>
                       )}
 
