@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const pool = require('../config/database');
+const { substituirArquivo } = require('./arquivoLocal');
 
 const localFile = process.env.LOCAL_DB_FILE
   ? path.resolve(process.env.LOCAL_DB_FILE)
@@ -26,7 +27,7 @@ async function writeLocalUsers(users) {
   await fs.mkdir(path.dirname(localFile), { recursive: true });
   const temporaryFile = `${localFile}.tmp`;
   await fs.writeFile(temporaryFile, JSON.stringify(users, null, 2), 'utf8');
-  await fs.rename(temporaryFile, localFile);
+  await substituirArquivo(temporaryFile, localFile);
 }
 
 function publicProfile(user) {
@@ -81,6 +82,18 @@ async function findById(id) {
   const user = users.find((candidate) => candidate.id === Number(id));
   if (!user) return null;
   return publicProfile(user);
+}
+
+/** Só para conferir a senha: findById nunca devolve o hash, e o e-mail do token pode estar velho. */
+async function findCredentialsById(id) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT id, senha_hash FROM users WHERE id = $1', [id]);
+    return result.rows[0] ?? null;
+  }
+
+  const users = await readLocalUsers();
+  const user = users.find((candidate) => candidate.id === Number(id));
+  return user ? { id: user.id, senha_hash: user.senha_hash } : null;
 }
 
 /** Só id e nome: as listas de avaliações nunca levam e-mail nem foto de quem avaliou. */
@@ -204,6 +217,7 @@ module.exports = {
   initialize,
   findByEmail,
   findById,
+  findCredentialsById,
   findNames,
   findPhoto,
   updatePhoto,

@@ -197,7 +197,7 @@ export default function MinhasAvaliacoes() {
               </ThemedView>
             ) : (
               <View style={styles.list}>
-                <ThemedText themeColor="textMuted" style={styles.count}>
+                <ThemedText themeColor="textSecondary" style={styles.count}>
                   {lista.length === 1 ? '1 avaliação' : `${lista.length} avaliações`}
                 </ThemedText>
                 {lista.map((avaliacao) => {

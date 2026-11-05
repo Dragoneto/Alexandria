@@ -17,6 +17,7 @@ import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
 import { StatusNaBiblioteca } from '@/components/status-na-biblioteca';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAvaliacoesDoLivro } from '@/hooks/use-avaliacoes-do-livro';
 import { useItemDaBiblioteca } from '@/hooks/use-item-da-biblioteca';
@@ -178,7 +179,7 @@ export default function DetalheDoLivro() {
                       styles.coverPlaceholder,
                       { backgroundColor: theme.backgroundSelected },
                     ]}>
-                    <ThemedText themeColor="textMuted" style={styles.coverPlaceholderText}>
+                    <ThemedText themeColor="textSecondary" style={styles.coverPlaceholderText}>
                       {book.title}
                     </ThemedText>
                   </View>
@@ -194,7 +195,7 @@ export default function DetalheDoLivro() {
                       </View>
                     ))
                   ) : (
-                    <ThemedText themeColor="textMuted" style={styles.categoryText}>
+                    <ThemedText themeColor="textSecondary" style={styles.categoryText}>
                       Categoria não informada
                     </ThemedText>
                   )}
@@ -207,7 +208,7 @@ export default function DetalheDoLivro() {
                   {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
                 </ThemedText>
 
-                <ThemedText themeColor="textMuted" style={styles.sectionLabel}>
+                <ThemedText themeColor="textSecondary" style={styles.sectionLabel}>
                   Sinopse
                 </ThemedText>
                 {book.description ? (
@@ -229,7 +230,7 @@ export default function DetalheDoLivro() {
                     )}
                   </>
                 ) : (
-                  <ThemedText themeColor="textMuted" style={styles.description}>
+                  <ThemedText themeColor="textSecondary" style={styles.description}>
                     Este livro ainda não tem sinopse na Open Library.
                   </ThemedText>
                 )}
@@ -259,7 +260,7 @@ export default function DetalheDoLivro() {
                   }
                   style={[
                     styles.rateButton,
-                    { borderColor: theme.accent, opacity: avaliarBloqueado ? 0.6 : 1 },
+                    { borderColor: theme.accent, opacity: avaliarBloqueado ? DisabledOpacity : 1 },
                   ]}>
                   <ThemedText themeColor="accent" style={styles.addButtonText}>
                     {minhaAvaliacao
@@ -295,7 +296,7 @@ export default function DetalheDoLivro() {
               </>
             )}
 
-            <ThemedText themeColor="textMuted" style={styles.attribution}>
+            <ThemedText themeColor="textSecondary" style={styles.attribution}>
               Dados bibliográficos e capas fornecidos pela Open Library.
             </ThemedText>
           </View>
@@ -361,7 +362,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: 'rgba(100,255,218,0.08)',
+    backgroundColor: withAlpha(Mint.mint400, 0.08),
   },
   categoryText: { fontSize: 11, fontWeight: '800' },
   title: { marginTop: Spacing.three, fontSize: 28, lineHeight: 34 },

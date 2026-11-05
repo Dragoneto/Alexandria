@@ -14,7 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { DisabledOpacity } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import {
@@ -49,6 +51,7 @@ export default function AvaliarLivro() {
   const editando = avaliacaoId !== null;
   const [nota, setNota] = useState<number | null>(null);
   const [resenha, setResenha] = useState('');
+  const { focado: resenhaFocada, propsDeFoco } = useFoco();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [erros, setErros] = useState<ErrosAvaliacao>({});
@@ -227,7 +230,7 @@ export default function AvaliarLivro() {
               </ThemedView>
             ) : (
               <>
-                <ThemedText themeColor="textMuted" style={styles.label}>
+                <ThemedText themeColor="textSecondary" style={styles.label}>
                   Sua nota
                 </ThemedText>
                 <View style={styles.notas} accessibilityRole="radiogroup">
@@ -250,6 +253,7 @@ export default function AvaliarLivro() {
                             borderColor: ativa ? theme.accent : theme.border,
                             backgroundColor: ativa ? theme.accent : 'transparent',
                           },
+                          saving && { opacity: DisabledOpacity },
                         ]}>
                         <ThemedText
                           style={[
@@ -262,7 +266,7 @@ export default function AvaliarLivro() {
                     );
                   })}
                 </View>
-                <ThemedText themeColor="textMuted" style={styles.legend}>
+                <ThemedText themeColor="textSecondary" style={styles.legend}>
                   1 = não gostei · 5 = adorei
                 </ThemedText>
                 {!!erros.nota && (
@@ -274,10 +278,11 @@ export default function AvaliarLivro() {
                   </ThemedText>
                 )}
 
-                <ThemedText themeColor="textMuted" style={styles.label}>
+                <ThemedText themeColor="textSecondary" style={styles.label}>
                   Sua resenha
                 </ThemedText>
                 <TextInput
+                  {...propsDeFoco}
                   accessibilityLabel="Sua resenha"
                   value={resenha}
                   onChangeText={(texto) => {
@@ -290,7 +295,15 @@ export default function AvaliarLivro() {
                   placeholderTextColor={theme.textMuted}
                   style={[
                     styles.resenha,
-                    { borderColor: erros.resenha ? theme.danger : theme.border, color: theme.text },
+                    {
+                      borderColor: erros.resenha
+                        ? theme.danger
+                        : resenhaFocada
+                          ? theme.accent
+                          : theme.border,
+                      color: theme.text,
+                    },
+                    saving && { opacity: DisabledOpacity },
                   ]}
                 />
                 {erros.resenha ? (
@@ -301,7 +314,7 @@ export default function AvaliarLivro() {
                     {erros.resenha}
                   </ThemedText>
                 ) : (
-                  <ThemedText themeColor="textMuted" style={styles.counter}>
+                  <ThemedText themeColor="textSecondary" style={styles.counter}>
                     {tamanho < RESENHA_MINIMA
                       ? `Mínimo de ${RESENHA_MINIMA} caracteres`
                       : `${tamanho}/${RESENHA_MAXIMA}`}
@@ -320,7 +333,7 @@ export default function AvaliarLivro() {
                   onPress={() => void publicar()}
                   style={[
                     styles.submit,
-                    { backgroundColor: theme.accent, opacity: saving ? 0.6 : 1 },
+                    { backgroundColor: theme.accent, opacity: saving ? DisabledOpacity : 1 },
                   ]}>
                   {saving ? (
                     <ActivityIndicator color={theme.background} />

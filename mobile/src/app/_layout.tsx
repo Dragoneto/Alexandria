@@ -1,6 +1,6 @@
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ActivityIndicator, Text, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { ActionButton } from '@/components/action-button';
@@ -51,7 +51,7 @@ function SessionRoutes() {
         <Stack.Screen name="avaliar/[id]" />
         <Stack.Screen name="minhas-avaliacoes" />
       </Stack.Protected>
-      <Stack.Protected guard={!user}>
+      <Stack.Protected guard={!user} redirectTo="/home">
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="cadastro" />
@@ -62,9 +62,8 @@ function SessionRoutes() {
 }
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={DarkTheme}>
       <AnimatedSplashOverlay />
       <AuthProvider>
         <SessionRoutes />

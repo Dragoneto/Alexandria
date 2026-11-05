@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { create, detail, listByBook, listMine, remove, update } = require('../controllers/avaliacaoController');
+const comentarios = require('../controllers/comentarioController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 router.use(authMiddleware);
@@ -12,5 +13,7 @@ router.get('/:id', detail);
 router.post('/', create);
 router.put('/:id', update);
 router.delete('/:id', remove);
+router.get('/:id/comentarios', comentarios.list);
+router.post('/:id/comentarios', comentarios.create);
 
 module.exports = router;
