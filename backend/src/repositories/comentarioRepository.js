@@ -70,6 +70,10 @@ async function initialize() {
       CREATE UNIQUE INDEX IF NOT EXISTS comentarios_idempotency_key_idx
       ON comentarios (user_id, idempotency_key)
     `);
+    await pool.query(
+      'CREATE INDEX IF NOT EXISTS comentarios_principais_idx ON comentarios (avaliacao_id, id) WHERE pai_id IS NULL',
+    );
+    await pool.query('CREATE INDEX IF NOT EXISTS comentarios_pai_id_idx ON comentarios (pai_id, id)');
     return;
   }
 
@@ -115,6 +119,51 @@ async function findByIdempotencyKey(userId, idempotencyKey) {
       (c) => c.user_id === Number(userId) && c.idempotency_key === idempotencyKey,
     ) ?? null
   );
+}
+
+async function findPage({ avaliacaoId, paiId = null, cursor = 0, quantidade }) {
+  if (usePostgres()) {
+    const filtroPai = paiId === null ? 'pai_id IS NULL' : 'pai_id = $4';
+    const valores = [avaliacaoId, cursor, quantidade];
+    if (paiId !== null) valores.push(paiId);
+    const result = await pool.query(
+      `SELECT * FROM comentarios
+       WHERE avaliacao_id = $1 AND ${filtroPai} AND id > $2
+       ORDER BY id LIMIT $3`,
+      valores,
+    );
+    return result.rows;
+  }
+
+  return (await readLocalComments())
+    .filter(
+      (comentario) =>
+        comentario.avaliacao_id === Number(avaliacaoId) &&
+        comentario.pai_id === paiId &&
+        comentario.id > cursor,
+    )
+    .sort((a, b) => a.id - b.id)
+    .slice(0, quantidade);
+}
+
+async function countRespostas(ids) {
+  const contagem = new Map();
+  if (!ids.length) return contagem;
+
+  if (usePostgres()) {
+    const result = await pool.query(
+      'SELECT pai_id, COUNT(*)::int AS total FROM comentarios WHERE pai_id = ANY($1::int[]) GROUP BY pai_id',
+      [ids],
+    );
+    result.rows.forEach((linha) => contagem.set(linha.pai_id, linha.total));
+    return contagem;
+  }
+
+  const procurados = new Set(ids);
+  (await readLocalComments()).forEach(({ pai_id: paiId }) => {
+    if (procurados.has(paiId)) contagem.set(paiId, (contagem.get(paiId) ?? 0) + 1);
+  });
+  return contagem;
 }
 
 /**
@@ -271,6 +320,8 @@ module.exports = {
   findById,
   findByAvaliacao,
   findByIdempotencyKey,
+  findPage,
+  countRespostas,
   create,
   update,
   remove,
