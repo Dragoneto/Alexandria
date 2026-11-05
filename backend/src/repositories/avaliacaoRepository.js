@@ -2,6 +2,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const pool = require('../config/database');
+const { substituirArquivo } = require('./arquivoLocal');
 const comentarios = require('./comentarioRepository');
 
 const localFile = process.env.LOCAL_REVIEWS_FILE
@@ -27,7 +28,7 @@ async function writeLocalReviews(avaliacoes) {
   await fs.mkdir(path.dirname(localFile), { recursive: true });
   const temporaryFile = `${localFile}.tmp`;
   await fs.writeFile(temporaryFile, JSON.stringify(avaliacoes, null, 2), 'utf8');
-  await fs.rename(temporaryFile, localFile);
+  await substituirArquivo(temporaryFile, localFile);
 }
 
 function serializeWrite(operation) {

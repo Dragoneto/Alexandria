@@ -173,6 +173,11 @@ de teste ficam nele. O SSL fica desligado, a menos que `DB_SSL` diga outra coisa
 TEST_DATABASE_URL=postgresql://usuario:senha@localhost:5432/banco_de_teste node --test tests/change-password.test.js
 ```
 
+A persistência das conversas é verificada nos dois modos, com os mesmos cenários.
+`npm run test:persistencia:pg` roda tudo em um PostgreSQL descartável, sem senha e
+sem tocar no banco de desenvolvimento. Comandos, proteções, cobertura e limitações
+estão em [backend/docs/testes-persistencia.md](../backend/docs/testes-persistencia.md).
+
 Para validar de ponta a ponta em um ambiente de desenvolvimento:
 
 1. Cadastrar uma conta de teste; confirmar o nome no popup e seguir para login.
