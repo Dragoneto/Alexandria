@@ -40,6 +40,7 @@ async function paraResposta(lista, usuarioLogadoId) {
       removido,
       criadoEm: new Date(comentario.criado_em).toISOString(),
       atualizadoEm: new Date(comentario.atualizado_em).toISOString(),
+      versao: comentario.versao ?? 1, // no arquivo local, comentário sem o campo está na versão 1
       podeEditar: meu,
       podeExcluir: meu,
     };

@@ -125,6 +125,7 @@ test('dois usuários: comenta na avaliação da outra pessoa, com o autor vindo 
     removido: false,
     criadoEm: comentario.criadoEm,
     atualizadoEm: comentario.atualizadoEm,
+    versao: 1,
     podeEditar: true,
     podeExcluir: true,
   });

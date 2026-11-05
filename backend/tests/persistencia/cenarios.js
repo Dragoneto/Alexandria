@@ -59,6 +59,7 @@ function definirCenarios(ambiente, cenariosDoModo) {
           autor: { id: bia.id, nome: 'Bia' },
           texto: 'Comentário raiz da Bia',
           removido: false,
+          versao: 1,
           podeEditar: true,
           podeExcluir: true,
         });

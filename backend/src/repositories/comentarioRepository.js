@@ -70,6 +70,8 @@ async function initialize() {
       CREATE UNIQUE INDEX IF NOT EXISTS comentarios_idempotency_key_idx
       ON comentarios (user_id, idempotency_key)
     `);
+    // Versão do comentário: a edição confere a versão para não sobrescrever uma alteração mais nova
+    await pool.query('ALTER TABLE comentarios ADD COLUMN IF NOT EXISTS versao INTEGER NOT NULL DEFAULT 1');
     return;
   }
 
