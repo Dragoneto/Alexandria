@@ -1,5 +1,6 @@
 import { ApiError, apiRequest } from '@/services/api';
 import { clearAuth, getAuth, saveAuth, type StoredUser } from '@/services/auth-storage';
+import { limparRascunhos } from '@/services/rascunhos';
 
 export { ApiError } from '@/services/api';
 export type UserProfile = Omit<StoredUser, 'token'>;
@@ -73,6 +74,7 @@ export async function loginUser(email: string, password: string): Promise<Stored
   }
   const session = { ...profileFrom(response), token: response.token };
   await saveAuth(session);
+  await limparRascunhos(session.id).catch(() => {});
   return session;
 }
 
@@ -145,9 +147,10 @@ export async function removeProfilePhoto(): Promise<void> {
   await apiRequest<PhotoResponse>(PHOTO_PATH, { method: 'DELETE' });
 }
 
-export function logoutUser(): Promise<void> {
+export async function logoutUser(): Promise<void> {
   // O backend usa JWT sem endpoint de revogação; o logout remove a sessão deste dispositivo.
-  return clearAuth();
+  await clearAuth();
+  await limparRascunhos().catch(() => {});
 }
 
 export async function forgotPassword(email: string): Promise<void> {
