@@ -108,15 +108,12 @@ export default function ConversaDaAvaliacao() {
     setErroEnvio('Esse comentário foi removido. Seu texto continua aqui.');
   }, [alvoId, tipoModo, conversa.comentarios]);
 
-  // Só depois de um conflito a edição passa para a versão recarregada: a pessoa já viu que o comentário mudou
-  const conflitoEm = useRef<number | null>(null);
-  useEffect(() => {
-    if (modo.tipo !== 'editar' || conflitoEm.current !== modo.alvo.id || !conversa.comentarios) return;
-    const atual = conversa.comentarios.find((comentario) => comentario.id === modo.alvo.id);
-    if (!atual || atual.removido || atual.versao === modo.alvo.versao) return;
-    conflitoEm.current = null;
-    setModo({ tipo: 'editar', alvo: atual });
-  }, [modo, conversa.comentarios]);
+  // Só a edição que deu conflito salva sobre a versão recarregada: a pessoa já viu que mudou
+  const conflitoEm = useRef<Comentario | null>(null);
+  const versaoDaEdicao = (alvo: Comentario) =>
+    conflitoEm.current === alvo
+      ? (conversa.comentarios?.find((c) => c.id === alvo.id)?.versao ?? alvo.versao)
+      : alvo.versao;
 
   const voltar = () => {
     if (router.canGoBack()) router.back();
@@ -168,7 +165,7 @@ export default function ConversaDaAvaliacao() {
     try {
       conversa.incluir(
         modo.tipo === 'editar'
-          ? await editarComentario(modo.alvo.id, limpo, modo.alvo.versao)
+          ? await editarComentario(modo.alvo.id, limpo, versaoDaEdicao(modo.alvo))
           : modo.tipo === 'responder'
             ? await responder(avaliacaoId, modo.alvo.id, limpo, chave)
             : await comentar(avaliacaoId, limpo, chave),
@@ -190,7 +187,7 @@ export default function ConversaDaAvaliacao() {
       }
       // Mudou em outra sessão: o texto digitado fica e a conversa mostra a versão atual para revisar
       if (classificarFalhaComentario(error) === 'conflito' && modo.tipo === 'editar') {
-        conflitoEm.current = modo.alvo.id;
+        conflitoEm.current = modo.alvo;
         void conversa.recarregar();
       }
     } finally {
