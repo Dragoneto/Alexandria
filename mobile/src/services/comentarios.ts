@@ -145,7 +145,11 @@ export function responder(
 }
 
 /** Se o comentário mudou depois da versão informada, o backend não grava: a falha é 'conflito'. */
-export async function editarComentario(id: number, texto: string, versao: number): Promise<Comentario> {
+export async function editarComentario(
+  id: number,
+  texto: string,
+  versao: number,
+): Promise<Comentario> {
   const result = await apiRequest<{ comentario?: unknown }>(`/api/comentarios/${id}`, {
     method: 'PUT',
     body: { texto, versao },
