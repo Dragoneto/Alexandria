@@ -50,6 +50,9 @@ app.get('/', (req, res) => {
   });
 });
 
+// Health check que consulta o banco (usado pelo keep-alive do Supabase)
+app.get('/api/health', require('./controllers/healthController').healthCheck);
+
 // Rotas de autenticação
 app.use('/api/auth', authRoutes);
 
@@ -94,6 +97,7 @@ async function start() {
     console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
     console.log(`💾 Persistência: ${users.mode}`);
     console.log(`📍 Rotas disponíveis:`);
+    console.log(`   GET  /api/health         - Health check com consulta ao banco`);
     console.log(`   POST /api/auth/register  - Cadastrar usuário`);
     console.log(`   POST /api/auth/login     - Fazer login`);
     console.log(`   GET  /api/auth/profile   - Ver perfil (requer token)`);
