@@ -84,10 +84,9 @@ test('o texto acompanha o tamanho de fonte do aparelho', () => {
 test('carregamento, erro e aviso são anunciados', () => {
   assert.match(fonte, /<ThemedText\s+accessibilityLiveRegion="polite"[^>]*styles\.aviso/);
   assert.match(fonte, /<ThemedView\s+accessibilityLiveRegion="polite"/);
-  assert.match(
-    fonte,
-    /accessibilityRole="alert"\s+accessibilityLiveRegion="polite"[^>]*>\s*\{erro\}/,
-  );
+  assert.match(fonte, /<ErrorState\s+message=\{erro\}/);
+  const errorState = fs.readFileSync(path.resolve(__dirname, '../src/components/error-state.tsx'), 'utf8');
+  assert.match(errorState, /accessibilityRole="alert"/);
 });
 
 for (const [os, anuncios] of [

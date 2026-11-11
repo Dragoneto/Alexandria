@@ -1,9 +1,12 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonList } from '@/components/skeletons';
 import {
   Accent,
   Ink,
@@ -13,7 +16,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
-import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
   contarNaoLidas,
@@ -31,7 +34,6 @@ function dataCurta(value: string) {
 
 export default function NotificacoesScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const [items, setItems] = useState<Notificacao[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -43,6 +45,7 @@ export default function NotificacoesScreen() {
   const lock = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const seen = useRef(new Set<string>());
+  const showLoading = useLoadingGate(loading && items.length === 0);
 
   const load = useCallback(async (refresh = false) => {
     if (lock.current) return;
@@ -50,7 +53,8 @@ export default function NotificacoesScreen() {
     controller.current?.abort();
     const request = new AbortController();
     controller.current = request;
-    refresh ? setRefreshing(true) : setLoading(true);
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
     setError('');
     try {
       const [page, count] = await Promise.all([
@@ -184,20 +188,22 @@ export default function NotificacoesScreen() {
           <ActionButton
             label="Marcar todas como lidas"
             variant="ghost"
+            disabled={unread === 0}
             loading={busy}
             onPress={markAll}
           />
         </View>
-        {!!error && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
+        {!!error && !items.length && !loading && (
+          <ErrorState message={error} onRetry={() => void load()} />
         )}
-        {loading && items.length === 0 ? (
-          <ActivityIndicator accessibilityLabel="Carregando notificações" color={Mint.mint400} />
-        ) : null}
+        {loading && items.length === 0 && showLoading ? <SkeletonList count={3} /> : null}
         {!loading && !error && items.length === 0 ? (
-          <Text style={styles.empty}>Você ainda não recebeu notificações.</Text>
+          <EmptyState
+            compact
+            title="Nenhuma notificação ainda"
+            message="As notificações aparecem quando alguém comenta ou responde às suas avaliações. Explore livros e publique uma avaliação para iniciar uma conversa."
+            primaryAction={{ label: 'Explorar livros', onPress: () => router.push('/explore') }}
+          />
         ) : null}
         {items.map((item) => (
           <Pressable
@@ -210,7 +216,7 @@ export default function NotificacoesScreen() {
               styles.card,
               {
                 borderColor: item.lidaEm ? Ink.ink500 : Mint.mint400,
-                backgroundColor: item.lidaEm ? Ink.ink700 : '#173b3b',
+                backgroundColor: item.lidaEm ? Ink.ink700 : Mint.mint900,
               },
               pressed && styles.pressed,
               !item.alvoDisponivel && styles.disabled,
@@ -227,6 +233,13 @@ export default function NotificacoesScreen() {
         ))}
         {cursor && (
           <ActionButton label="Carregar mais" variant="ghost" loading={more} onPress={loadMore} />
+        )}
+        {!!error && items.length > 0 && (
+          <ErrorState
+            title="Não foi possível concluir"
+            message={error}
+            onRetry={() => void load(true)}
+          />
         )}
       </ScrollView>
     </SafeAreaView>

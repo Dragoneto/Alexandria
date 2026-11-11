@@ -18,12 +18,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity } from '@/constants/design-system';
+import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonList } from '@/components/skeletons';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useConversa } from '@/hooks/use-conversa';
 import { useFoco } from '@/hooks/use-foco';
 import { useRascunhos } from '@/hooks/use-rascunhos';
 import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { contarCaracteres, limparResenha } from '@/services/avaliacoes';
 import {
   classificarFalhaComentario,
@@ -265,6 +269,7 @@ export default function ConversaDaAvaliacao() {
 
   const avaliacao = conversa.avaliacao;
   const carregandoInicio = conversa.carregando && !avaliacao;
+  const mostrarEsqueleto = useLoadingGate(carregandoInicio);
 
   return (
     <ThemedView style={styles.root}>
@@ -306,32 +311,14 @@ export default function ConversaDaAvaliacao() {
                   {caixasDeOrfaos}
                 </ThemedView>
               ) : carregandoInicio ? (
-                <ThemedView
-                  type="backgroundElement"
-                  style={styles.stateCard}
-                  accessibilityLiveRegion="polite">
-                  <ActivityIndicator
-                    accessibilityLabel="Carregando conversa"
-                    color={theme.accent}
-                  />
-                  <ThemedText themeColor="textSecondary">Carregando conversa…</ThemedText>
-                </ThemedView>
+                mostrarEsqueleto ? (
+                  <SkeletonList count={3} />
+                ) : null
               ) : !avaliacao ? (
-                <ThemedView
-                  type="backgroundElement"
-                  style={styles.stateCard}
-                  accessibilityRole="alert">
-                  <ThemedText themeColor="textSecondary">{conversa.erro}</ThemedText>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Tentar carregar de novo"
-                    onPress={() => void conversa.recarregar()}
-                    style={[styles.outlineButton, { borderColor: theme.accent }]}>
-                    <ThemedText themeColor="accent" style={styles.buttonText}>
-                      Tentar novamente
-                    </ThemedText>
-                  </TouchableOpacity>
-                </ThemedView>
+                <ErrorState
+                  message={conversa.erro || 'Não foi possível carregar esta conversa.'}
+                  onRetry={() => void conversa.recarregar()}
+                />
               ) : (
                 <>
                   <ThemedView type="backgroundElement" style={styles.reviewCard}>
@@ -385,11 +372,12 @@ export default function ConversaDaAvaliacao() {
                   )}
 
                   {itens.length === 0 ? (
-                    <ThemedView type="backgroundElement" style={styles.stateCard}>
-                      <ThemedText themeColor="textSecondary">
-                        Ninguém comentou ainda. Comece a conversa.
-                      </ThemedText>
-                    </ThemedView>
+                    <EmptyState
+                      compact
+                      title="A conversa começa aqui"
+                      message="Escreva um comentário para conversar sobre esta avaliação."
+                      primaryAction={{ label: 'Escrever comentário', onPress: focarCampo }}
+                    />
                   ) : (
                     linhas.map((linha) => {
                       if (linha.tipo === 'respostas') {

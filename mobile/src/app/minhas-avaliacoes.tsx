@@ -14,8 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonList } from '@/components/skeletons';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
   estrelas,
@@ -40,6 +44,7 @@ export default function MinhasAvaliacoes() {
   const [erroExclusao, setErroExclusao] = useState<{ id: number; texto: string } | null>(null);
   const excluindo = useRef(false);
   const controller = useRef<AbortController | null>(null);
+  const showLoading = useLoadingGate(carregando);
 
   // Recarrega ao ganhar foco: volta da edição com a nota e a resenha novas.
   const carregar = useCallback(async () => {
@@ -150,51 +155,18 @@ export default function MinhasAvaliacoes() {
             )}
 
             {carregando ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.stateCard}
-                accessibilityLiveRegion="polite">
-                <ActivityIndicator
-                  accessibilityLabel="Carregando avaliações"
-                  color={theme.accent}
-                />
-                <ThemedText themeColor="textSecondary">Carregando suas avaliações…</ThemedText>
-              </ThemedView>
+              showLoading ? (
+                <SkeletonList count={3} />
+              ) : null
             ) : erro ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.stateCard}
-                accessibilityRole="alert">
-                <ThemedText type="subtitle" style={styles.stateTitle}>
-                  Não foi possível carregar
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">{erro}</ThemedText>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={tentarNovamente}
-                  style={[styles.outlineButton, { borderColor: theme.accent }]}>
-                  <ThemedText themeColor="accent" style={styles.buttonText}>
-                    Tentar novamente
-                  </ThemedText>
-                </TouchableOpacity>
-              </ThemedView>
+              <ErrorState message={erro} onRetry={tentarNovamente} />
             ) : lista.length === 0 ? (
-              <ThemedView type="backgroundElement" style={styles.stateCard}>
-                <ThemedText type="subtitle" style={styles.stateTitle}>
-                  Você ainda não avaliou nenhum livro
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  Encontre um livro no Explorar e conte o que achou.
-                </ThemedText>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => router.push('/explore')}
-                  style={[styles.outlineButton, { borderColor: theme.accent }]}>
-                  <ThemedText themeColor="accent" style={styles.buttonText}>
-                    Explorar livros
-                  </ThemedText>
-                </TouchableOpacity>
-              </ThemedView>
+              <EmptyState
+                compact
+                title="Suas avaliações aparecerão aqui"
+                message="Registre sua opinião sobre um livro para acompanhar suas avaliações e iniciar conversas."
+                primaryAction={{ label: 'Explorar livros', onPress: () => router.push('/explore') }}
+              />
             ) : (
               <View style={styles.list}>
                 <ThemedText themeColor="textSecondary" style={styles.count}>
@@ -392,7 +364,7 @@ const styles = StyleSheet.create({
   confirmText: { fontSize: 13, fontWeight: '700' },
   smallButton: {
     minWidth: 88,
-    minHeight: 40,
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
