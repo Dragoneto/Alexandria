@@ -42,7 +42,7 @@ export function FeedbackPressable({
   const pressed = useSharedValue(1);
   const setPressed = useCallback(
     (value: number) => {
-      pressed.value = reduceMotion ? value : withTiming(value, { duration: 140 });
+      pressed.set(reduceMotion ? value : withTiming(value, { duration: 140 }));
     },
     [pressed, reduceMotion],
   );
@@ -54,7 +54,11 @@ export function FeedbackPressable({
     <AnimatedPressable
       {...props}
       disabled={disabled || loading}
-      accessibilityState={{ ...props.accessibilityState, disabled: disabled || loading, busy: loading }}
+      accessibilityState={{
+        ...props.accessibilityState,
+        disabled: disabled || loading,
+        busy: loading,
+      }}
       onPressIn={(event) => {
         setPressed(0.72);
         onPressIn?.(event);
@@ -64,7 +68,10 @@ export function FeedbackPressable({
         onPressOut?.(event);
       }}
       style={[style, animatedStyle]}>
-      <View style={styles.content} accessibilityElementsHidden={loading} importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}>
+      <View
+        style={styles.content}
+        accessibilityElementsHidden={loading}
+        importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}>
         {children}
       </View>
       {loading && (
@@ -78,5 +85,5 @@ export function FeedbackPressable({
 
 const styles = StyleSheet.create({
   content: { opacity: 1 },
-  indicator: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  indicator: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
 });

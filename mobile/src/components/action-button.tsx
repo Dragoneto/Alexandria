@@ -1,6 +1,15 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
-import { DSFonts, Ink, Mint, Radius, Shadow, TouchMin } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
+import {
+  DSFonts,
+  DisabledOpacity,
+  Ink,
+  Mint,
+  Radius,
+  Shadow,
+  TouchMin,
+} from '@/constants/design-system';
 
 type ActionButtonProps = {
   label: string;
@@ -27,27 +36,24 @@ export function ActionButton({
   const unavailable = disabled || loading;
 
   return (
-    <Pressable
+    <FeedbackPressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       aria-busy={loading}
       accessibilityState={{ disabled: unavailable, busy: loading }}
       disabled={unavailable}
+      loading={loading}
+      loadingColor={isPrimary ? Ink.ink900 : Mint.mint400}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         isPrimary ? styles.primary : styles.ghost,
         unavailable && styles.disabled,
-        pressed && !unavailable && (isPrimary ? styles.primaryPressed : styles.ghostPressed),
       ]}>
-      {loading ? (
-        <ActivityIndicator color={isPrimary ? Ink.ink900 : Mint.mint400} />
-      ) : (
-        <Text style={[styles.label, isPrimary ? styles.primaryLabel : styles.ghostLabel]}>
-          {label}
-        </Text>
-      )}
-    </Pressable>
+      <Text style={[styles.label, isPrimary ? styles.primaryLabel : styles.ghostLabel]}>
+        {label}
+      </Text>
+    </FeedbackPressable>
   );
 }
 
@@ -63,18 +69,12 @@ const styles = StyleSheet.create({
     backgroundColor: Mint.mint400,
     ...Shadow.glow,
   },
-  primaryPressed: {
-    backgroundColor: Mint.mint500,
-  },
   ghost: {
     minHeight: TouchMin,
     borderWidth: 1,
     borderColor: Mint.mint400,
   },
-  ghostPressed: {
-    backgroundColor: Mint.mint900,
-  },
-  disabled: { opacity: 0.55 },
+  disabled: { opacity: DisabledOpacity },
   // Rótulo forte · sans 16/22 · 700
   label: {
     fontFamily: DSFonts.ui,

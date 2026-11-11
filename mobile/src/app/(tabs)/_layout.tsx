@@ -8,10 +8,11 @@ import { Mint, TextColor } from '@/constants/design-system';
 const ATIVO = Mint.mint400;
 const INATIVO = TextColor.secondary;
 
+export const unstable_settings = { initialRouteName: 'home' };
+
 export default function TabsLayout() {
   return (
     <Tabs
-      initialRouteName="home"
       tabBar={(props) => <NavBar {...props} />}
       screenOptions={{
         headerShown: false,
