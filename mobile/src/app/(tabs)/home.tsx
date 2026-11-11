@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { Image } from 'expo-image';
@@ -18,6 +27,14 @@ import {
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { SkeletonBookShelf } from '@/components/skeletons';
+import {
+  CATEGORIAS,
+  embaralhar,
+  sortearDestaque,
+  sortearEstantes,
+  termoDaCategoria,
+  type Categoria,
+} from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { getProfile, getProfilePhoto } from '@/services/auth';
@@ -26,14 +43,14 @@ import { searchBooks, type BookSearchItem } from '@/services/open-library';
 const COVER_WIDTH = 112;
 const COVER_HEIGHT = 168; // proporção 2:3, a de uma capa de verdade
 
-// `category` precisa ser uma das aceitas pelo backend:
-// Fantasia, Romance, História, Tecnologia, Biografia, Mistério.
-const ESTANTES = [
-  { title: 'Machado de Assis', query: 'Machado de Assis' },
-  { title: 'Fantasia', query: 'magic', category: 'Fantasia' },
-  { title: 'Mistério', query: 'detective', category: 'Mistério' },
-  { title: 'Biografias', query: 'life', category: 'Biografia' },
-];
+function novoSorteio(id = 0) {
+  return {
+    id,
+    estantes: sortearEstantes(),
+    categorias: embaralhar(CATEGORIAS),
+    destaque: sortearDestaque(),
+  };
+}
 
 function saudacao() {
   const hora = new Date().getHours();
@@ -56,6 +73,17 @@ export default function HomeScreen() {
   const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [firstName, setFirstName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  // Cada sorteio monta outra combinação de destaque, categorias e estantes.
+  // Muda toda vez que a home abre e quando a pessoa puxa a tela para baixo.
+  const [{ id: sorteio, estantes, categorias, destaque }, setSorteio] = useState(novoSorteio);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const sortearDeNovo = useCallback(() => {
+    setRefreshing(true);
+    setSorteio((atual) => novoSorteio(atual.id + 1));
+    // As estantes mostram o próprio carregamento; o indicador do pull-to-refresh só confirma o gesto
+    setTimeout(() => setRefreshing(false), 400);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -75,6 +103,13 @@ export default function HomeScreen() {
     }, []),
   );
 
+  const abrirCategoria = (categoria: Categoria) => {
+    const termo = termoDaCategoria(categoria);
+    router.push(
+      `/explore?q=${encodeURIComponent(termo)}&categoria=${encodeURIComponent(categoria)}` as Href,
+    );
+  };
+
   const handleSearch = () => {
     const normalized = searchTerm.trim();
     if (!normalized) return;
@@ -83,7 +118,18 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={sortearDeNovo}
+            tintColor={Mint.mint400}
+            colors={[Mint.mint400]}
+            progressBackgroundColor={Ink.ink700}
+          />
+        }>
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.date}>{dataDeHoje()}</Text>
@@ -125,8 +171,29 @@ export default function HomeScreen() {
           />
         </View>
 
-        {ESTANTES.map((estante) => (
-          <Estante key={estante.title} {...estante} />
+        <Destaque key={`destaque-${sorteio}`} {...destaque} />
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Explore por categoria</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipsRow}>
+            {categorias.map((categoria) => (
+              <FeedbackPressable
+                key={categoria}
+                accessibilityRole="button"
+                accessibilityLabel={`Explorar livros de ${categoria}`}
+                onPress={() => abrirCategoria(categoria)}
+                style={styles.chip}>
+                <Text style={styles.chipText}>{categoria}</Text>
+              </FeedbackPressable>
+            ))}
+          </ScrollView>
+        </View>
+
+        {estantes.map(({ key, ...estante }) => (
+          <Estante key={`${sorteio}-${key}`} {...estante} />
         ))}
       </ScrollView>
     </SafeAreaView>
@@ -137,10 +204,101 @@ type EstanteProps = {
   title: string;
   query: string;
   category?: string;
+  page?: number;
 };
 
+/** Abaixo disso a estante parece vazia; completa com a primeira página. */
+const MINIMO_POR_ESTANTE = 6;
+
+/**
+ * Busca uma página sorteada e embaralha o resultado. Se a página sorteada vier
+ * fraca (comum em autores brasileiros nas páginas 2 e 3), completa com a
+ * primeira, que é a que mais tem obras com capa e autor.
+ */
+async function buscarSorteado(
+  { query, category, page = 1 }: Omit<EstanteProps, 'title'>,
+  signal: AbortSignal,
+): Promise<BookSearchItem[]> {
+  const buscar = async (pagina: number) =>
+    (await searchBooks({ query, category, quality: 'curated', page: pagina, limit: 12, signal }))
+      .books;
+  let books = await buscar(page);
+  if (books.length < MINIMO_POR_ESTANTE && page > 1) {
+    const vistos = new Set(books.map((book) => book.id));
+    books = [...books, ...(await buscar(1)).filter((book) => !vistos.has(book.id))];
+  }
+  return embaralhar(books);
+}
+
+/** Um livro sorteado em destaque no topo da home. */
+function Destaque({ query, category, page }: Omit<EstanteProps, 'title'>) {
+  const router = useRouter();
+  const [book, setBook] = useState<BookSearchItem | null>(null);
+  const [state, setState] = useState<'loading' | 'success' | 'hidden'>('loading');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    buscarSorteado({ query, category, page }, controller.signal)
+      .then((books) => {
+        if (controller.signal.aborted) return;
+        setBook(books[0] ?? null);
+        setState(books.length ? 'success' : 'hidden');
+      })
+      .catch(() => {
+        // Sem destaque a home continua completa: o bloco só some.
+        if (!controller.signal.aborted) setState('hidden');
+      });
+    return () => controller.abort();
+  }, [query, category, page]);
+
+  if (state === 'hidden') return null;
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Sugestão para você</Text>
+      <Pressable
+        disabled={!book}
+        accessibilityRole="button"
+        accessibilityLabel={
+          book
+            ? `Livro sugerido: ${book.title}, de ${book.authors[0] ?? 'autor desconhecido'}`
+            : undefined
+        }
+        onPress={() => book && router.push({ pathname: '/livro/[id]', params: { id: book.id } })}
+        style={({ pressed }) => [styles.featured, pressed && styles.pressed]}>
+        <View style={[styles.featuredCover, !book && styles.featuredPlaceholder]}>
+          {book ? (
+            <Image
+              source={{ uri: book.coverUrl ?? undefined }}
+              style={styles.featuredCoverImage}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : null}
+        </View>
+        <View style={styles.featuredText}>
+          {book ? (
+            <>
+              {category ? <Text style={styles.featuredTag}>{category}</Text> : null}
+              <Text style={styles.featuredTitle} numberOfLines={3}>
+                {book.title}
+              </Text>
+              <Text style={styles.featuredAuthor} numberOfLines={1}>
+                {book.authors[0]}
+              </Text>
+              <Text style={styles.featuredAction}>Ver livro</Text>
+            </>
+          ) : (
+            <Text style={styles.featuredAuthor}>Escolhendo um livro…</Text>
+          )}
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
 /** Estante horizontal de capas com vazio, erro e carregamento explícitos. */
-function Estante({ title, query, category }: EstanteProps) {
+function Estante({ title, query, category, page = 1 }: EstanteProps) {
   const router = useRouter();
   const [books, setBooks] = useState<BookSearchItem[]>([]);
   const [state, setState] = useState<'loading' | 'success' | 'empty' | 'error'>('loading');
@@ -154,22 +312,17 @@ function Estante({ title, query, category }: EstanteProps) {
       if (controller.signal.aborted) return;
       setState('loading');
       try {
-        const result = await searchBooks({
-          query,
-          category,
-          quality: 'curated',
-          limit: 12,
-          signal: controller.signal,
-        });
-        setBooks(result.books);
-        setState(result.books.length ? 'success' : 'empty');
+        const result = await buscarSorteado({ query, category, page }, controller.signal);
+        if (controller.signal.aborted) return;
+        setBooks(result);
+        setState(result.length ? 'success' : 'empty');
       } catch {
         if (!controller.signal.aborted) setState('error');
       }
     };
     void load();
     return () => controller.abort();
-  }, [query, category, attempt]);
+  }, [query, category, page, attempt]);
 
   return (
     <View style={styles.shelf}>
@@ -309,6 +462,92 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: DSFonts.ui,
     fontSize: 16,
+    color: TextColor.primary,
+  },
+
+  // Seções novas: destaque, categorias e cabeçalho das estantes
+  section: {
+    marginTop: Space.eight,
+    gap: Space.three,
+  },
+  sectionTitle: {
+    paddingHorizontal: ScreenInset,
+    fontFamily: DSFonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: TextColor.primary,
+  },
+  featured: {
+    flexDirection: 'row',
+    gap: Space.four,
+    marginHorizontal: ScreenInset,
+    padding: Space.four,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
+  },
+  featuredCover: {
+    width: 96,
+    height: 144,
+    borderRadius: Radius.cover,
+    backgroundColor: Ink.ink600,
+    overflow: 'hidden',
+    ...Shadow.e1,
+  },
+  featuredPlaceholder: {
+    opacity: 0.6,
+  },
+  featuredCoverImage: {
+    width: '100%',
+    height: '100%',
+  },
+  featuredText: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: Space.one,
+  },
+  featuredTag: {
+    fontFamily: DSFonts.ui,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: Mint.mint400,
+  },
+  featuredTitle: {
+    fontFamily: DSFonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: TextColor.primary,
+  },
+  featuredAuthor: {
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    color: TextColor.secondary,
+  },
+  featuredAction: {
+    marginTop: Space.two,
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Mint.mint400,
+  },
+  chipsRow: {
+    paddingHorizontal: ScreenInset,
+    gap: Space.two,
+  },
+  chip: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: Space.four,
+    borderRadius: Radius.pill,
+    backgroundColor: Ink.ink700,
+    borderWidth: 1,
+    borderColor: Ink.ink600,
+  },
+  chipText: {
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    fontWeight: '600',
     color: TextColor.primary,
   },
 
