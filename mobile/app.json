@@ -8,6 +8,8 @@
     "scheme": "alexandriamobile",
     "userInterfaceStyle": "dark",
     "android": {
+      "package": "com.dragoneto.alexandria",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#071324",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

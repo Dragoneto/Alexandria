@@ -233,6 +233,32 @@ troca, todo token já emitido, neste aparelho ou em outro, segue aceito até exp
 gera token novo. Por isso, nenhuma tela deve dizer que outros aparelhos foram
 desconectados, e apagar o token do aparelho não conta como revogação.
 
+## Gerar o APK
+
+O `eas.json` tem dois perfis, e os dois já apontam para o backend publicado no Render:
+
+| Perfil | Gera | Uso |
+| --- | --- | --- |
+| `preview` | `.apk` | instalar direto no celular e mandar para a banca |
+| `production` | `.aab` | publicar na Google Play |
+
+Na primeira vez, dentro de `mobile/`, entre na conta Expo e vincule o projeto
+(o `eas init` grava o `projectId` no `app.json`; faça commit dele):
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest init
+```
+
+Depois, para gerar o APK:
+
+```bash
+npx eas-cli@latest build -p android --profile preview
+```
+
+Na primeira build, aceite gerar a keystore do Android. No fim aparece o link e o
+QR code para baixar o APK, que também ficam em expo.dev, na aba Builds do projeto.
+
 ## Sessão e navegação
 
 - Android/iOS: sessão armazenada em `expo-secure-store`.

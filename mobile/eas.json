@@ -1,0 +1,26 @@
+{
+  "cli": {
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://alexandria-api-ybps.onrender.com",
+        "EXPO_PUBLIC_API_TIMEOUT": "60000"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://alexandria-api-ybps.onrender.com",
+        "EXPO_PUBLIC_API_TIMEOUT": "60000"
+      }
+    }
+  }
+}
