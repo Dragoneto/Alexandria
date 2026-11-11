@@ -47,6 +47,17 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "252fcf82-0e4b-4bd1-91cb-47d952f61981"
+      }
+    },
+    "owner": "davi_almeida99"
   }
 }
