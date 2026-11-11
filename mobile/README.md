@@ -38,24 +38,48 @@ versionados, não entra no git e não interfere no `npm run start:railway`.
 é 15000. Depois de mudar qualquer variável basta reiniciar o Expo: o cache do
 Metro não guarda esses valores.
 
-Não há fallback de URL nem sessão de demonstração. A Open Library não usa essa
-URL do backend: sua integração consulta diretamente a API pública oficial.
+Não há fallback de URL nem sessão de demonstração. A busca de livros usa o
+backend Alexandria, que consulta a API pública da Open Library.
 
 ## Busca de livros
 
-A tela Explorar consulta `https://openlibrary.org/search.json` e solicita somente
-os campos usados pelo aplicativo. A busca aceita título, autor ou assunto, recebe
-o termo vindo da Home, permite categoria e ordenação, exibe capas pelo Covers API
-e carrega mais resultados em páginas de dez obras.
+A tela Explorar chama `GET /api/books/search` no backend, que consulta a Open
+Library e solicita somente os campos usados pelo aplicativo. A busca aceita
+título, autor ou assunto, recebe o termo vindo da Home, permite categoria e
+ordenação, exibe capas pelo Covers API e carrega mais resultados em páginas de
+dez obras. O detalhe chama `GET /api/books/:id`.
 
 As buscas anteriores são canceladas quando termo ou filtro muda. O serviço limita
 cada página a vinte itens, aplica timeout e valida a resposta antes de entregar
 os livros à tela. O filtro “Com capa” remove resultados sem capa ou autoria. O link
 “Ver na Open Library” oferece a atribuição e abre a página original da obra.
 
-Essa API é pública e voltada a consultas humanas em baixo volume. Não use este
-fluxo para importar o catálogo em massa. Biblioteca e favoritos continuam fora
-desta integração e serão conectados ao backend em outra etapa.
+Essa API é pública e voltada a consultas humanas em baixo volume. Não use esse
+fluxo para importar o catálogo em massa. Biblioteca e favoritos são recursos
+próprios do Alexandria, persistidos pelo backend e separados do catálogo da
+Open Library.
+
+### Categorias e sinopses em português
+
+O detalhe do livro recebe as categorias e a sinopse da Open Library pelo backend.
+O backend traduz os textos para português brasileiro sob demanda ao abrir o
+detalhe. Categorias conhecidas têm um mapeamento local; as demais e a sinopse
+usam a API HTTP do DeepL quando `DEEPL_AUTH_KEY` está configurada no ambiente do
+backend. A chave nunca deve ser adicionada ao mobile, ao Git ou a arquivos
+`EXPO_PUBLIC_*`.
+
+A integração não adiciona SDK nem dependência ao mobile. Ela envia a sinopse e
+até cinco categorias em uma chamada, aplica timeout e mantém até 300 resultados
+em cache de memória por 24 horas. Sinopses acima de 10.000 caracteres não são
+enviadas para tradução. Se a chave estiver ausente, o provedor falhar ou o limite
+de tamanho for excedido, o detalhe continua funcionando, categorias conhecidas
+usam a tradução local e os demais textos aparecem no idioma original com aviso na
+tela.
+
+Para ativar a tradução local, configure `DEEPL_AUTH_KEY` no `backend/.env`; para
+produção, configure a mesma variável como segredo no Railway. Chaves DeepL Free
+com sufixo `:fx` usam `https://api-free.deepl.com`; outras chaves usam
+`https://api.deepl.com` por padrão. `DEEPL_API_URL` permite substituir o endereço.
 
 ## Backend e contratos
 

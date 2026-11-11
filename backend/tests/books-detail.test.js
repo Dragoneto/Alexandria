@@ -5,6 +5,8 @@ const { detail } = require('../src/controllers/bookController');
 const { normalizeDescription } = require('../src/services/bookMapper');
 
 const fetchOriginal = global.fetch;
+const authKeyOriginal = process.env.DEEPL_AUTH_KEY;
+const apiUrlOriginal = process.env.DEEPL_API_URL;
 let caminhos;
 
 function respostaJson(body, status = 200) {
@@ -61,6 +63,10 @@ const AUTOR = { '/authors/OL1A.json': { name: 'Machado de Assis' } };
 
 afterEach(() => {
   global.fetch = fetchOriginal;
+  if (authKeyOriginal === undefined) delete process.env.DEEPL_AUTH_KEY;
+  else process.env.DEEPL_AUTH_KEY = authKeyOriginal;
+  if (apiUrlOriginal === undefined) delete process.env.DEEPL_API_URL;
+  else process.env.DEEPL_API_URL = apiUrlOriginal;
 });
 
 test('descrição aceita texto puro, objeto com valor e ausência', () => {
@@ -84,6 +90,7 @@ test('identificador fora do padrão é recusado sem chamar a Open Library', asyn
 });
 
 test('detalhe com descrição em texto puro', async () => {
+  delete process.env.DEEPL_AUTH_KEY;
   simularOpenLibrary({
     ...AUTOR,
     '/works/OL100W.json': obra({
@@ -102,7 +109,9 @@ test('detalhe com descrição em texto puro', async () => {
       title: 'Dom Casmurro',
       authors: ['Machado de Assis'],
       description: 'Bentinho conta a própria história.',
+      descriptionTranslated: false,
       categories: ['Ficção', 'Ciúme', 'Brasil', 'Romance', 'Século XIX'],
+      categoriesTranslated: false,
       coverUrl: 'https://covers.openlibrary.org/b/id/555-L.jpg?default=false',
       openLibraryUrl: 'https://openlibrary.org/works/OL100W',
     },
@@ -110,6 +119,7 @@ test('detalhe com descrição em texto puro', async () => {
 });
 
 test('detalhe com descrição em objeto', async () => {
+  delete process.env.DEEPL_AUTH_KEY;
   simularOpenLibrary({
     ...AUTOR,
     '/works/OL100W.json': obra({ description: { type: '/type/text', value: 'Texto do objeto.' } }),
@@ -117,19 +127,24 @@ test('detalhe com descrição em objeto', async () => {
   const res = await detalhar('OL100W');
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.book.description, 'Texto do objeto.');
+  assert.equal(res.body.book.descriptionTranslated, false);
 });
 
 test('livro sem descrição, capa, assunto e autor não quebra', async () => {
+  delete process.env.DEEPL_AUTH_KEY;
   simularOpenLibrary({ '/works/OL100W.json': { key: '/works/OL100W', title: 'Sem nada' } });
   const res = await detalhar('OL100W');
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.book.description, null);
+  assert.equal(res.body.book.descriptionTranslated, false);
   assert.equal(res.body.book.coverUrl, null);
   assert.deepEqual(res.body.book.categories, []);
+  assert.equal(res.body.book.categoriesTranslated, true);
   assert.deepEqual(res.body.book.authors, []);
 });
 
 test('autor que falha fica de fora e o detalhe continua', async () => {
+  delete process.env.DEEPL_AUTH_KEY;
   simularOpenLibrary({
     ...AUTOR,
     '/authors/OL3A.json': () => {
@@ -158,6 +173,7 @@ test('autor que falha fica de fora e o detalhe continua', async () => {
 });
 
 test('obra unificada segue para a obra de destino', async () => {
+  delete process.env.DEEPL_AUTH_KEY;
   simularOpenLibrary({
     ...AUTOR,
     '/works/OL9W.json': { key: '/works/OL9W', type: { key: '/type/redirect' }, location: '/works/OL100W' },
@@ -179,6 +195,44 @@ test('obra sem título vira 404', async () => {
   simularOpenLibrary({ '/works/OL100W.json': { key: '/works/OL100W', type: { key: '/type/delete' } } });
   const res = await detalhar('OL100W');
   assert.equal(res.statusCode, 404);
+});
+
+test('detalhe devolve sinopse e categorias traduzidas quando DeepL está configurado', async () => {
+  process.env.DEEPL_AUTH_KEY = 'integration-key:fx';
+  delete process.env.DEEPL_API_URL;
+  global.fetch = async (url, options) => {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'openlibrary.org') {
+      if (parsed.pathname === '/works/OL100W.json') {
+        return respostaJson(obra({
+          description: 'A student discovers a hidden library.',
+          subjects: ['Magical realism'],
+        }));
+      }
+      if (parsed.pathname === '/authors/OL1A.json') return respostaJson({ name: 'Machado de Assis' });
+      return respostaJson({ error: 'not found' }, 404);
+    }
+
+    assert.equal(parsed.href, 'https://api-free.deepl.com/v2/translate');
+    assert.deepEqual(JSON.parse(options.body), {
+      text: ['A student discovers a hidden library.', 'Magical realism'],
+      target_lang: 'PT-BR',
+    });
+    return respostaJson({
+      translations: [
+        { detected_source_language: 'EN', text: 'Um estudante descobre uma biblioteca secreta.' },
+        { detected_source_language: 'EN', text: 'Realismo mágico' },
+      ],
+    });
+  };
+
+  const res = await detalhar('OL100W');
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.book.description, 'Um estudante descobre uma biblioteca secreta.');
+  assert.equal(res.body.book.descriptionTranslated, true);
+  assert.deepEqual(res.body.book.categories, ['Realismo mágico']);
+  assert.equal(res.body.book.categoriesTranslated, true);
 });
 
 test('falha da Open Library no detalhe vira 502 e demora vira 504', async () => {
