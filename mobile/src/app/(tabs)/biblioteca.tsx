@@ -66,11 +66,14 @@ export default function Biblioteca() {
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
-  const [savingStatus, setSavingStatus] = useState<StatusLeitura | null>(null);
 
   const pendingStatus = useRef(new Set<number>());
   const [savingStatusIds, setSavingStatusIds] = useState<number[]>([]);
   const [aviso, setAviso] = useState('');
+  const savingStatus =
+    statusModalItemId !== null && savingStatusIds.includes(statusModalItemId)
+      ? (items.find((item) => item.id === statusModalItemId)?.statusLeitura ?? null)
+      : null;
   const showLoading = useLoadingGate(loading);
 
   // Recarrega toda vez que a aba ganha foco (ex.: depois de adicionar um livro)
@@ -162,7 +165,6 @@ export default function Biblioteca() {
 
     pendingStatus.current.add(id);
     setSavingStatusIds([...pendingStatus.current]);
-    setSavingStatus(status);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
     try {
       await atualizarItemBiblioteca(id, { status });
@@ -180,7 +182,6 @@ export default function Biblioteca() {
     } finally {
       pendingStatus.current.delete(id);
       setSavingStatusIds([...pendingStatus.current]);
-      setSavingStatus(null);
       setStatusModalItemId(null);
     }
   };
