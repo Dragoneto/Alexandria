@@ -371,7 +371,12 @@ export default function ConversaDaAvaliacao() {
                     </ThemedText>
                   )}
 
-                  {itens.length === 0 ? (
+                  {conversa.estado === 'error' && itens.length === 0 ? (
+                    <ErrorState
+                      message={conversa.erro || 'Não foi possível carregar esta conversa.'}
+                      onRetry={() => void conversa.recarregar()}
+                    />
+                  ) : conversa.estado === 'empty' ? (
                     <EmptyState
                       compact
                       title="A conversa começa aqui"

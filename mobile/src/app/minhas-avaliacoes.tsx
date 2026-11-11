@@ -25,6 +25,7 @@ import {
 function mensagem(error: unknown, padrao: string): string {
   return error instanceof ApiError ? error.message : padrao;
 }
+type EstadoAvaliacoes = 'loading' | 'success' | 'empty' | 'error';
 
 export default function MinhasAvaliacoes() {
   const theme = useTheme();
@@ -32,6 +33,7 @@ export default function MinhasAvaliacoes() {
   const [lista, setLista] = useState<AvaliacaoLida[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
+  const [estado, setEstado] = useState<EstadoAvaliacoes>('loading');
   const [aviso, setAviso] = useState('');
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
   const [excluindoId, setExcluindoId] = useState<number | null>(null);
@@ -52,8 +54,10 @@ export default function MinhasAvaliacoes() {
       if (atual.signal.aborted || excluindo.current) return;
       setLista(minhas);
       setErro('');
+      setEstado(minhas.length ? 'success' : 'empty');
     } catch (error) {
       if (atual.signal.aborted) return;
+      setEstado('error');
       setErro(mensagem(error, 'Não foi possível carregar suas avaliações.'));
     } finally {
       if (!atual.signal.aborted) setCarregando(false);
@@ -69,6 +73,7 @@ export default function MinhasAvaliacoes() {
 
   const tentarNovamente = () => {
     setCarregando(true);
+    setEstado('loading');
     setErro('');
     void carregar();
   };
@@ -92,11 +97,13 @@ export default function MinhasAvaliacoes() {
     try {
       await excluirAvaliacao(avaliacao.id);
       setLista((atuais) => atuais.filter((item) => item.id !== avaliacao.id));
+      setEstado(lista.length === 1 ? 'empty' : 'success');
       setAviso(`Avaliação de "${avaliacao.livro.titulo}" excluída.`);
     } catch (error) {
       // 404: já tinha sido excluída em outro aparelho; o resultado para a lista é o mesmo.
       if (error instanceof ApiError && error.status === 404) {
         setLista((atuais) => atuais.filter((item) => item.id !== avaliacao.id));
+        setEstado(lista.length === 1 ? 'empty' : 'success');
         setAviso('Esta avaliação já tinha sido excluída.');
       } else {
         setErroExclusao({
@@ -148,13 +155,13 @@ export default function MinhasAvaliacoes() {
               </ThemedText>
             )}
 
-            {carregando ? (
+            {estado === 'loading' ? (
               showLoading ? (
                 <SkeletonList count={3} />
               ) : null
-            ) : erro ? (
+            ) : estado === 'error' ? (
               <ErrorState message={erro} onRetry={tentarNovamente} />
-            ) : lista.length === 0 ? (
+            ) : estado === 'empty' ? (
               <EmptyState
                 compact
                 title="Suas avaliações aparecerão aqui"

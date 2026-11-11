@@ -44,6 +44,7 @@ const STATUS_LEITURA: Record<string, string> = {
 };
 
 type FiltroStatus = StatusLeitura | 'TODOS';
+type EstadoBiblioteca = 'loading' | 'success' | 'empty' | 'error';
 
 const FILTERS: { label: string; value: FiltroStatus }[] = [
   { label: 'Todos', value: 'TODOS' },
@@ -59,6 +60,7 @@ export default function Biblioteca() {
   const [items, setItems] = useState<BibliotecaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
+  const [estado, setEstado] = useState<EstadoBiblioteca>('loading');
   const [filter, setFilter] = useState<FiltroStatus>('TODOS');
   const [somenteFavoritos, setSomenteFavoritos] = useState(false);
   const [busca, setBusca] = useState('');
@@ -84,9 +86,11 @@ export default function Biblioteca() {
         .then((itens) => {
           setItems(itens);
           setErro('');
+          setEstado(itens.length ? 'success' : 'empty');
         })
         .catch((error) => {
           if (controller.signal.aborted) return;
+          setEstado('error');
           setErro(
             error instanceof ApiError ? error.message : 'Não foi possível carregar sua biblioteca.',
           );
@@ -213,10 +217,12 @@ export default function Biblioteca() {
     try {
       await removerDaBiblioteca(id);
       setItems((prev) => prev.filter((i) => i.id !== id));
+      if (items.length === 1) setEstado('empty');
       avisar('Livro removido da biblioteca');
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
         setItems((prev) => prev.filter((i) => i.id !== id));
+        if (items.length === 1) setEstado('empty');
         avisar('Livro removido da biblioteca');
         return;
       }
@@ -368,7 +374,7 @@ export default function Biblioteca() {
             </ThemedText>
 
             {/* LOADING / ERRO / VAZIO / GRID */}
-            {loading ? (
+            {estado === 'loading' ? (
               showLoading ? (
                 <ThemedView
                   accessibilityLiveRegion="polite"
@@ -377,56 +383,59 @@ export default function Biblioteca() {
                   <SkeletonGrid />
                 </ThemedView>
               ) : null
-            ) : erro ? (
+            ) : estado === 'error' ? (
               <ErrorState
                 message={erro}
                 onRetry={() => {
                   setLoading(true);
+                  setEstado('loading');
                   setErro('');
                   listarBiblioteca()
-                    .then(setItems)
-                    .catch((failure) =>
+                    .then((itens) => {
+                      setItems(itens);
+                      setEstado(itens.length ? 'success' : 'empty');
+                    })
+                    .catch((failure) => {
+                      setEstado('error');
                       setErro(
                         failure instanceof ApiError
                           ? failure.message
                           : 'Não foi possível carregar sua biblioteca.',
-                      ),
-                    )
+                      );
+                    })
                     .finally(() => setLoading(false));
                 }}
               />
+            ) : estado === 'empty' ? (
+              <EmptyState
+                compact
+                title="Sua biblioteca está vazia"
+                message="Salve livros no Explorar para organizar suas leituras e acompanhar seu progresso."
+                primaryAction={{
+                  label: 'Explorar livros',
+                  onPress: () => router.push('/explore'),
+                }}
+              />
             ) : filteredItems.length === 0 ? (
-              items.length === 0 ? (
-                <EmptyState
-                  compact
-                  title="Sua biblioteca está vazia"
-                  message="Salve livros no Explorar para organizar suas leituras e acompanhar seu progresso."
-                  primaryAction={{
-                    label: 'Explorar livros',
-                    onPress: () => router.push('/explore'),
-                  }}
-                />
-              ) : (
-                <ThemedView type="backgroundElement" style={styles.emptyCard}>
-                  <ThemedText type="subtitle" style={styles.emptyTitle}>
-                    {buscaAtiva ? 'Nenhum livro encontrado' : 'Nenhum livro neste filtro'}
-                  </ThemedText>
-                  <ThemedText themeColor="textSecondary" style={styles.emptyText}>
-                    {emptyMessage}
-                  </ThemedText>
-                  {(buscaAtiva || outrosFiltrosAtivos) && (
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      accessibilityLabel={buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
-                      onPress={limparBuscaEFiltros}
-                      style={[styles.clearFiltersButton, { borderColor: theme.accent }]}>
-                      <ThemedText themeColor="accent" style={styles.clearFiltersText}>
-                        {buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  )}
-                </ThemedView>
-              )
+              <ThemedView type="backgroundElement" style={styles.emptyCard}>
+                <ThemedText type="subtitle" style={styles.emptyTitle}>
+                  {buscaAtiva ? 'Nenhum livro encontrado' : 'Nenhum livro neste filtro'}
+                </ThemedText>
+                <ThemedText themeColor="textSecondary" style={styles.emptyText}>
+                  {emptyMessage}
+                </ThemedText>
+                {(buscaAtiva || outrosFiltrosAtivos) && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel={buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
+                    onPress={limparBuscaEFiltros}
+                    style={[styles.clearFiltersButton, { borderColor: theme.accent }]}>
+                    <ThemedText themeColor="accent" style={styles.clearFiltersText}>
+                      {buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
+                    </ThemedText>
+                  </TouchableOpacity>
+                )}
+              </ThemedView>
             ) : (
               <View style={styles.grid}>
                 {filteredItems.map((item) => (

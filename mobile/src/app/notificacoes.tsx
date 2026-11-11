@@ -31,6 +31,7 @@ function dataCurta(value: string) {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR') : 'Data indisponível';
 }
+type EstadoNotificacoes = 'loading' | 'success' | 'empty' | 'error';
 
 export default function NotificacoesScreen() {
   const router = useRouter();
@@ -42,6 +43,7 @@ export default function NotificacoesScreen() {
   const [busy, setBusy] = useState(false);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [feedState, setFeedState] = useState<EstadoNotificacoes>('loading');
   const [cursor, setCursor] = useState<string | null>(null);
   const lock = useRef(false);
   const controller = useRef<AbortController | null>(null);
@@ -56,6 +58,7 @@ export default function NotificacoesScreen() {
     controller.current = request;
     if (refresh) setRefreshing(true);
     else setLoading(true);
+    if (!refresh) setFeedState('loading');
     setError('');
     try {
       const [page, count] = await Promise.all([
@@ -65,9 +68,11 @@ export default function NotificacoesScreen() {
       if (request.signal.aborted) return;
       seen.current = new Set(page.notificacoes.map((item) => item.id));
       setItems(page.notificacoes);
+      setFeedState(page.notificacoes.length ? 'success' : 'empty');
       setCursor(page.proximoCursor);
       setUnread(count);
     } catch (failure) {
+      if (!request.signal.aborted) setFeedState('error');
       if (!request.signal.aborted)
         setError(
           failure instanceof Error ? failure.message : 'Não foi possível carregar as notificações.',
@@ -196,11 +201,11 @@ export default function NotificacoesScreen() {
             onPress={markAll}
           />
         </View>
-        {!!error && !items.length && !loading && (
+        {feedState === 'error' && !items.length && !loading && (
           <ErrorState message={error} onRetry={() => void load()} />
         )}
-        {loading && items.length === 0 && showLoading ? <SkeletonList count={3} /> : null}
-        {!loading && !error && items.length === 0 ? (
+        {feedState === 'loading' && showLoading ? <SkeletonList count={3} /> : null}
+        {feedState === 'empty' ? (
           <EmptyState
             compact
             title="Nenhuma notificação ainda"
