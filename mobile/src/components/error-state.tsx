@@ -8,8 +8,10 @@ import { Spacing } from '@/constants/theme';
 type Props = {
   title?: string;
   message: string;
-  onRetry: () => void;
+  onRetry?: () => void;
   retryLabel?: string;
+  secondaryAction?: { label: string; onPress: () => void };
+  loading?: boolean;
 };
 
 export function ErrorState({
@@ -17,6 +19,8 @@ export function ErrorState({
   message,
   onRetry,
   retryLabel = 'Tentar novamente',
+  secondaryAction,
+  loading = false,
 }: Props) {
   return (
     <ThemedView type="backgroundElement" style={styles.card} accessibilityRole="alert">
@@ -24,7 +28,16 @@ export function ErrorState({
         <ThemedText type="subtitle">{title}</ThemedText>
         <ThemedText themeColor="textSecondary">{message}</ThemedText>
       </View>
-      <ActionButton label={retryLabel} variant="ghost" onPress={onRetry} />
+      {onRetry && (
+        <ActionButton label={retryLabel} variant="ghost" onPress={onRetry} loading={loading} />
+      )}
+      {secondaryAction && (
+        <ActionButton
+          label={secondaryAction.label}
+          variant="ghost"
+          onPress={secondaryAction.onPress}
+        />
+      )}
     </ThemedView>
   );
 }

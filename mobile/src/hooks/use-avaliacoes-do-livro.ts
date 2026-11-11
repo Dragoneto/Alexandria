@@ -20,6 +20,7 @@ export function useAvaliacoesDoLivro(livroId: string) {
   const [carregandoMais, setCarregandoMais] = useState(false);
   const [erroMais, setErroMais] = useState('');
   const [atualizando, setAtualizando] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'success' | 'empty' | 'error'>('loading');
   const controllerLista = useRef<AbortController | null>(null);
   const controllerMais = useRef<AbortController | null>(null);
 
@@ -33,15 +34,18 @@ export function useAvaliacoesDoLivro(livroId: string) {
     await Promise.resolve();
     if (controller.signal.aborted || !livroId) return;
     setAtualizando(true);
+    setStatus('loading');
     setCarregandoMais(false);
     try {
       const primeira = await listarAvaliacoesDoLivro(livroId, 1, controller.signal);
       setDados(primeira);
+      setStatus(primeira.total === 0 ? 'empty' : 'success');
       setErro('');
       setErroMais('');
     } catch (error) {
       if (controller.signal.aborted) return;
       setDados(null);
+      setStatus('error');
       setErro(mensagemDeErro(error));
     } finally {
       if (!controller.signal.aborted) {
@@ -99,6 +103,7 @@ export function useAvaliacoesDoLivro(livroId: string) {
     dados,
     carregando,
     atualizando,
+    status,
     erro,
     carregandoMais,
     erroMais,

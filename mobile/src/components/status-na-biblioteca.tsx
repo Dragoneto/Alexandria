@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { ErrorState } from '@/components/error-state';
+import { FeedbackPressable } from '@/components/feedback-pressable';
+import { SkeletonBlock } from '@/components/skeletons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import type { AcaoNaBiblioteca } from '@/hooks/use-item-da-biblioteca';
 import type { BibliotecaItem, StatusLeitura } from '@/services/biblioteca';
 
@@ -44,33 +48,14 @@ export function StatusNaBiblioteca({
   const confirmando = item !== null && confirmandoId === item.id;
   const setConfirmando = (aberta: boolean) => setConfirmandoId(aberta && item ? item.id : null);
   const ocupado = salvando !== null;
+  const showLoading = useLoadingGate(carregando);
 
   if (carregando) {
-    return (
-      <View
-        style={[styles.primaryButton, { backgroundColor: theme.accent, opacity: 0.6 }]}
-        accessibilityLiveRegion="polite">
-        <ThemedText style={[styles.buttonText, { color: theme.background }]}>
-          Verificando sua biblioteca…
-        </ThemedText>
-      </View>
-    );
+    return showLoading ? <SkeletonBlock height={48} style={styles.loadingButton} /> : null;
   }
 
   if (erro) {
-    return (
-      <ThemedView type="backgroundElement" style={styles.card} accessibilityRole="alert">
-        <ThemedText themeColor="textSecondary">{erro}</ThemedText>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={onTentarNovamente}
-          style={[styles.outlineButton, { borderColor: theme.accent }]}>
-          <ThemedText themeColor="accent" style={styles.buttonText}>
-            Tentar novamente
-          </ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
-    );
+    return <ErrorState message={erro} onRetry={onTentarNovamente} />;
   }
 
   const erroVisivel = !!erroAcao && (
@@ -82,22 +67,21 @@ export function StatusNaBiblioteca({
   if (!item) {
     return (
       <>
-        <TouchableOpacity
+        <FeedbackPressable
           accessibilityRole="button"
+          accessibilityLabel="Adicionar à biblioteca"
           disabled={ocupado}
+          loading={salvando === 'adicionar'}
+          loadingColor={theme.background}
           onPress={onAdicionar}
           style={[
             styles.primaryButton,
             { backgroundColor: theme.accent, opacity: ocupado ? 0.6 : 1 },
           ]}>
-          {salvando === 'adicionar' ? (
-            <ActivityIndicator accessibilityLabel="Adicionando" color={theme.background} />
-          ) : (
-            <ThemedText style={[styles.buttonText, { color: theme.background }]}>
-              Adicionar à biblioteca
-            </ThemedText>
-          )}
-        </TouchableOpacity>
+          <ThemedText style={[styles.buttonText, { color: theme.background }]}>
+            Adicionar à biblioteca
+          </ThemedText>
+        </FeedbackPressable>
         {erroVisivel}
       </>
     );
@@ -115,12 +99,14 @@ export function StatusNaBiblioteca({
         {STATUS.map(({ valor, rotulo }) => {
           const ativo = item.statusLeitura === valor;
           return (
-            <TouchableOpacity
+            <FeedbackPressable
               key={valor}
               accessibilityRole="radio"
               accessibilityState={{ checked: ativo, disabled: ocupado }}
               aria-checked={ativo}
               accessibilityLabel={rotulo}
+              loading={salvando === 'status' && ativo}
+              loadingColor={theme.accent}
               disabled={ocupado}
               onPress={() => onTrocarStatus(valor)}
               style={[
@@ -133,7 +119,7 @@ export function StatusNaBiblioteca({
               <ThemedText themeColor={ativo ? 'accent' : 'textSecondary'} style={styles.chipText}>
                 {rotulo}
               </ThemedText>
-            </TouchableOpacity>
+            </FeedbackPressable>
           );
         })}
       </View>
@@ -149,9 +135,12 @@ export function StatusNaBiblioteca({
           <ThemedText themeColor="textSecondary" style={styles.confirmText}>
             Remover mesmo?
           </ThemedText>
-          <TouchableOpacity
+          <FeedbackPressable
             accessibilityRole="button"
+            accessibilityLabel="Confirmar remoção do livro"
             disabled={ocupado}
+            loading={salvando === 'remover'}
+            loadingColor={theme.danger}
             onPress={() => {
               setConfirmando(false);
               onRemover();
@@ -160,26 +149,28 @@ export function StatusNaBiblioteca({
             <ThemedText themeColor="danger" style={styles.smallButtonText}>
               Confirmar
             </ThemedText>
-          </TouchableOpacity>
-          <TouchableOpacity
+          </FeedbackPressable>
+          <FeedbackPressable
             accessibilityRole="button"
+            accessibilityLabel="Cancelar remoção"
             onPress={() => setConfirmando(false)}
             style={[styles.smallButton, { borderColor: theme.border }]}>
             <ThemedText themeColor="textSecondary" style={styles.smallButtonText}>
               Cancelar
             </ThemedText>
-          </TouchableOpacity>
+          </FeedbackPressable>
         </View>
       ) : (
-        <TouchableOpacity
+        <FeedbackPressable
           accessibilityRole="button"
+          accessibilityLabel="Remover da biblioteca"
           disabled={ocupado}
           onPress={() => setConfirmando(true)}
-          style={{ opacity: ocupado ? 0.6 : 1 }}>
+          style={[styles.removeButton, { opacity: ocupado ? 0.6 : 1 }]}>
           <ThemedText themeColor="danger" style={styles.removeText}>
             {salvando === 'remover' ? 'Removendo…' : 'Remover da biblioteca'}
           </ThemedText>
-        </TouchableOpacity>
+        </FeedbackPressable>
       )}
     </ThemedView>
   );
@@ -193,6 +184,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  loadingButton: { marginTop: Spacing.four },
   buttonText: { fontSize: 14, fontWeight: '800' },
   card: { marginTop: Spacing.four, borderRadius: 16, padding: Spacing.three, gap: Spacing.two },
   label: {
@@ -202,7 +194,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  chip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1 },
+  chip: {
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   chipText: { fontSize: 13, fontWeight: '700' },
   hint: { fontSize: 12 },
   errorText: { marginTop: Spacing.two, fontSize: 12, lineHeight: 18, textAlign: 'center' },
@@ -215,7 +215,16 @@ const styles = StyleSheet.create({
   },
   confirmRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.two },
   confirmText: { fontSize: 13, fontWeight: '700' },
-  smallButton: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  smallButton: {
+    minHeight: 44,
+    minWidth: 44,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+  },
   smallButtonText: { fontSize: 13, fontWeight: '800' },
-  removeText: { fontSize: 13, fontWeight: '800', paddingVertical: Spacing.one },
+  removeButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Spacing.two },
+  removeText: { fontSize: 13, fontWeight: '800' },
 });

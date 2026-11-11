@@ -17,7 +17,10 @@ export function useLoadingGate(loading: boolean, delayMs = 300, minimumVisibleMs
     }
 
     if (!visible) return;
-    const remaining = Math.max(0, minimumVisibleMs - (Date.now() - (shownAt.current ?? Date.now())));
+    const remaining = Math.max(
+      0,
+      minimumVisibleMs - (Date.now() - (shownAt.current ?? Date.now())),
+    );
     timer = setTimeout(() => {
       shownAt.current = null;
       setVisible(false);

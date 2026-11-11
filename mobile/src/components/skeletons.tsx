@@ -1,4 +1,4 @@
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -12,9 +12,19 @@ import { useEffect } from 'react';
 import { Radius, Space } from '@/constants/design-system';
 import { useTheme } from '@/hooks/use-theme';
 
-type BlockProps = { width?: ViewStyle['width']; height?: number; radius?: number; style?: ViewStyle };
+type BlockProps = {
+  width?: ViewStyle['width'];
+  height?: number;
+  radius?: number;
+  style?: ViewStyle;
+};
 
-export function SkeletonBlock({ width = '100%', height = 16, radius = Radius.card, style }: BlockProps) {
+export function SkeletonBlock({
+  width = '100%',
+  height = 16,
+  radius = Radius.card,
+  style,
+}: BlockProps) {
   const theme = useTheme();
   const reduceMotion = useReducedMotion();
   const opacity = useSharedValue(reduceMotion ? 1 : 0.55);
@@ -36,12 +46,19 @@ export function SkeletonBlock({ width = '100%', height = 16, radius = Radius.car
     <Animated.View
       accessibilityElementsHidden
       importantForAccessibility="no"
-      style={[{ width, height, borderRadius: radius, backgroundColor: theme.backgroundSelected }, style, animatedStyle]}
+      style={[
+        { width, height, borderRadius: radius, backgroundColor: theme.backgroundSelected },
+        style,
+        animatedStyle,
+      ]}
     />
   );
 }
 
-export function SkeletonText({ width = '100%', height = 14 }: Pick<BlockProps, 'width' | 'height'>) {
+export function SkeletonText({
+  width = '100%',
+  height = 14,
+}: Pick<BlockProps, 'width' | 'height'>) {
   return <SkeletonBlock width={width} height={height} radius={Radius.pill} />;
 }
 
@@ -84,7 +101,10 @@ export function SkeletonGrid({ count = 4 }: { count?: number }) {
 /** Four cover placeholders matching the Home's horizontal book shelves. */
 export function SkeletonBookShelf({ count = 4 }: { count?: number }) {
   return (
-    <View style={styles.shelf}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.shelf}>
       {Array.from({ length: count }, (_, index) => (
         <View key={index} style={styles.shelfBook}>
           <SkeletonBlock width={112} height={168} radius={Radius.cover} />
@@ -92,7 +112,7 @@ export function SkeletonBookShelf({ count = 4 }: { count?: number }) {
           <SkeletonText width={76} height={12} />
         </View>
       ))}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -129,9 +149,55 @@ export function SkeletonProfileFields() {
   );
 }
 
+/** Rating and review fields for the edit-review data area. */
+export function SkeletonReviewForm() {
+  return (
+    <View style={styles.reviewForm}>
+      <SkeletonText width="28%" height={13} />
+      <View style={styles.row}>
+        {[0, 1, 2, 3, 4].map((item) => (
+          <SkeletonBlock key={item} width={44} height={44} radius={Radius.pill} />
+        ))}
+      </View>
+      <SkeletonText width="24%" height={13} />
+      <SkeletonBlock height={140} />
+      <SkeletonBlock height={48} radius={Radius.pill} />
+    </View>
+  );
+}
+
+/** Startup shell while the app decides which authenticated route to render. */
+export function SkeletonSessionShell() {
+  return (
+    <View style={styles.session}>
+      <View style={styles.sessionHeading}>
+        <SkeletonText width={150} height={13} />
+        <SkeletonText width="55%" height={28} />
+      </View>
+      <SkeletonBlock height={48} radius={Radius.pill} />
+      {[0, 1, 2].map((item) => (
+        <View key={item} style={styles.sessionShelf}>
+          <SkeletonText width="42%" height={22} />
+          <SkeletonBookShelf count={3} />
+        </View>
+      ))}
+      <View style={styles.sessionTabs}>
+        {[0, 1, 2, 3].map((item) => (
+          <SkeletonBlock key={item} width={42} height={42} radius={Radius.pill} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   list: { gap: Space.three },
-  listCard: { gap: Space.three, padding: Space.four, borderRadius: Radius.card, backgroundColor: 'transparent' },
+  listCard: {
+    gap: Space.three,
+    padding: Space.four,
+    borderRadius: Radius.card,
+    backgroundColor: 'transparent',
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
   flex: { flex: 1, gap: Space.two },
   grid: { gap: Space.three },
@@ -142,4 +208,9 @@ const styles = StyleSheet.create({
   centered: { alignSelf: 'center' },
   profile: { gap: 0, borderRadius: Radius.card, overflow: 'hidden' },
   profileField: { gap: Space.two, paddingVertical: Space.four },
+  session: { flex: 1, justifyContent: 'center', gap: Space.four, padding: Space.four },
+  sessionHeading: { gap: Space.two, marginBottom: Space.two },
+  sessionShelf: { gap: Space.three, marginTop: Space.two },
+  sessionTabs: { flexDirection: 'row', justifyContent: 'space-around', marginTop: Space.four },
+  reviewForm: { gap: Space.four },
 });

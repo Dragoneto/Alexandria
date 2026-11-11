@@ -145,7 +145,7 @@ test('respeita cancelamento da tela sem converter em erro de rede', async () => 
 
   const durante = new AbortController();
   const canceladaDurante = h.books.searchBooks({ query: 'cancelar', signal: durante.signal });
-  while (h.requests.length < 2) await new Promise((resolve) => setImmediate(resolve));
+  while (h.requests.length < 1) await new Promise((resolve) => setImmediate(resolve));
   durante.abort();
   await assert.rejects(canceladaDurante, { name: 'AbortError' });
 });

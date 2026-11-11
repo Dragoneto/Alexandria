@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  type TextInputInstance,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,11 +14,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BookCard } from '@/components/book-card';
 import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { FeedbackPressable } from '@/components/feedback-pressable';
+import { SkeletonGrid } from '@/components/skeletons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useTheme } from '@/hooks/use-theme';
 import {
   describeSearchError,
@@ -71,11 +76,13 @@ export default function Explorar() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const showSearchSkeleton = useLoadingGate(loading);
+  const showMoreSkeleton = useLoadingGate(loadingMore);
   const [error, setError] = useState('');
   const [searchFailure, setSearchFailure] = useState<SearchErrorView | null>(null);
   const [loadMoreError, setLoadMoreError] = useState('');
   const [refresh, setRefresh] = useState(0);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const scrollMetricsRef = useRef({ offset: 0, viewport: 0, content: 0 });
   const activeSearchKey = `${submittedQuery}\u0000${category}\u0000${order}\u0000${quality}`;
@@ -169,14 +176,14 @@ export default function Explorar() {
 
   const handleClearQuery = () => {
     handleQueryChange('');
-    inputRef.current?.focus();
+    inputRef.current?.getNativeRef()?.focus();
   };
 
   const handleSearch = () => {
     const normalized = query.trim();
     if (normalized.length < 2) {
       setError('Digite pelo menos dois caracteres para buscar.');
-      inputRef.current?.focus();
+      inputRef.current?.getNativeRef()?.focus();
       return;
     }
     setError('');
@@ -345,7 +352,9 @@ export default function Explorar() {
                   {hasActiveFilters ? 'Busca refinada' : 'Padrão'}
                 </ThemedText>
               </View>
-              <TouchableOpacity
+              <FeedbackPressable
+                accessibilityRole="button"
+                accessibilityLabel="Limpar filtros"
                 disabled={!hasActiveFilters || loading}
                 onPress={clearFilters}
                 style={[
@@ -358,7 +367,7 @@ export default function Explorar() {
                 <ThemedText themeColor="accent" style={styles.clearButtonText}>
                   Limpar
                 </ThemedText>
-              </TouchableOpacity>
+              </FeedbackPressable>
             </View>
 
             <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
@@ -371,7 +380,10 @@ export default function Explorar() {
               {CATEGORY_OPTIONS.map((option) => {
                 const active = category === option;
                 return (
-                  <TouchableOpacity
+                  <FeedbackPressable
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Categoria ${option}`}
+                    accessibilityState={{ checked: active, disabled: loading }}
                     key={option}
                     disabled={loading}
                     onPress={() => setCategory(option)}
@@ -385,7 +397,7 @@ export default function Explorar() {
                       style={styles.chipText}>
                       {option}
                     </ThemedText>
-                  </TouchableOpacity>
+                  </FeedbackPressable>
                 );
               })}
             </ScrollView>
@@ -397,7 +409,10 @@ export default function Explorar() {
               {ORDER_OPTIONS.map((option) => {
                 const active = order === option.value;
                 return (
-                  <TouchableOpacity
+                  <FeedbackPressable
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Ordenar por ${option.label}`}
+                    accessibilityState={{ checked: active, disabled: loading }}
                     key={option.value}
                     disabled={loading}
                     onPress={() => setOrder(option.value)}
@@ -411,7 +426,7 @@ export default function Explorar() {
                       style={styles.segmentText}>
                       {option.label}
                     </ThemedText>
-                  </TouchableOpacity>
+                  </FeedbackPressable>
                 );
               })}
             </View>
@@ -423,7 +438,10 @@ export default function Explorar() {
               {QUALITY_OPTIONS.map((option) => {
                 const active = quality === option.value;
                 return (
-                  <TouchableOpacity
+                  <FeedbackPressable
+                    accessibilityRole="radio"
+                    accessibilityLabel={`Qualidade: ${option.label}`}
+                    accessibilityState={{ checked: active, disabled: loading }}
                     key={option.value}
                     disabled={loading}
                     onPress={() => setQuality(option.value)}
@@ -440,66 +458,39 @@ export default function Explorar() {
                     <ThemedText themeColor="textSecondary" style={styles.qualityDetail}>
                       {option.detail}
                     </ThemedText>
-                  </TouchableOpacity>
+                  </FeedbackPressable>
                 );
               })}
             </View>
 
             {!submittedQuery ? (
-              <ThemedView type="backgroundElement" style={styles.emptyCard}>
-                <ThemedText type="subtitle" style={styles.emptyTitle}>
-                  Comece por uma busca
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  Digite um título, autor ou assunto para consultar a Open Library.
-                </ThemedText>
-              </ThemedView>
+              <EmptyState
+                title="Comece por uma busca"
+                message="Pesquise por título, autor ou assunto para encontrar livros."
+                primaryAction={{
+                  label: 'Buscar livros',
+                  onPress: () => inputRef.current?.getNativeRef()?.focus(),
+                }}
+              />
             ) : searchFailure ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.emptyCard}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite">
-                <ThemedText type="subtitle" style={styles.emptyTitle}>
-                  {searchFailure.title}
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">{searchFailure.message}</ThemedText>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => setRefresh((value) => value + 1)}
-                  style={[styles.retryButton, { borderColor: theme.accent }]}>
-                  <ThemedText themeColor="accent" style={styles.retryText}>
-                    Tentar novamente
-                  </ThemedText>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => setRefresh((value) => value + 1)}
-                  style={[styles.retryButton, { borderColor: theme.accent }]}>
-                  <ThemedText themeColor="accent" style={styles.retryText}>
-                    Tentar novamente
-                  </ThemedText>
-                </TouchableOpacity>
-              </ThemedView>
+              <ErrorState
+                title={searchFailure.title}
+                message={searchFailure.message}
+                onRetry={() => setRefresh((value) => value + 1)}
+              />
             ) : loading ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.emptyCard}
-                accessibilityLiveRegion="polite">
-                <ActivityIndicator accessibilityLabel="Buscando livros" color={theme.accent} />
-                <ThemedText themeColor="textSecondary">
-                  Buscando “{submittedQuery}” na Open Library…
-                </ThemedText>
-              </ThemedView>
+              showSearchSkeleton ? (
+                <SkeletonGrid count={4} />
+              ) : null
             ) : !loading && !error && books.length === 0 ? (
               <EmptyState
                 title="Nenhum livro encontrado"
-                message={`Não achamos resultados para “${submittedQuery}”. Confira a grafia, use menos palavras ou busque pelo nome do autor.`}
+                message={`Não encontramos “${submittedQuery}”; tente outro título, autor ou assunto.`}
                 primaryAction={{
                   label: 'Fazer nova busca',
                   onPress: () => {
                     handleQueryChange('');
-                    inputRef.current?.focus();
+                    inputRef.current?.getNativeRef()?.focus();
                   },
                 }}
                 secondaryAction={
@@ -508,50 +499,40 @@ export default function Explorar() {
               />
             ) : (
               <>
-              <View style={styles.resultsHeader}>
-                <ThemedText style={styles.resultsTitle}>
-                  Resultados para “{submittedQuery}”
-                </ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.resultsCaption}>
-                  {qualityCaption}
-                </ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.resultsCount}>
-                  {total.toLocaleString('pt-BR')} obra(s) encontrada(s)
-                </ThemedText>
-              </View>
-
-              <View style={styles.grid}>
-                {books.map((book) => (
-                  <BookCard key={book.id} book={book} onPress={openBook} />
-                ))}
-              </View>
-
-              {loadingMore ? (
-                <ActivityIndicator
-                  accessibilityLabel="Carregando mais livros"
-                  color={theme.accent}
-                  style={styles.listFooter}
-                />
-              ) : loadMoreError ? (
-                <View style={styles.listFooter}>
-                  <ThemedText themeColor="danger" style={styles.footerError}>
-                    {loadMoreError}
+                <View style={styles.resultsHeader}>
+                  <ThemedText style={styles.resultsTitle}>
+                    Resultados para “{submittedQuery}”
                   </ThemedText>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => void loadMore()}
-                    style={[styles.retryButton, { borderColor: theme.accent }]}>
-                    <ThemedText themeColor="accent" style={styles.retryText}>
-                      Tentar novamente
-                    </ThemedText>
-                  </TouchableOpacity>
+                  <ThemedText themeColor="textSecondary" style={styles.resultsCaption}>
+                    {qualityCaption}
+                  </ThemedText>
+                  <ThemedText themeColor="textSecondary" style={styles.resultsCount}>
+                    {total.toLocaleString('pt-BR')} obra(s) encontrada(s)
+                  </ThemedText>
                 </View>
-              ) : !hasMore && !loading && books.length > 0 ? (
-                <ThemedText themeColor="textSecondary" style={styles.endText}>
-                  Você chegou ao fim dos resultados.
-                </ThemedText>
-              ) : null}
-            </>
+
+                <View style={styles.grid}>
+                  {books.map((book) => (
+                    <BookCard key={book.id} book={book} onPress={openBook} />
+                  ))}
+                </View>
+
+                {loadingMore ? (
+                  showMoreSkeleton ? (
+                    <SkeletonGrid count={2} />
+                  ) : null
+                ) : loadMoreError ? (
+                  <ErrorState
+                    title="Não foi possível carregar mais livros"
+                    message={loadMoreError}
+                    onRetry={() => void loadMore()}
+                  />
+                ) : !hasMore && !loading && books.length > 0 ? (
+                  <ThemedText themeColor="textSecondary" style={styles.endText}>
+                    Você chegou ao fim dos resultados.
+                  </ThemedText>
+                ) : null}
+              </>
             )}
 
             <ThemedText themeColor="textSecondary" style={styles.attribution}>
@@ -665,14 +646,6 @@ const styles = StyleSheet.create({
   grid: { marginTop: Spacing.three, gap: Spacing.three },
   listFooter: { marginTop: Spacing.four, gap: Spacing.two },
   footerError: { fontSize: 13, lineHeight: 20, textAlign: 'center' },
-  retryButton: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retryText: { fontSize: 14, fontWeight: '800' },
   endText: { marginTop: Spacing.four, fontSize: 13, textAlign: 'center' },
   attribution: { marginTop: Spacing.four, fontSize: 11, lineHeight: 17, textAlign: 'center' },
 });
