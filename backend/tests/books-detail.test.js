@@ -107,6 +107,8 @@ test('detalhe com descrição em texto puro', async () => {
     book: {
       id: 'OL100W',
       title: 'Dom Casmurro',
+      titleTranslated: false,
+      originalTitle: 'Dom Casmurro',
       authors: ['Machado de Assis'],
       description: 'Bentinho conta a própria história.',
       descriptionTranslated: false,
@@ -197,7 +199,7 @@ test('obra sem título vira 404', async () => {
   assert.equal(res.statusCode, 404);
 });
 
-test('detalhe devolve sinopse e categorias traduzidas quando DeepL está configurado', async () => {
+test('detalhe traduz título, sinopse e categorias quando DeepL está configurado', async () => {
   process.env.DEEPL_AUTH_KEY = 'integration-key:fx';
   delete process.env.DEEPL_API_URL;
   global.fetch = async (url, options) => {
@@ -205,6 +207,7 @@ test('detalhe devolve sinopse e categorias traduzidas quando DeepL está configu
     if (parsed.hostname === 'openlibrary.org') {
       if (parsed.pathname === '/works/OL100W.json') {
         return respostaJson(obra({
+          title: 'The Hidden Library',
           description: 'A student discovers a hidden library.',
           subjects: ['Magical realism'],
         }));
@@ -215,11 +218,12 @@ test('detalhe devolve sinopse e categorias traduzidas quando DeepL está configu
 
     assert.equal(parsed.href, 'https://api-free.deepl.com/v2/translate');
     assert.deepEqual(JSON.parse(options.body), {
-      text: ['A student discovers a hidden library.', 'Magical realism'],
+      text: ['The Hidden Library', 'A student discovers a hidden library.', 'Magical realism'],
       target_lang: 'PT-BR',
     });
     return respostaJson({
       translations: [
+        { detected_source_language: 'EN', text: 'Um estudante descobre uma biblioteca escondida' },
         { detected_source_language: 'EN', text: 'Um estudante descobre uma biblioteca secreta.' },
         { detected_source_language: 'EN', text: 'Realismo mágico' },
       ],
@@ -229,6 +233,9 @@ test('detalhe devolve sinopse e categorias traduzidas quando DeepL está configu
   const res = await detalhar('OL100W');
 
   assert.equal(res.statusCode, 200);
+  assert.equal(res.body.book.title, 'Um estudante descobre uma biblioteca escondida');
+  assert.equal(res.body.book.titleTranslated, true);
+  assert.equal(res.body.book.originalTitle, 'The Hidden Library');
   assert.equal(res.body.book.description, 'Um estudante descobre uma biblioteca secreta.');
   assert.equal(res.body.book.descriptionTranslated, true);
   assert.deepEqual(res.body.book.categories, ['Realismo mágico']);

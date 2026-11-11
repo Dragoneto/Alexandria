@@ -16,6 +16,25 @@ const CATEGORY_SUBJECTS = new Map([
   ['Mistério', 'mystery'],
 ]);
 const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502, not_found: 404 };
+const TRADUCOES_PARALELAS = 4;
+
+async function traduzirLivrosDaBusca(books) {
+  const translated = [...books];
+  let nextIndex = 0;
+  const workers = Array.from(
+    { length: Math.min(TRADUCOES_PARALELAS, books.length) },
+    async () => {
+      while (nextIndex < books.length) {
+        const index = nextIndex++;
+        const book = books[index];
+        const metadata = await translateBookMetadata({ title: book.title, categories: book.categories });
+        translated[index] = { ...book, ...metadata, originalTitle: book.originalTitle };
+      }
+    },
+  );
+  await Promise.all(workers);
+  return translated;
+}
 
 function textParam(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -67,8 +86,9 @@ const search = async (req, res) => {
       limit,
     });
 
+    const books = await traduzirLivrosDaBusca(mapSearchDocuments(docs, category || undefined));
     return res.json({
-      books: mapSearchDocuments(docs, category || undefined),
+      books,
       total,
       page,
       limit,
@@ -98,11 +118,17 @@ const detail = async (req, res) => {
     const [authors, translatedMetadata] = await Promise.all([
       openLibrary.getAuthorNames(work),
       translateBookMetadata({
+        title: baseBook.title,
         description: baseBook.description,
         categories: baseBook.categories,
       }),
     ]);
-    const book = { ...baseBook, authors, ...translatedMetadata };
+    const book = {
+      ...baseBook,
+      ...translatedMetadata,
+      originalTitle: baseBook.title,
+      authors,
+    };
 
     return res.json({ book });
   } catch (error) {
