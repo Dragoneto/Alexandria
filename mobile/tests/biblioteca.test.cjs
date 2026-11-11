@@ -117,3 +117,61 @@ test('a busca acompanha a lista depois de editar ou remover e trata a lista vazi
   assert.deepEqual(ids(filtro), []);
   assert.deepEqual(ids({ busca: 'machado' }), []);
 });
+
+const itemDoLivro = (statusLeitura) => ({
+  id: 9,
+  statusLeitura,
+  favorito: false,
+  livro: { id: 'OL1W', titulo: 'Dom Casmurro', autores: ['Machado de Assis'], capa: null },
+});
+
+test('marcar como lido adiciona o livro quando ele ainda não está na biblioteca', async () => {
+  const harness = await logado();
+  const chamadas = [];
+  harness.fetch = async (url, options = {}) => {
+    chamadas.push(`${options.method ?? 'GET'} ${url.replace('http://localhost:3000', '')}`);
+    if (!options.method || options.method === 'GET') return json({ itens: [] });
+    assert.deepEqual(JSON.parse(options.body), { livroId: 'OL1W', status: 'LIDO' });
+    return json({ item: itemDoLivro('LIDO') }, 201);
+  };
+
+  const item = await harness.biblioteca.marcarComoLido('OL1W');
+  assert.equal(item.statusLeitura, 'LIDO');
+  assert.deepEqual(chamadas, ['GET /api/biblioteca', 'POST /api/biblioteca']);
+});
+
+test('marcar como lido atualiza o status quando o livro já está na biblioteca', async () => {
+  const harness = await logado();
+  const chamadas = [];
+  harness.fetch = async (url, options = {}) => {
+    chamadas.push(`${options.method ?? 'GET'} ${url.replace('http://localhost:3000', '')}`);
+    if (!options.method || options.method === 'GET') return json({ itens: [itemDoLivro('LENDO')] });
+    assert.deepEqual(JSON.parse(options.body), { status: 'LIDO' });
+    return json({ item: itemDoLivro('LIDO') });
+  };
+
+  await harness.biblioteca.marcarComoLido('OL1W');
+  assert.deepEqual(chamadas, ['GET /api/biblioteca', 'PATCH /api/biblioteca/9']);
+});
+
+test('marcar como lido não chama a API de novo se o livro já está como lido', async () => {
+  const harness = await logado();
+  let chamadas = 0;
+  harness.fetch = async () => {
+    chamadas += 1;
+    return json({ itens: [itemDoLivro('LIDO')] });
+  };
+
+  assert.equal((await harness.biblioteca.marcarComoLido('OL1W')).statusLeitura, 'LIDO');
+  assert.equal(chamadas, 1);
+});
+
+test('livroEstaLido só responde true para o livro com status LIDO', async () => {
+  const harness = await logado();
+  harness.fetch = async () => json({ itens: [itemDoLivro('LIDO')] });
+  assert.equal(await harness.biblioteca.livroEstaLido('OL1W'), true);
+  assert.equal(await harness.biblioteca.livroEstaLido('OL2W'), false);
+
+  harness.fetch = async () => json({ itens: [itemDoLivro('QUERO_LER')] });
+  assert.equal(await harness.biblioteca.livroEstaLido('OL1W'), false);
+});

@@ -116,3 +116,20 @@ export async function trocarStatusOtimista(
     throw error;
   }
 }
+
+// Coloca o livro como LIDO: atualiza o item se ele já estiver na biblioteca, senão adiciona.
+export async function marcarComoLido(
+  livroId: string,
+  signal?: AbortSignal,
+): Promise<BibliotecaItem> {
+  const existente = encontrarItemDoLivro(await listarBiblioteca(signal), livroId);
+  if (!existente) return adicionarNaBiblioteca(livroId, 'LIDO');
+  if (existente.statusLeitura === 'LIDO') return existente;
+  return atualizarItemBiblioteca(existente.id, { status: 'LIDO' });
+}
+
+// Diz se o livro já está como LIDO na biblioteca (usado para não repetir a sugestão).
+export async function livroEstaLido(livroId: string, signal?: AbortSignal): Promise<boolean> {
+  const item = encontrarItemDoLivro(await listarBiblioteca(signal), livroId);
+  return item?.statusLeitura === 'LIDO';
+}
