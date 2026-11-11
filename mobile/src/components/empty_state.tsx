@@ -1,9 +1,11 @@
 import { Image } from 'expo-image';
-import { StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { StyleSheet, useWindowDimensions, View, type ReactNode } from 'react-native';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 
 import { ThemedText } from '@/components/themed-text';
+import { ActionButton } from '@/components/action-button';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -16,12 +18,14 @@ type EmptyStateProps = {
     message: string;
     primaryAction?: EmptyStateAction;
     secondaryAction?: EmptyStateAction;
+    illustration?: ReactNode;
 };
 
 
-export function EmptyState({ title, message, primaryAction, secondaryAction }: EmptyStateProps) {
+export function EmptyState({ title, message, primaryAction, secondaryAction, illustration }: EmptyStateProps) {
     const theme = useTheme();
     const { width } = useWindowDimensions();
+    const reduceMotion = useReducedMotion();
 
     // Largura útil = tela (limitada ao conteúdo) menos o padding lateral
     const available = Math.min(width, MaxContentWidth) - Spacing.three * 2;
@@ -30,15 +34,17 @@ export function EmptyState({ title, message, primaryAction, secondaryAction }: E
 
     return (
         <Animated.View
-            entering={FadeInDown.duration(450)}
+            entering={reduceMotion ? undefined : FadeInDown.duration(450)}
             style={styles.container}
             accessibilityLiveRegion="polite">
-            <Image
-                source={ILLUSTRATION}
-                style={[styles.illustration, { width: imageSize }]}
-                contentFit="contain"
-                accessible={false}
-            />
+            {illustration ?? (
+                <Image
+                    source={ILLUSTRATION}
+                    style={[styles.illustration, { width: imageSize }]}
+                    contentFit="contain"
+                    accessible={false}
+                />
+            )}
 
 
             <ThemedText style={styles.title} accessibilityRole="header">
@@ -51,24 +57,18 @@ export function EmptyState({ title, message, primaryAction, secondaryAction }: E
             {(primaryAction || secondaryAction) && (
                 <View style={styles.actions}>
                     {primaryAction && (
-                        <TouchableOpacity
-                            accessibilityRole="button"
-                            onPress={primaryAction.onPress}
-                            style={[styles.button, { backgroundColor: theme.accent }]}>
-                            <ThemedText style={[styles.buttonText, { color: theme.background }]}>
-                                {primaryAction.label}
-                            </ThemedText>
-                        </TouchableOpacity>
+                        <ActionButton label={primaryAction.label} onPress={primaryAction.onPress} />
                     )}
                     {secondaryAction && (
-                        <TouchableOpacity
+                        <FeedbackPressable
                             accessibilityRole="button"
+                            accessibilityLabel={secondaryAction.label}
                             onPress={secondaryAction.onPress}
                             style={[styles.button, styles.buttonGhost, { borderColor: theme.accent }]}>
                             <ThemedText themeColor="accent" style={styles.buttonText}>
                                 {secondaryAction.label}
                             </ThemedText>
-                        </TouchableOpacity>
+                        </FeedbackPressable>
                     )}
                 </View>
             )}
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
         gap: Spacing.two,
     },
     button: {
-        minHeight: 48,
+        minHeight: 52,
         borderRadius: 999,
         alignItems: 'center',
         justifyContent: 'center',

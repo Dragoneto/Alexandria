@@ -10,6 +10,8 @@ type ActionButtonProps = {
   accessibilityLabel?: string;
   /** Mostra o indicador de carregamento e bloqueia novos toques. */
   loading?: boolean;
+  /** Bloqueia uma ação indisponível e informa o estado ao leitor de tela. */
+  disabled?: boolean;
 };
 
 /** Botão de ação do design system — menta é a única cor de ação. */
@@ -19,20 +21,24 @@ export function ActionButton({
   variant = 'primary',
   accessibilityLabel,
   loading = false,
+  disabled = false,
 }: ActionButtonProps) {
   const isPrimary = variant === 'primary';
+  const unavailable = disabled || loading;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       aria-busy={loading}
-      disabled={loading}
+      accessibilityState={{ disabled: unavailable, busy: loading }}
+      disabled={unavailable}
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
         isPrimary ? styles.primary : styles.ghost,
-        pressed && (isPrimary ? styles.primaryPressed : styles.ghostPressed),
+        unavailable && styles.disabled,
+        pressed && !unavailable && (isPrimary ? styles.primaryPressed : styles.ghostPressed),
       ]}>
       {loading ? (
         <ActivityIndicator color={isPrimary ? Ink.ink900 : Mint.mint400} />
@@ -68,6 +74,7 @@ const styles = StyleSheet.create({
   ghostPressed: {
     backgroundColor: Mint.mint900,
   },
+  disabled: { opacity: 0.55 },
   // Rótulo forte · sans 16/22 · 700
   label: {
     fontFamily: DSFonts.ui,
