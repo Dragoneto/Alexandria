@@ -66,6 +66,7 @@ export default function Biblioteca() {
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [savingStatus, setSavingStatus] = useState<StatusLeitura | null>(null);
 
   const pendingStatus = useRef(new Set<number>());
   const [savingStatusIds, setSavingStatusIds] = useState<number[]>([]);
@@ -161,8 +162,8 @@ export default function Biblioteca() {
 
     pendingStatus.current.add(id);
     setSavingStatusIds([...pendingStatus.current]);
+    setSavingStatus(status);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
-    setStatusModalItemId(null);
     try {
       await atualizarItemBiblioteca(id, { status });
       avisar(`Status alterado para ${STATUS_LEITURA[status]}`);
@@ -179,6 +180,8 @@ export default function Biblioteca() {
     } finally {
       pendingStatus.current.delete(id);
       setSavingStatusIds([...pendingStatus.current]);
+      setSavingStatus(null);
+      setStatusModalItemId(null);
     }
   };
 
@@ -552,14 +555,19 @@ export default function Biblioteca() {
         visible={statusModalItemId !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setStatusModalItemId(null)}>
+        onRequestClose={() => {
+          if (savingStatus === null) setStatusModalItemId(null);
+        }}>
         {/* O fundo fica ao lado das opções: se as envolvesse, o leitor de tela não as alcançaria. */}
         <View style={styles.modalOverlay}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Fechar"
+            disabled={savingStatus !== null}
             style={StyleSheet.absoluteFill}
-            onPress={() => setStatusModalItemId(null)}
+            onPress={() => {
+              if (savingStatus === null) setStatusModalItemId(null);
+            }}
           />
           <ThemedView
             accessibilityRole="radiogroup"
@@ -577,13 +585,25 @@ export default function Biblioteca() {
                   accessibilityRole="radio"
                   accessibilityLabel={label}
                   aria-checked={atual}
+                  accessibilityState={{
+                    checked: atual,
+                    disabled: savingStatus !== null,
+                    busy: savingStatus === value,
+                  }}
+                  disabled={savingStatus !== null}
                   style={styles.modalOption}
                   onPress={() => {
                     if (statusModalItemId !== null) {
                       handleStatusChange(statusModalItemId, value as StatusLeitura);
                     }
                   }}>
-                  <ThemedText themeColor="textSecondary">{atual ? `✓ ${label}` : label}</ThemedText>
+                  {savingStatus === value ? (
+                    <ActivityIndicator color={theme.accent} accessibilityLabel="Salvando status" />
+                  ) : (
+                    <ThemedText themeColor="textSecondary">
+                      {atual ? `✓ ${label}` : label}
+                    </ThemedText>
+                  )}
                 </TouchableOpacity>
               );
             })}
