@@ -66,7 +66,7 @@ function limparCategorias(value) {
   return [...new Set(value.filter((item) => typeof item === 'string' && item.trim()).map((item) => item.trim()))].slice(0, 5);
 }
 
-function resultadoFallback(description, categories) {
+function resultadoFallback(title, description, categories) {
   const categorias = limparCategorias(categories).map(
     (category) => CATEGORY_TRANSLATIONS.get(normalizarCategoria(category)) ?? category,
   );
@@ -76,6 +76,8 @@ function resultadoFallback(description, categories) {
   });
 
   return {
+    title: typeof title === 'string' && title.trim() ? title.trim() : '',
+    titleTranslated: false,
     description: typeof description === 'string' && description.trim() ? description.trim() : null,
     categories: categorias,
     descriptionTranslated: false,
@@ -95,9 +97,9 @@ function baseUrl(authKey) {
   return url.toString().replace(/\/+$/, '');
 }
 
-function cacheKey(description, categories) {
+function cacheKey(title, description, categories) {
   return createHash('sha256')
-    .update(JSON.stringify([description, categories]))
+    .update(JSON.stringify([title, description, categories]))
     .digest('hex');
 }
 
@@ -139,10 +141,15 @@ async function traduzirComDeepL(texts, authKey) {
   return payload.translations;
 }
 
-async function traduzirMetadata(description, categories, authKey) {
-  const fallback = resultadoFallback(description, categories);
+async function traduzirMetadata(title, description, categories, authKey) {
+  const fallback = resultadoFallback(title, description, categories);
   const texts = [];
   const targets = [];
+
+  if (typeof title === 'string' && title.trim() && title.length <= MAX_TEXT_LENGTH) {
+    texts.push(title.trim());
+    targets.push({ type: 'title' });
+  }
 
   if (typeof description === 'string' && description.trim() && description.length <= MAX_TEXT_LENGTH) {
     texts.push(description.trim());
@@ -163,6 +170,8 @@ async function traduzirMetadata(description, categories, authKey) {
   if (!translated) return { metadata: fallback, translated: false };
 
   let translatedDescription = fallback.description;
+  let translatedTitle = fallback.title;
+  let titleTranslated = false;
   let descriptionTranslated = false;
   const translatedCategories = [...fallback.categories];
   const categoriesTranslated = originalCategories.map((category) =>
@@ -173,6 +182,13 @@ async function traduzirMetadata(description, categories, authKey) {
   translated.forEach((item, index) => {
     const target = targets[index];
     const sourceIsPortuguese = /^PT(?:-|$)/i.test(item.detected_source_language ?? '');
+    if (target.type === 'title') {
+      if (!sourceIsPortuguese) {
+        translatedTitle = item.text.trim();
+        titleTranslated = true;
+      }
+      return;
+    }
     if (target.type === 'description') {
       if (!sourceIsPortuguese) {
         translatedDescription = item.text.trim();
@@ -190,6 +206,8 @@ async function traduzirMetadata(description, categories, authKey) {
 
   return {
     metadata: {
+      title: translatedTitle,
+      titleTranslated,
       description: translatedDescription,
       categories: [...new Set(translatedCategories)],
       descriptionTranslated,
@@ -199,17 +217,18 @@ async function traduzirMetadata(description, categories, authKey) {
   };
 }
 
-async function translateBookMetadata({ description, categories }) {
+async function translateBookMetadata({ title, description, categories }) {
+  const normalizedTitle = typeof title === 'string' && title.trim() ? title.trim() : '';
   const normalizedDescription = typeof description === 'string' && description.trim() ? description.trim() : null;
   const normalizedCategories = limparCategorias(categories);
   const authKey = process.env.DEEPL_AUTH_KEY?.trim();
-  if (!authKey) return resultadoFallback(normalizedDescription, normalizedCategories);
+  if (!authKey) return resultadoFallback(normalizedTitle, normalizedDescription, normalizedCategories);
 
   let key;
   try {
-    key = cacheKey(normalizedDescription, normalizedCategories);
+    key = cacheKey(normalizedTitle, normalizedDescription, normalizedCategories);
   } catch {
-    return resultadoFallback(normalizedDescription, normalizedCategories);
+    return resultadoFallback(normalizedTitle, normalizedDescription, normalizedCategories);
   }
   const cached = lerCache(key);
   if (cached) return cached;
@@ -220,11 +239,11 @@ async function translateBookMetadata({ description, categories }) {
 
   const pending = (async () => {
     try {
-      const outcome = await traduzirMetadata(normalizedDescription, normalizedCategories, authKey);
+      const outcome = await traduzirMetadata(normalizedTitle, normalizedDescription, normalizedCategories, authKey);
       if (outcome.translated) gravarCache(key, outcome.metadata);
       return { ...outcome.metadata, categories: [...outcome.metadata.categories] };
     } catch {
-      return resultadoFallback(normalizedDescription, normalizedCategories);
+      return resultadoFallback(normalizedTitle, normalizedDescription, normalizedCategories);
     } finally {
       requisicoesEmAndamento.delete(key);
     }

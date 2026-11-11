@@ -89,6 +89,12 @@ test('busca devolve os livros convertidos e o total', async () => {
     {
       id: 'OL123W',
       title: 'Dom Casmurro',
+      originalTitle: 'Dom Casmurro',
+      titleTranslated: false,
+      categories: [],
+      categoriesTranslated: true,
+      description: null,
+      descriptionTranslated: false,
       authors: ['Machado de Assis'],
       category: 'Catálogo geral',
       coverUrl: 'https://covers.openlibrary.org/b/id/987-M.jpg?default=false',

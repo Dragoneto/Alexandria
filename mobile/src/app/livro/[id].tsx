@@ -191,6 +191,11 @@ export default function DetalheDoLivro() {
                 <ThemedText type="title" style={styles.title}>
                   {book.title}
                 </ThemedText>
+                {book.titleTranslated && book.originalTitle !== book.title && (
+                  <ThemedText themeColor="textSecondary" style={styles.author}>
+                    Título original: {book.originalTitle}
+                  </ThemedText>
+                )}
                 <ThemedText themeColor="textSecondary" style={styles.author}>
                   {book.authors.length ? book.authors.join(', ') : 'Autoria não informada'}
                 </ThemedText>

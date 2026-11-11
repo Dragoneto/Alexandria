@@ -20,6 +20,8 @@ export type BookSearchOptions = {
 export type BookSearchItem = {
   id: string;
   title: string;
+  originalTitle?: string;
+  titleTranslated?: boolean;
   authors: string[];
   category: string;
   coverUrl: string | null;
@@ -40,6 +42,8 @@ export type BookSearchResult = {
 export type BookDetail = {
   id: string;
   title: string;
+  originalTitle: string;
+  titleTranslated: boolean;
   authors: string[];
   /** Sinopse; muitos livros da Open Library não têm. */
   description: string | null;
@@ -184,6 +188,8 @@ export async function getBookDetail(id: string, signal?: AbortSignal): Promise<B
   return {
     id: book.id,
     title: book.title,
+    originalTitle: typeof book.originalTitle === 'string' ? book.originalTitle : book.title,
+    titleTranslated: book.titleTranslated === true,
     authors: stringArray(book.authors),
     description:
       typeof book.description === 'string' && book.description.trim() ? book.description : null,

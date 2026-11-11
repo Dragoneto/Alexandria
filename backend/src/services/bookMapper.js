@@ -13,6 +13,7 @@ const MAX_CATEGORIES = 5;
 const SEARCH_FIELDS = [
   'key',
   'title',
+  'subject',
   'author_name',
   'cover_i',
   'cover_edition_key',
@@ -53,6 +54,9 @@ function mapSearchDocument(document, selectedCategory) {
   return {
     id: key.slice('/works/'.length),
     title,
+    originalTitle: title,
+    categories: stringArray(document.subject, MAX_CATEGORIES),
+    categoriesTranslated: false,
     authors: stringArray(document.author_name, MAX_AUTHORS),
     category: selectedCategory || 'Catálogo geral',
     coverUrl: buildCoverUrl({
