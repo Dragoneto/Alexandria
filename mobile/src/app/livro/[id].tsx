@@ -2,18 +2,13 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
+import { FeedbackPressable } from '@/components/feedback-pressable';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonBookDetail } from '@/components/skeletons';
 import { StatusNaBiblioteca } from '@/components/status-na-biblioteca';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -21,6 +16,7 @@ import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAvaliacoesDoLivro } from '@/hooks/use-avaliacoes-do-livro';
 import { useItemDaBiblioteca } from '@/hooks/use-item-da-biblioteca';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useTheme } from '@/hooks/use-theme';
 import {
   describeSearchError,
@@ -62,6 +58,8 @@ export default function DetalheDoLivro() {
   const [book, setBook] = useState<BookDetail | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [loading, setLoading] = useState(true);
+  const [detailStatus, setDetailStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const showLoading = useLoadingGate(loading);
   const [refresh, setRefresh] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
@@ -82,15 +80,18 @@ export default function DetalheDoLivro() {
       await Promise.resolve();
       if (controller.signal.aborted) return;
       setLoading(true);
+      setDetailStatus('loading');
       setFailure(null);
       try {
         const result = await getBookDetail(id, controller.signal);
         setBook(result);
+        setDetailStatus('success');
         setExpanded(false);
         setCoverFailed(false);
       } catch (error) {
         if (controller.signal.aborted) return;
         setBook(null);
+        setDetailStatus('error');
         setFailure(describeFailure(error));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
@@ -116,7 +117,7 @@ export default function DetalheDoLivro() {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.back()}
               hitSlop={10}
               accessibilityRole="button"
@@ -130,39 +131,20 @@ export default function DetalheDoLivro() {
                 size={20}
                 tintColor={theme.accent}
               />
-            </Pressable>
+            </FeedbackPressable>
 
-            {loading ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.stateCard}
-                accessibilityLiveRegion="polite">
-                <ActivityIndicator accessibilityLabel="Carregando livro" color={theme.accent} />
-                <ThemedText themeColor="textSecondary">Carregando o livro…</ThemedText>
-              </ThemedView>
-            ) : failure || !book ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.stateCard}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite">
-                <ThemedText type="subtitle" style={styles.stateTitle}>
-                  {failure?.title ?? 'Não foi possível abrir o livro'}
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  {failure?.message ?? 'Tente de novo em instantes.'}
-                </ThemedText>
-                {(failure?.canRetry ?? true) && (
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => setRefresh((value) => value + 1)}
-                    style={[styles.outlineButton, { borderColor: theme.accent }]}>
-                    <ThemedText themeColor="accent" style={styles.outlineButtonText}>
-                      Tentar novamente
-                    </ThemedText>
-                  </TouchableOpacity>
-                )}
-              </ThemedView>
+            {detailStatus === 'loading' ? (
+              showLoading ? (
+                <SkeletonBookDetail />
+              ) : null
+            ) : detailStatus === 'error' || failure || !book ? (
+              <ErrorState
+                title={failure?.title ?? 'Não foi possível abrir o livro'}
+                message={failure?.message ?? 'Tente de novo em instantes.'}
+                onRetry={
+                  (failure?.canRetry ?? true) ? () => setRefresh((value) => value + 1) : undefined
+                }
+              />
             ) : (
               <>
                 {showCover ? (
@@ -286,12 +268,19 @@ export default function DetalheDoLivro() {
 
                 <AvaliacoesDoLivro
                   dados={avaliacoes.dados}
+                  status={avaliacoes.status}
                   carregando={avaliacoes.carregando}
                   erro={avaliacoes.erro}
                   carregandoMais={avaliacoes.carregandoMais}
                   erroMais={avaliacoes.erroMais}
                   onTentarNovamente={avaliacoes.tentarNovamente}
                   onCarregarMais={() => void avaliacoes.carregarMais()}
+                  onEscreverAvaliacao={() =>
+                    router.push({
+                      pathname: '/avaliar/[id]',
+                      params: { id: book.id, titulo: book.title },
+                    })
+                  }
                 />
               </>
             )}
@@ -325,16 +314,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stateCard: { marginTop: Spacing.four, borderRadius: 16, padding: Spacing.four, gap: 8 },
-  stateTitle: { fontSize: 18, lineHeight: 26 },
-  outlineButton: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outlineButtonText: { fontSize: 14, fontWeight: '800' },
   cover: {
     marginTop: Spacing.four,
     width: '100%',

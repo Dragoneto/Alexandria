@@ -3,7 +3,6 @@ import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -13,11 +12,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonReviewForm } from '@/components/skeletons';
 import { DisabledOpacity } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
   atualizarAvaliacao,
@@ -62,6 +65,7 @@ export default function AvaliarLivro() {
   const [recarregar, setRecarregar] = useState(0);
   const submitting = useRef(false);
   const tamanho = contarCaracteres(resenha);
+  const mostrarSkeleton = useLoadingGate(carregando);
 
   useEffect(() => {
     if (avaliacaoId === null) return;
@@ -142,7 +146,7 @@ export default function AvaliarLivro() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.back()}
               hitSlop={10}
               accessibilityRole="button"
@@ -156,7 +160,7 @@ export default function AvaliarLivro() {
                 size={20}
                 tintColor={theme.accent}
               />
-            </Pressable>
+            </FeedbackPressable>
 
             <ThemedText themeColor="accent" style={styles.eyebrow}>
               {editando ? 'Editar avaliação' : 'Avaliar'}
@@ -166,10 +170,9 @@ export default function AvaliarLivro() {
             </ThemedText>
 
             {carregando ? (
-              <ThemedView type="backgroundElement" style={styles.stateCard}>
-                <ActivityIndicator color={theme.accent} />
-                <ThemedText themeColor="textSecondary">Carregando sua avaliação…</ThemedText>
-              </ThemedView>
+              mostrarSkeleton ? (
+                <SkeletonReviewForm />
+              ) : null
             ) : removida ? (
               <ThemedView
                 type="backgroundElement"
@@ -191,23 +194,10 @@ export default function AvaliarLivro() {
                 </TouchableOpacity>
               </ThemedView>
             ) : erroAoCarregar ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.stateCard}
-                accessibilityRole="alert">
-                <ThemedText type="subtitle" style={styles.stateTitle}>
-                  Não foi possível carregar
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">{erroAoCarregar}</ThemedText>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => setRecarregar((atual) => atual + 1)}
-                  style={[styles.outlineButton, { borderColor: theme.accent }]}>
-                  <ThemedText themeColor="accent" style={styles.buttonText}>
-                    Tentar novamente
-                  </ThemedText>
-                </TouchableOpacity>
-              </ThemedView>
+              <ErrorState
+                message={erroAoCarregar}
+                onRetry={() => setRecarregar((atual) => atual + 1)}
+              />
             ) : jaAvaliou ? (
               <ThemedView
                 type="backgroundElement"

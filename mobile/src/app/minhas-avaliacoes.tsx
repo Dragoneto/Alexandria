@@ -2,20 +2,18 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
+import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonList } from '@/components/skeletons';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
   estrelas,
@@ -27,6 +25,7 @@ import {
 function mensagem(error: unknown, padrao: string): string {
   return error instanceof ApiError ? error.message : padrao;
 }
+type EstadoAvaliacoes = 'loading' | 'success' | 'empty' | 'error';
 
 export default function MinhasAvaliacoes() {
   const theme = useTheme();
@@ -34,12 +33,14 @@ export default function MinhasAvaliacoes() {
   const [lista, setLista] = useState<AvaliacaoLida[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
+  const [estado, setEstado] = useState<EstadoAvaliacoes>('loading');
   const [aviso, setAviso] = useState('');
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
   const [excluindoId, setExcluindoId] = useState<number | null>(null);
   const [erroExclusao, setErroExclusao] = useState<{ id: number; texto: string } | null>(null);
   const excluindo = useRef(false);
   const controller = useRef<AbortController | null>(null);
+  const showLoading = useLoadingGate(carregando);
 
   // Recarrega ao ganhar foco: volta da edição com a nota e a resenha novas.
   const carregar = useCallback(async () => {
@@ -53,8 +54,10 @@ export default function MinhasAvaliacoes() {
       if (atual.signal.aborted || excluindo.current) return;
       setLista(minhas);
       setErro('');
+      setEstado(minhas.length ? 'success' : 'empty');
     } catch (error) {
       if (atual.signal.aborted) return;
+      setEstado('error');
       setErro(mensagem(error, 'Não foi possível carregar suas avaliações.'));
     } finally {
       if (!atual.signal.aborted) setCarregando(false);
@@ -70,6 +73,7 @@ export default function MinhasAvaliacoes() {
 
   const tentarNovamente = () => {
     setCarregando(true);
+    setEstado('loading');
     setErro('');
     void carregar();
   };
@@ -93,11 +97,13 @@ export default function MinhasAvaliacoes() {
     try {
       await excluirAvaliacao(avaliacao.id);
       setLista((atuais) => atuais.filter((item) => item.id !== avaliacao.id));
+      setEstado(lista.length === 1 ? 'empty' : 'success');
       setAviso(`Avaliação de "${avaliacao.livro.titulo}" excluída.`);
     } catch (error) {
       // 404: já tinha sido excluída em outro aparelho; o resultado para a lista é o mesmo.
       if (error instanceof ApiError && error.status === 404) {
         setLista((atuais) => atuais.filter((item) => item.id !== avaliacao.id));
+        setEstado(lista.length === 1 ? 'empty' : 'success');
         setAviso('Esta avaliação já tinha sido excluída.');
       } else {
         setErroExclusao({
@@ -117,7 +123,7 @@ export default function MinhasAvaliacoes() {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.back()}
               hitSlop={10}
               accessibilityRole="button"
@@ -131,7 +137,7 @@ export default function MinhasAvaliacoes() {
                 size={20}
                 tintColor={theme.accent}
               />
-            </Pressable>
+            </FeedbackPressable>
 
             <ThemedText themeColor="accent" style={styles.eyebrow}>
               Perfil
@@ -149,52 +155,19 @@ export default function MinhasAvaliacoes() {
               </ThemedText>
             )}
 
-            {carregando ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.stateCard}
-                accessibilityLiveRegion="polite">
-                <ActivityIndicator
-                  accessibilityLabel="Carregando avaliações"
-                  color={theme.accent}
-                />
-                <ThemedText themeColor="textSecondary">Carregando suas avaliações…</ThemedText>
-              </ThemedView>
-            ) : erro ? (
-              <ThemedView
-                type="backgroundElement"
-                style={styles.stateCard}
-                accessibilityRole="alert">
-                <ThemedText type="subtitle" style={styles.stateTitle}>
-                  Não foi possível carregar
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">{erro}</ThemedText>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={tentarNovamente}
-                  style={[styles.outlineButton, { borderColor: theme.accent }]}>
-                  <ThemedText themeColor="accent" style={styles.buttonText}>
-                    Tentar novamente
-                  </ThemedText>
-                </TouchableOpacity>
-              </ThemedView>
-            ) : lista.length === 0 ? (
-              <ThemedView type="backgroundElement" style={styles.stateCard}>
-                <ThemedText type="subtitle" style={styles.stateTitle}>
-                  Você ainda não avaliou nenhum livro
-                </ThemedText>
-                <ThemedText themeColor="textSecondary">
-                  Encontre um livro no Explorar e conte o que achou.
-                </ThemedText>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={() => router.push('/explore')}
-                  style={[styles.outlineButton, { borderColor: theme.accent }]}>
-                  <ThemedText themeColor="accent" style={styles.buttonText}>
-                    Explorar livros
-                  </ThemedText>
-                </TouchableOpacity>
-              </ThemedView>
+            {estado === 'loading' ? (
+              showLoading ? (
+                <SkeletonList count={3} />
+              ) : null
+            ) : estado === 'error' ? (
+              <ErrorState message={erro} onRetry={tentarNovamente} />
+            ) : estado === 'empty' ? (
+              <EmptyState
+                compact
+                title="Suas avaliações aparecerão aqui"
+                message="Registre sua opinião sobre um livro para acompanhar suas avaliações e iniciar conversas."
+                primaryAction={{ label: 'Explorar livros', onPress: () => router.push('/explore') }}
+              />
             ) : (
               <View style={styles.list}>
                 <ThemedText themeColor="textSecondary" style={styles.count}>
@@ -392,7 +365,7 @@ const styles = StyleSheet.create({
   confirmText: { fontSize: 13, fontWeight: '700' },
   smallButton: {
     minWidth: 88,
-    minHeight: 40,
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,

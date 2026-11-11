@@ -18,10 +18,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonGrid } from '@/components/skeletons';
 import { DisabledOpacity, TouchMin } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
   atualizarItemBiblioteca,
@@ -40,6 +44,7 @@ const STATUS_LEITURA: Record<string, string> = {
 };
 
 type FiltroStatus = StatusLeitura | 'TODOS';
+type EstadoBiblioteca = 'loading' | 'success' | 'empty' | 'error';
 
 const FILTERS: { label: string; value: FiltroStatus }[] = [
   { label: 'Todos', value: 'TODOS' },
@@ -55,16 +60,23 @@ export default function Biblioteca() {
   const [items, setItems] = useState<BibliotecaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
+  const [estado, setEstado] = useState<EstadoBiblioteca>('loading');
   const [filter, setFilter] = useState<FiltroStatus>('TODOS');
   const [somenteFavoritos, setSomenteFavoritos] = useState(false);
   const [busca, setBusca] = useState('');
   const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
+  const [removingId, setRemovingId] = useState<number | null>(null);
 
   const pendingStatus = useRef(new Set<number>());
   const [savingStatusIds, setSavingStatusIds] = useState<number[]>([]);
   const [aviso, setAviso] = useState('');
+  const savingStatus =
+    statusModalItemId !== null && savingStatusIds.includes(statusModalItemId)
+      ? (items.find((item) => item.id === statusModalItemId)?.statusLeitura ?? null)
+      : null;
+  const showLoading = useLoadingGate(loading);
 
   // Recarrega toda vez que a aba ganha foco (ex.: depois de adicionar um livro)
   useFocusEffect(
@@ -74,9 +86,11 @@ export default function Biblioteca() {
         .then((itens) => {
           setItems(itens);
           setErro('');
+          setEstado(itens.length ? 'success' : 'empty');
         })
         .catch((error) => {
           if (controller.signal.aborted) return;
+          setEstado('error');
           setErro(
             error instanceof ApiError ? error.message : 'Não foi possível carregar sua biblioteca.',
           );
@@ -156,7 +170,6 @@ export default function Biblioteca() {
     pendingStatus.current.add(id);
     setSavingStatusIds([...pendingStatus.current]);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
-    setStatusModalItemId(null);
     try {
       await atualizarItemBiblioteca(id, { status });
       avisar(`Status alterado para ${STATUS_LEITURA[status]}`);
@@ -173,6 +186,7 @@ export default function Biblioteca() {
     } finally {
       pendingStatus.current.delete(id);
       setSavingStatusIds([...pendingStatus.current]);
+      setStatusModalItemId(null);
     }
   };
 
@@ -197,31 +211,41 @@ export default function Biblioteca() {
     }
   };
 
+  const remover = async (id: number) => {
+    if (removingId !== null) return;
+    setRemovingId(id);
+    try {
+      await removerDaBiblioteca(id);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      if (items.length === 1) setEstado('empty');
+      avisar('Livro removido da biblioteca');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        setItems((prev) => prev.filter((i) => i.id !== id));
+        if (items.length === 1) setEstado('empty');
+        avisar('Livro removido da biblioteca');
+        return;
+      }
+      avisarErro(
+        'Não foi possível remover',
+        error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
+      );
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
   const handleRemove = (id: number, titulo: string) => {
+    const confirmar = () => {
+      void remover(id);
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remover "${titulo}" da sua biblioteca?`)) confirmar();
+      return;
+    }
     Alert.alert('Remover livro', `Remover "${titulo}" da sua biblioteca?`, [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Remover',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await removerDaBiblioteca(id);
-            setItems((prev) => prev.filter((i) => i.id !== id));
-            avisar('Livro removido da biblioteca');
-          } catch (error) {
-            // 404 = já não estava no servidor; então pode sumir da tela também
-            if (error instanceof ApiError && error.status === 404) {
-              setItems((prev) => prev.filter((i) => i.id !== id));
-              avisar('Livro removido da biblioteca');
-              return;
-            }
-            avisarErro(
-              'Não foi possível remover',
-              error instanceof ApiError ? error.message : 'Tente de novo em instantes.',
-            );
-          }
-        },
-      },
+      { text: 'Remover', style: 'destructive', onPress: confirmar },
     ]);
   };
 
@@ -350,38 +374,57 @@ export default function Biblioteca() {
             </ThemedText>
 
             {/* LOADING / ERRO / VAZIO / GRID */}
-            {loading ? (
-              <ThemedView
-                accessibilityLiveRegion="polite"
-                type="backgroundElement"
-                style={styles.emptyCard}>
-                <ActivityIndicator color={theme.accent} />
-                <ThemedText themeColor="textSecondary">Carregando sua biblioteca…</ThemedText>
-              </ThemedView>
-            ) : erro ? (
-              <ThemedView type="backgroundElement" style={styles.emptyCard}>
-                <ThemedText type="subtitle" style={styles.emptyTitle}>
-                  Não foi possível carregar
-                </ThemedText>
-                <ThemedText
-                  accessibilityRole="alert"
+            {estado === 'loading' ? (
+              showLoading ? (
+                <ThemedView
                   accessibilityLiveRegion="polite"
-                  themeColor="textSecondary"
-                  style={styles.emptyText}>
-                  {erro}
-                </ThemedText>
-              </ThemedView>
+                  type="backgroundElement"
+                  style={styles.emptyCard}>
+                  <SkeletonGrid />
+                </ThemedView>
+              ) : null
+            ) : estado === 'error' ? (
+              <ErrorState
+                message={erro}
+                onRetry={() => {
+                  setLoading(true);
+                  setEstado('loading');
+                  setErro('');
+                  listarBiblioteca()
+                    .then((itens) => {
+                      setItems(itens);
+                      setEstado(itens.length ? 'success' : 'empty');
+                    })
+                    .catch((failure) => {
+                      setEstado('error');
+                      setErro(
+                        failure instanceof ApiError
+                          ? failure.message
+                          : 'Não foi possível carregar sua biblioteca.',
+                      );
+                    })
+                    .finally(() => setLoading(false));
+                }}
+              />
+            ) : estado === 'empty' ? (
+              <EmptyState
+                compact
+                title="Sua biblioteca está vazia"
+                message="Salve livros no Explorar para organizar suas leituras e acompanhar seu progresso."
+                primaryAction={{
+                  label: 'Explorar livros',
+                  onPress: () => router.push('/explore'),
+                }}
+              />
             ) : filteredItems.length === 0 ? (
               <ThemedView type="backgroundElement" style={styles.emptyCard}>
                 <ThemedText type="subtitle" style={styles.emptyTitle}>
-                  {buscaAtiva && items.length > 0
-                    ? 'Nenhum livro encontrado'
-                    : 'Nenhum livro neste filtro'}
+                  {buscaAtiva ? 'Nenhum livro encontrado' : 'Nenhum livro neste filtro'}
                 </ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.emptyText}>
                   {emptyMessage}
                 </ThemedText>
-                {items.length > 0 && (buscaAtiva || outrosFiltrosAtivos) && (
+                {(buscaAtiva || outrosFiltrosAtivos) && (
                   <TouchableOpacity
                     accessibilityRole="button"
                     accessibilityLabel={buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
@@ -457,6 +500,10 @@ export default function Biblioteca() {
                           aria-selected={item.favorito}
                           aria-disabled={savingFavoriteId !== null}
                           aria-busy={savingFavoriteId === item.id}
+                          accessibilityState={{
+                            disabled: savingFavoriteId !== null,
+                            busy: savingFavoriteId === item.id,
+                          }}
                           disabled={savingFavoriteId !== null}
                           style={[
                             styles.actionButton,
@@ -464,18 +511,44 @@ export default function Biblioteca() {
                             savingFavoriteId !== null && { opacity: DisabledOpacity },
                           ]}
                           onPress={() => void handleFavorite(item)}>
-                          <ThemedText themeColor="accent" style={styles.favButtonText}>
-                            {item.favorito ? 'Favorito' : 'Favoritar'}
-                          </ThemedText>
+                          {savingFavoriteId === item.id ? (
+                            <ActivityIndicator
+                              color={theme.accent}
+                              accessibilityLabel="Salvando favorito"
+                            />
+                          ) : (
+                            <ThemedText themeColor="accent" style={styles.favButtonText}>
+                              {item.favorito ? 'Favorito' : 'Favoritar'}
+                            </ThemedText>
+                          )}
                         </TouchableOpacity>
                         <TouchableOpacity
                           accessibilityRole="button"
                           accessibilityLabel={`Remover ${item.livro.titulo} da biblioteca`}
-                          style={[styles.actionButton, { borderColor: theme.danger }]}
+                          disabled={removingId !== null}
+                          aria-busy={removingId === item.id}
+                          accessibilityState={{
+                            disabled: removingId !== null,
+                            busy: removingId === item.id,
+                          }}
+                          style={[
+                            styles.actionButton,
+                            {
+                              borderColor: theme.danger,
+                              opacity: removingId !== null ? DisabledOpacity : 1,
+                            },
+                          ]}
                           onPress={() => handleRemove(item.id, item.livro.titulo)}>
-                          <ThemedText themeColor="danger" style={styles.removeButtonText}>
-                            Remover
-                          </ThemedText>
+                          {removingId === item.id ? (
+                            <ActivityIndicator
+                              color={theme.danger}
+                              accessibilityLabel="Removendo livro"
+                            />
+                          ) : (
+                            <ThemedText themeColor="danger" style={styles.removeButtonText}>
+                              Remover
+                            </ThemedText>
+                          )}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -492,14 +565,19 @@ export default function Biblioteca() {
         visible={statusModalItemId !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setStatusModalItemId(null)}>
+        onRequestClose={() => {
+          if (savingStatus === null) setStatusModalItemId(null);
+        }}>
         {/* O fundo fica ao lado das opções: se as envolvesse, o leitor de tela não as alcançaria. */}
         <View style={styles.modalOverlay}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Fechar"
+            disabled={savingStatus !== null}
             style={StyleSheet.absoluteFill}
-            onPress={() => setStatusModalItemId(null)}
+            onPress={() => {
+              if (savingStatus === null) setStatusModalItemId(null);
+            }}
           />
           <ThemedView
             accessibilityRole="radiogroup"
@@ -517,13 +595,25 @@ export default function Biblioteca() {
                   accessibilityRole="radio"
                   accessibilityLabel={label}
                   aria-checked={atual}
+                  accessibilityState={{
+                    checked: atual,
+                    disabled: savingStatus !== null,
+                    busy: savingStatus === value,
+                  }}
+                  disabled={savingStatus !== null}
                   style={styles.modalOption}
                   onPress={() => {
                     if (statusModalItemId !== null) {
                       handleStatusChange(statusModalItemId, value as StatusLeitura);
                     }
                   }}>
-                  <ThemedText themeColor="textSecondary">{atual ? `✓ ${label}` : label}</ThemedText>
+                  {savingStatus === value ? (
+                    <ActivityIndicator color={theme.accent} accessibilityLabel="Salvando status" />
+                  ) : (
+                    <ThemedText themeColor="textSecondary">
+                      {atual ? `✓ ${label}` : label}
+                    </ThemedText>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -568,15 +658,17 @@ const styles = StyleSheet.create({
   clearSearchButton: {
     position: 'absolute',
     right: 12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   clearSearchIcon: { fontSize: 14 },
   filtersScroll: { marginTop: Spacing.three, marginBottom: Spacing.three },
   filterChip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999,
@@ -618,6 +710,8 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 17, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   statusButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
     borderRadius: 10,
     paddingVertical: 10,
@@ -629,6 +723,8 @@ const styles = StyleSheet.create({
   favButtonText: { fontSize: 13, fontWeight: '800' },
   actionButton: {
     flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
     borderRadius: 8,
     paddingVertical: 10,

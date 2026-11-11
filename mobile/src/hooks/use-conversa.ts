@@ -15,6 +15,7 @@ export type ListaDaConversa = {
   carregando: boolean;
   erro: string;
 };
+type EstadoConversa = 'loading' | 'success' | 'empty' | 'error';
 
 const RAIZ = 'raiz';
 const LISTA_NOVA: ListaDaConversa = { cursor: null, temMais: true, carregando: false, erro: '' };
@@ -33,13 +34,18 @@ export function useConversa(avaliacaoId: number) {
   const [listas, setListas] = useState<Record<string, ListaDaConversa>>({});
   const [carregando, setCarregando] = useState(valido);
   const [erro, setErro] = useState('');
+  const [estado, setEstado] = useState<EstadoConversa>(valido ? 'loading' : 'error');
   const [inexistente, setInexistente] = useState(!valido);
   const atual = useRef<AbortController | null>(null);
   const atualizando = useRef(false);
   const listasAtuais = useRef(listas);
+  const comentariosAtuais = useRef(comentarios);
   useEffect(() => {
     listasAtuais.current = listas;
   }, [listas]);
+  useEffect(() => {
+    comentariosAtuais.current = comentarios;
+  }, [comentarios]);
 
   const percorrer = useCallback(
     async (paiId: number | null, ate: number | null, signal: AbortSignal) => {
@@ -70,6 +76,7 @@ export function useConversa(avaliacaoId: number) {
     atualizando.current = true;
     setCarregando(true);
     setErro('');
+    setEstado('loading');
     try {
       const abertas = Object.entries(listasAtuais.current);
       const alvos: [number | null, number | null][] = abertas.length
@@ -81,9 +88,12 @@ export function useConversa(avaliacaoId: number) {
       ]);
       if (controller.signal.aborted) return;
       setAvaliacao(lida);
-      setComentarios((anteriores) =>
-        percorridas.reduce((lista, { itens }) => juntarComentarios(lista, itens), anteriores ?? []),
+      const novosComentarios = percorridas.reduce(
+        (lista, { itens }) => juntarComentarios(lista, itens),
+        comentariosAtuais.current ?? [],
       );
+      setComentarios(novosComentarios);
+      setEstado(novosComentarios.length ? 'success' : 'empty');
       setListas(
         Object.fromEntries(alvos.map(([paiId], i) => [chaveDaLista(paiId), percorridas[i].lista])),
       );
@@ -92,8 +102,10 @@ export function useConversa(avaliacaoId: number) {
       if (controller.signal.aborted) return;
       if (error instanceof ApiError && error.status === 404) {
         setInexistente(true);
+        setEstado('error');
         return;
       }
+      setEstado('error');
       setErro(mensagemDeErro(error));
     } finally {
       if (atual.current === controller && !controller.signal.aborted) {
@@ -134,6 +146,7 @@ export function useConversa(avaliacaoId: number) {
 
   const incluir = useCallback((comentario: Comentario) => {
     setComentarios((anteriores) => juntarComentarios(anteriores ?? [], [comentario]));
+    setEstado('success');
   }, []);
 
   useFocusEffect(
@@ -149,6 +162,7 @@ export function useConversa(avaliacaoId: number) {
     listas,
     carregando,
     erro,
+    estado,
     inexistente,
     recarregar: carregar,
     carregarMais,

@@ -55,16 +55,30 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   if (!path.startsWith('/') || path.startsWith('//'))
     throw new ApiError('config', 'Caminho de API inválido.');
   const { method = 'GET', body, authenticated = true } = options;
-  const session = authenticated ? await getAuth() : null;
-  if (authenticated && !session)
-    throw new ApiError('auth', 'Entre na sua conta para continuar.', 401);
   const timeoutMs = options.timeoutMs ?? config.timeoutMs;
   const controller = new AbortController();
-  const abortFromCaller = () => controller.abort(options.signal?.reason);
+  let rejectBeforeRequest: (reason?: unknown) => void = () => {};
+  const interrupted = new Promise<never>((_, reject) => {
+    rejectBeforeRequest = reject;
+  });
+  const abortFromCaller = () => {
+    const reason = options.signal?.reason ?? new Error('A solicitação foi cancelada.');
+    controller.abort(reason);
+    rejectBeforeRequest(reason);
+  };
   options.signal?.addEventListener('abort', abortFromCaller, { once: true });
   if (options.signal?.aborted) abortFromCaller();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => {
+    const error = new ApiError('timeout', 'O servidor demorou para responder. Tente novamente.');
+    controller.abort(error);
+    rejectBeforeRequest(error);
+  }, timeoutMs);
+  let session: Awaited<ReturnType<typeof getAuth>> = null;
   try {
+    session = await Promise.race([authenticated ? getAuth() : Promise.resolve(null), interrupted]);
+    if (authenticated && !session)
+      throw new ApiError('auth', 'Entre na sua conta para continuar.', 401);
+
     const response = await fetch(`${config.baseUrl}${path}`, {
       method,
       headers: {

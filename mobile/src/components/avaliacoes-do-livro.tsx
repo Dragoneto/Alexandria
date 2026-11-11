@@ -1,34 +1,43 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonList } from '@/components/skeletons';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity } from '@/constants/design-system';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { estrelas, resumoAvaliacoes, type AvaliacoesDoLivro as Dados } from '@/services/avaliacoes';
 
 type Props = {
   dados: Dados | null;
+  status: 'loading' | 'success' | 'empty' | 'error';
   carregando: boolean;
   erro: string;
   carregandoMais: boolean;
   erroMais: string;
   onTentarNovamente: () => void;
   onCarregarMais: () => void;
+  onEscreverAvaliacao: () => void;
 };
 
 export function AvaliacoesDoLivro({
   dados,
+  status,
   carregando,
   erro,
   carregandoMais,
   erroMais,
   onTentarNovamente,
   onCarregarMais,
+  onEscreverAvaliacao,
 }: Props) {
   const theme = useTheme();
   const router = useRouter();
+  const showLoading = useLoadingGate(status === 'loading');
 
   return (
     <View style={styles.section}>
@@ -36,33 +45,19 @@ export function AvaliacoesDoLivro({
         Avaliações
       </ThemedText>
 
-      {carregando && !dados ? (
-        <ThemedView
-          type="backgroundElement"
-          style={styles.stateCard}
-          accessibilityLiveRegion="polite">
-          <ActivityIndicator accessibilityLabel="Carregando avaliações" color={theme.accent} />
-          <ThemedText themeColor="textSecondary">Carregando avaliações…</ThemedText>
-        </ThemedView>
-      ) : erro ? (
-        <ThemedView type="backgroundElement" style={styles.stateCard} accessibilityRole="alert">
-          <ThemedText themeColor="textSecondary">{erro}</ThemedText>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={onTentarNovamente}
-            style={[styles.outlineButton, { borderColor: theme.accent }]}>
-            <ThemedText themeColor="accent" style={styles.buttonText}>
-              Tentar novamente
-            </ThemedText>
-          </TouchableOpacity>
-        </ThemedView>
-      ) : !dados || dados.total === 0 ? (
-        <ThemedView type="backgroundElement" style={styles.stateCard}>
-          <ThemedText type="subtitle" style={styles.stateTitle}>
-            Ainda ninguém avaliou este livro
-          </ThemedText>
-          <ThemedText themeColor="textSecondary">Que tal ser a primeira pessoa?</ThemedText>
-        </ThemedView>
+      {status === 'loading' ? (
+        showLoading ? (
+          <SkeletonList count={2} />
+        ) : null
+      ) : status === 'error' ? (
+        <ErrorState message={erro} onRetry={onTentarNovamente} loading={carregando} />
+      ) : status === 'empty' || !dados ? (
+        <EmptyState
+          compact
+          title="Nenhuma avaliação ainda"
+          message="Conte o que achou do livro para ajudar outros leitores."
+          primaryAction={{ label: 'Avaliar este livro', onPress: onEscreverAvaliacao }}
+        />
       ) : (
         <>
           <ThemedText style={styles.summary}>
@@ -70,7 +65,7 @@ export function AvaliacoesDoLivro({
           </ThemedText>
 
           {dados.avaliacoes.map((avaliacao) => (
-            <TouchableOpacity
+            <FeedbackPressable
               key={avaliacao.id}
               accessibilityRole="button"
               accessibilityLabel={`Abrir a conversa da avaliação de ${avaliacao.usuarioNome || 'Leitor'}`}
@@ -105,34 +100,35 @@ export function AvaliacoesDoLivro({
                   {avaliacao.resenha}
                 </ThemedText>
               )}
-            </TouchableOpacity>
+            </FeedbackPressable>
           ))}
 
           {dados.hasMore && (
-            <TouchableOpacity
+            <FeedbackPressable
               accessibilityRole="button"
+              accessibilityLabel="Carregar mais avaliações"
               disabled={carregandoMais}
+              loading={carregandoMais}
+              loadingColor={theme.accent}
               onPress={onCarregarMais}
               style={[
                 styles.outlineButton,
                 { borderColor: theme.accent, opacity: carregandoMais ? DisabledOpacity : 1 },
               ]}>
-              {carregandoMais ? (
-                <ActivityIndicator
-                  accessibilityLabel="Carregando mais avaliações"
-                  color={theme.accent}
-                />
-              ) : (
+              {!carregandoMais && (
                 <ThemedText themeColor="accent" style={styles.buttonText}>
                   Ver mais avaliações
                 </ThemedText>
               )}
-            </TouchableOpacity>
+            </FeedbackPressable>
           )}
           {!!erroMais && (
-            <ThemedText themeColor="danger" style={styles.errorText} accessibilityRole="alert">
-              {erroMais}
-            </ThemedText>
+            <ErrorState
+              title="Não foi possível carregar mais avaliações"
+              message={erroMais}
+              onRetry={onCarregarMais}
+              loading={carregandoMais}
+            />
           )}
         </>
       )}

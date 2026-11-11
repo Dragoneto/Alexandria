@@ -7,6 +7,9 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { FeedbackPressable } from '@/components/feedback-pressable';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonProfileFields } from '@/components/skeletons';
 import {
   Accent,
   DisabledOpacity,
@@ -19,6 +22,7 @@ import {
   TextColor,
 } from '@/constants/design-system';
 import { getProfile, getProfilePhoto, removeProfilePhoto, saveProfilePhoto } from '@/services/auth';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 
 type ProfileData = {
   name: string;
@@ -62,6 +66,7 @@ export default function PerfilScreen() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState('');
+  const showLoading = useLoadingGate(loading);
 
   useFocusEffect(
     useCallback(() => {
@@ -172,27 +177,29 @@ export default function PerfilScreen() {
           </Pressable>
 
           <View style={styles.photoActions}>
-            <Pressable
+            <FeedbackPressable
               accessibilityRole="button"
+              accessibilityLabel={photo ? 'Alterar foto de perfil' : 'Adicionar foto de perfil'}
+              accessibilityState={{ disabled: photoBusy || loading, busy: photoBusy }}
               disabled={photoBusy || loading}
+              loading={photoBusy}
+              loadingColor={Mint.mint400}
               onPress={handleChangePhoto}
-              style={({ pressed }) => [
-                pressed && styles.pressed,
-                (photoBusy || loading) && styles.desabilitado,
-              ]}>
+              style={[styles.photoActionTarget, (photoBusy || loading) && styles.desabilitado]}>
               <Text style={styles.photoAction}>{photo ? 'Alterar foto' : 'Adicionar foto'}</Text>
-            </Pressable>
+            </FeedbackPressable>
             {photo && (
-              <Pressable
+              <FeedbackPressable
                 accessibilityRole="button"
+                accessibilityLabel="Remover foto de perfil"
+                accessibilityState={{ disabled: photoBusy, busy: photoBusy }}
                 disabled={photoBusy}
+                loading={photoBusy}
+                loadingColor={Mint.mint400}
                 onPress={handleRemovePhoto}
-                style={({ pressed }) => [
-                  pressed && styles.pressed,
-                  photoBusy && styles.desabilitado,
-                ]}>
+                style={[styles.photoActionTarget, photoBusy && styles.desabilitado]}>
                 <Text style={styles.photoActionMuted}>Remover foto</Text>
-              </Pressable>
+              </FeedbackPressable>
             )}
           </View>
 
@@ -201,34 +208,54 @@ export default function PerfilScreen() {
           <Text style={styles.title}>Meu perfil</Text>
           <Text style={styles.subtitle}>Confira os dados da sua conta.</Text>
 
-          {!!error && <Text style={styles.error}>{error}</Text>}
+          {!!error && (
+            <ErrorState
+              message={error}
+              onRetry={() => {
+                setLoading(true);
+                setError('');
+                void getProfile()
+                  .then(setProfile)
+                  .catch((failure) =>
+                    setError(
+                      failure instanceof Error
+                        ? failure.message
+                        : 'Não foi possível carregar o perfil agora.',
+                    ),
+                  )
+                  .finally(() => setLoading(false));
+              }}
+            />
+          )}
 
-          <View style={styles.card}>
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Nome completo</Text>
-              <Text style={styles.fieldValue}>
-                {loading ? 'Carregando...' : profile?.name || 'Não informado'}
-              </Text>
-            </View>
+          {loading ? (
+            showLoading ? (
+              <SkeletonProfileFields />
+            ) : null
+          ) : (
+            profile && (
+              <View style={styles.card}>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Nome completo</Text>
+                  <Text style={styles.fieldValue}>{profile.name || 'Não informado'}</Text>
+                </View>
 
-            <View style={styles.divider} />
+                <View style={styles.divider} />
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Email de acesso</Text>
-              <Text style={styles.fieldValue}>
-                {loading ? 'Carregando...' : profile?.email || 'Não informado'}
-              </Text>
-            </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Email de acesso</Text>
+                  <Text style={styles.fieldValue}>{profile.email || 'Não informado'}</Text>
+                </View>
 
-            <View style={styles.divider} />
+                <View style={styles.divider} />
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Status da conta</Text>
-              <Text style={styles.fieldValue}>
-                {loading ? 'Verificando...' : profile ? 'Conta ativa' : 'Indisponível'}
-              </Text>
-            </View>
-          </View>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>Status da conta</Text>
+                  <Text style={styles.fieldValue}>Conta ativa</Text>
+                </View>
+              </View>
+            )
+          )}
 
           <View style={styles.actions}>
             <ActionButton label="Editar perfil" onPress={() => router.push('/editar_perfil')} />
@@ -300,6 +327,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: Space.six,
   },
+  photoActionTarget: { minHeight: 44, justifyContent: 'center', paddingHorizontal: Space.two },
   photoAction: {
     fontFamily: DSFonts.ui,
     fontSize: 13,

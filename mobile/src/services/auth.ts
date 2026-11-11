@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from '@/services/api';
+import { getApiConfig } from '@/constants/env';
 import { clearAuth, getAuth, saveAuth, type StoredUser } from '@/services/auth-storage';
 import { limparRascunhos } from '@/services/rascunhos';
 
@@ -83,7 +84,25 @@ export async function getProfile(): Promise<UserProfile> {
 }
 
 export async function restoreSession(): Promise<StoredUser | null> {
-  const stored = await getAuth();
+  let timeoutMs = 15000;
+  try {
+    timeoutMs = getApiConfig().timeoutMs;
+  } catch {
+    // A sessão ainda pode ser lida; apiRequest mostrará o erro de configuração depois.
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stored = await Promise.race([
+    getAuth(),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new ApiError('timeout', 'A verificação da sessão demorou demais. Tente novamente.'),
+          ),
+        timeoutMs,
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
   if (!stored) return null;
   try {
     const profile = await getProfile();

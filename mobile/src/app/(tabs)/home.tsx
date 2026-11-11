@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { Image } from 'expo-image';
@@ -23,7 +15,11 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
+import { ErrorState } from '@/components/error-state';
+import { FeedbackPressable } from '@/components/feedback-pressable';
+import { SkeletonBookShelf } from '@/components/skeletons';
 import { useFoco } from '@/hooks/use-foco';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { getProfile, getProfilePhoto } from '@/services/auth';
 import { searchBooks, type BookSearchItem } from '@/services/open-library';
 
@@ -143,29 +139,64 @@ type EstanteProps = {
   category?: string;
 };
 
-/** Estante horizontal de capas. Some sozinha se a busca falhar ou vier vazia. */
+/** Estante horizontal de capas com vazio, erro e carregamento explícitos. */
 function Estante({ title, query, category }: EstanteProps) {
   const router = useRouter();
-  const [books, setBooks] = useState<BookSearchItem[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [books, setBooks] = useState<BookSearchItem[]>([]);
+  const [state, setState] = useState<'loading' | 'success' | 'empty' | 'error'>('loading');
+  const [attempt, setAttempt] = useState(0);
+  const loadingVisible = useLoadingGate(state === 'loading');
 
   useEffect(() => {
     const controller = new AbortController();
-    searchBooks({ query, category, quality: 'curated', limit: 12, signal: controller.signal })
-      .then((result) => setBooks(result.books))
-      .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
-      });
+    const load = async () => {
+      await Promise.resolve();
+      if (controller.signal.aborted) return;
+      setState('loading');
+      try {
+        const result = await searchBooks({
+          query,
+          category,
+          quality: 'curated',
+          limit: 12,
+          signal: controller.signal,
+        });
+        setBooks(result.books);
+        setState(result.books.length ? 'success' : 'empty');
+      } catch {
+        if (!controller.signal.aborted) setState('error');
+      }
+    };
+    void load();
     return () => controller.abort();
-  }, [query, category]);
-
-  if (failed || books?.length === 0) return null;
+  }, [query, category, attempt]);
 
   return (
     <View style={styles.shelf}>
       <Text style={styles.shelfTitle}>{title}</Text>
 
-      {books ? (
+      {state === 'loading' ? (
+        loadingVisible ? (
+          <SkeletonBookShelf />
+        ) : null
+      ) : state === 'error' ? (
+        <ErrorState
+          title="Esta estante não carregou"
+          message="Tente novamente para ver os livros desta seleção."
+          onRetry={() => setAttempt((current) => current + 1)}
+        />
+      ) : state === 'empty' ? (
+        <View style={styles.shelfEmpty}>
+          <Text style={styles.shelfEmptyText}>Nenhum livro apareceu nesta estante.</Text>
+          <FeedbackPressable
+            accessibilityRole="button"
+            accessibilityLabel={`Buscar livros em ${title}`}
+            onPress={() => router.push(`/explore?q=${encodeURIComponent(query)}` as Href)}
+            style={styles.shelfAction}>
+            <Text style={styles.shelfActionText}>Buscar livros</Text>
+          </FeedbackPressable>
+        </View>
+      ) : (
         <FlatList
           horizontal
           data={books}
@@ -195,12 +226,6 @@ function Estante({ title, query, category }: EstanteProps) {
             </Pressable>
           )}
         />
-      ) : (
-        <View style={[styles.shelfRow, styles.skeletonRow]}>
-          {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={styles.skeleton} />
-          ))}
-        </View>
       )}
     </View>
   );
@@ -303,15 +328,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: ScreenInset,
     gap: Space.four,
   },
-  skeletonRow: {
-    flexDirection: 'row',
+  shelfEmpty: { paddingHorizontal: ScreenInset, gap: Space.two },
+  shelfEmptyText: { fontFamily: DSFonts.ui, fontSize: 14, color: TextColor.secondary },
+  shelfAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: Space.two,
   },
-  skeleton: {
-    width: COVER_WIDTH,
-    height: COVER_HEIGHT,
-    borderRadius: Radius.cover,
-    backgroundColor: Ink.ink700,
-  },
+  shelfActionText: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700', color: Mint.mint400 },
   book: {
     width: COVER_WIDTH,
     gap: Space.one,

@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -83,10 +84,15 @@ type BotaoAbaProps = {
 function BotaoAba({ titulo, focado, icone, onPress, onLongPress }: BotaoAbaProps) {
   // Cor do nome: 0 = cinza, 1 = verde
   const ativo = useSharedValue(focado ? 1 : 0);
+  const reduzirMovimento = useReducedMotion();
 
   useEffect(() => {
-    ativo.value = withTiming(focado ? 1 : 0, { duration: 250 });
-  }, [focado, ativo]);
+    ativo.value = reduzirMovimento
+      ? focado
+        ? 1
+        : 0
+      : withTiming(focado ? 1 : 0, { duration: 200 });
+  }, [focado, ativo, reduzirMovimento]);
 
   const nomeStyle = useAnimatedStyle(() => ({
     color: interpolateColor(ativo.value, [0, 1], [COR_INATIVA, COR_ATIVA]),
@@ -99,7 +105,7 @@ function BotaoAba({ titulo, focado, icone, onPress, onLongPress }: BotaoAbaProps
       accessibilityRole="tab"
       accessibilityState={{ selected: focado }}
       accessibilityLabel={titulo}
-      style={styles.aba}>
+      style={({ pressed }) => [styles.aba, pressed && styles.abaPressed]}>
       <View style={styles.conteudoAba}>
         {icone}
         <Animated.Text numberOfLines={1} style={[styles.nome, nomeStyle]}>
@@ -130,6 +136,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  abaPressed: { opacity: 0.72 },
   conteudoAba: {
     alignItems: 'center',
     gap: Space.one, // espaço entre o ícone e o nome

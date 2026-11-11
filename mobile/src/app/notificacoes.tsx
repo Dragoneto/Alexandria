@@ -4,6 +4,9 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { EmptyState } from '@/components/empty_state';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonList } from '@/components/skeletons';
 import {
   Accent,
   Ink,
@@ -13,7 +16,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
-import { useTheme } from '@/hooks/use-theme';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
   contarNaoLidas,
@@ -28,21 +31,24 @@ function dataCurta(value: string) {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR') : 'Data indisponível';
 }
+type EstadoNotificacoes = 'loading' | 'success' | 'empty' | 'error';
 
 export default function NotificacoesScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const [items, setItems] = useState<Notificacao[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [feedState, setFeedState] = useState<EstadoNotificacoes>('loading');
   const [cursor, setCursor] = useState<string | null>(null);
   const lock = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const seen = useRef(new Set<string>());
+  const showLoading = useLoadingGate(loading && items.length === 0);
 
   const load = useCallback(async (refresh = false) => {
     if (lock.current) return;
@@ -50,7 +56,9 @@ export default function NotificacoesScreen() {
     controller.current?.abort();
     const request = new AbortController();
     controller.current = request;
-    refresh ? setRefreshing(true) : setLoading(true);
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    if (!refresh) setFeedState('loading');
     setError('');
     try {
       const [page, count] = await Promise.all([
@@ -60,9 +68,11 @@ export default function NotificacoesScreen() {
       if (request.signal.aborted) return;
       seen.current = new Set(page.notificacoes.map((item) => item.id));
       setItems(page.notificacoes);
+      setFeedState(page.notificacoes.length ? 'success' : 'empty');
       setCursor(page.proximoCursor);
       setUnread(count);
     } catch (failure) {
+      if (!request.signal.aborted) setFeedState('error');
       if (!request.signal.aborted)
         setError(
           failure instanceof Error ? failure.message : 'Não foi possível carregar as notificações.',
@@ -118,6 +128,7 @@ export default function NotificacoesScreen() {
   const open = async (item: Notificacao) => {
     if (busy) return;
     setBusy(true);
+    setOpeningId(item.lidaEm === null ? item.id : null);
     setError('');
     try {
       const destination = destinoDaNotificacaoRecebida(item);
@@ -146,6 +157,7 @@ export default function NotificacoesScreen() {
       }
     } finally {
       setBusy(false);
+      setOpeningId(null);
     }
   };
 
@@ -184,33 +196,39 @@ export default function NotificacoesScreen() {
           <ActionButton
             label="Marcar todas como lidas"
             variant="ghost"
+            disabled={unread === 0}
             loading={busy}
             onPress={markAll}
           />
         </View>
-        {!!error && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {error}
-          </Text>
+        {feedState === 'error' && !items.length && !loading && (
+          <ErrorState message={error} onRetry={() => void load()} />
         )}
-        {loading && items.length === 0 ? (
-          <ActivityIndicator accessibilityLabel="Carregando notificações" color={Mint.mint400} />
-        ) : null}
-        {!loading && !error && items.length === 0 ? (
-          <Text style={styles.empty}>Você ainda não recebeu notificações.</Text>
+        {feedState === 'loading' && showLoading ? <SkeletonList count={3} /> : null}
+        {feedState === 'empty' ? (
+          <EmptyState
+            compact
+            title="Nenhuma notificação ainda"
+            message="As notificações aparecem quando alguém comenta ou responde às suas avaliações. Explore livros e publique uma avaliação para iniciar uma conversa."
+            primaryAction={{ label: 'Explorar livros', onPress: () => router.push('/explore') }}
+          />
         ) : null}
         {items.map((item) => (
           <Pressable
             key={item.id}
             accessibilityRole="button"
             disabled={busy || !item.alvoDisponivel}
+            accessibilityState={{
+              disabled: busy || !item.alvoDisponivel,
+              busy: openingId === item.id,
+            }}
             accessibilityLabel={`${item.tipo === 'resposta' ? 'Resposta' : 'Comentário'} de ${item.autor.nome}, ${item.lidaEm ? 'lida' : 'não lida'}`}
             onPress={() => void open(item)}
             style={({ pressed }) => [
               styles.card,
               {
                 borderColor: item.lidaEm ? Ink.ink500 : Mint.mint400,
-                backgroundColor: item.lidaEm ? Ink.ink700 : '#173b3b',
+                backgroundColor: item.lidaEm ? Ink.ink700 : Mint.mint900,
               },
               pressed && styles.pressed,
               !item.alvoDisponivel && styles.disabled,
@@ -223,10 +241,22 @@ export default function NotificacoesScreen() {
               {dataCurta(item.criadoEm)} · {item.lidaEm ? 'Lida' : 'Não lida'}
             </Text>
             {!item.alvoDisponivel && <Text style={styles.meta}>Comentário não disponível</Text>}
+            {openingId === item.id && (
+              <View style={styles.cardLoading} pointerEvents="none">
+                <ActivityIndicator color={Mint.mint400} accessibilityLabel="Abrindo notificação" />
+              </View>
+            )}
           </Pressable>
         ))}
         {cursor && (
           <ActionButton label="Carregar mais" variant="ghost" loading={more} onPress={loadMore} />
+        )}
+        {!!error && items.length > 0 && (
+          <ErrorState
+            title="Não foi possível concluir"
+            message={error}
+            onRetry={() => void load(true)}
+          />
         )}
       </ScrollView>
     </SafeAreaView>
@@ -239,7 +269,21 @@ const styles = StyleSheet.create({
   title: { color: TextColor.primary, fontSize: 28, fontWeight: '800' },
   subtitle: { color: TextColor.secondary, fontSize: 15 },
   actions: { gap: Space.two },
-  card: { borderWidth: 1, borderRadius: Radius.card, padding: Space.four, gap: Space.two },
+  card: {
+    position: 'relative',
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Space.four,
+    paddingRight: 56,
+    gap: Space.two,
+  },
+  cardLoading: {
+    position: 'absolute',
+    right: Space.four,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
   author: { color: TextColor.primary, fontSize: 15, fontWeight: '700' },
   meta: { color: TextColor.secondary, fontSize: 13 },
   empty: { color: TextColor.secondary, textAlign: 'center', padding: Space.six },

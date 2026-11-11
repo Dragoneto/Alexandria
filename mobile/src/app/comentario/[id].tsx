@@ -1,9 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { ErrorState } from '@/components/error-state';
+import { SkeletonList } from '@/components/skeletons';
+import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
 import {
@@ -26,6 +29,7 @@ export default function ComentarioContextoScreen() {
   const [unavailable, setUnavailable] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const pendingPage = useRef(false);
+  const showLoading = useLoadingGate(loading);
 
   useEffect(() => {
     const request = new AbortController();
@@ -138,16 +142,12 @@ export default function ComentarioContextoScreen() {
         <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 22 }}>
           Comentário na conversa
         </Text>
-        {loading && (
-          <ActivityIndicator accessibilityLabel="Carregando contexto" color={theme.accent} />
-        )}
+        {loading && showLoading && <SkeletonList count={2} />}
         {!!error && (
-          <Text accessibilityRole="alert" style={{ color: theme.text }}>
-            {error}
-          </Text>
-        )}
-        {!loading && !data && !unavailable && (
-          <ActionButton label="Tentar novamente" onPress={() => setAttempt((v) => v + 1)} />
+          <ErrorState
+            message={error}
+            onRetry={unavailable ? undefined : () => setAttempt((v) => v + 1)}
+          />
         )}
         {data && (
           <>
