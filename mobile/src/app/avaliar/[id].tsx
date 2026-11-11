@@ -3,7 +3,6 @@ import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -13,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonReviewForm } from '@/components/skeletons';
@@ -146,7 +146,7 @@ export default function AvaliarLivro() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.back()}
               hitSlop={10}
               accessibilityRole="button"
@@ -160,7 +160,7 @@ export default function AvaliarLivro() {
                 size={20}
                 tintColor={theme.accent}
               />
-            </Pressable>
+            </FeedbackPressable>
 
             <ThemedText themeColor="accent" style={styles.eyebrow}>
               {editando ? 'Editar avaliação' : 'Avaliar'}

@@ -2,17 +2,11 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
@@ -122,7 +116,7 @@ export default function MinhasAvaliacoes() {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.back()}
               hitSlop={10}
               accessibilityRole="button"
@@ -136,7 +130,7 @@ export default function MinhasAvaliacoes() {
                 size={20}
                 tintColor={theme.accent}
               />
-            </Pressable>
+            </FeedbackPressable>
 
             <ThemedText themeColor="accent" style={styles.eyebrow}>
               Perfil

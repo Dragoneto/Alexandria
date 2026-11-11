@@ -2,10 +2,11 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonBookDetail } from '@/components/skeletons';
 import { StatusNaBiblioteca } from '@/components/status-na-biblioteca';
@@ -116,7 +117,7 @@ export default function DetalheDoLivro() {
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.back()}
               hitSlop={10}
               accessibilityRole="button"
@@ -130,7 +131,7 @@ export default function DetalheDoLivro() {
                 size={20}
                 tintColor={theme.accent}
               />
-            </Pressable>
+            </FeedbackPressable>
 
             {detailStatus === 'loading' ? (
               showLoading ? (

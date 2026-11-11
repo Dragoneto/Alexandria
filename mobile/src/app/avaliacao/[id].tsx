@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -16,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity } from '@/constants/design-system';
 import { EmptyState } from '@/components/empty_state';
@@ -281,7 +281,7 @@ export default function ConversaDaAvaliacao() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled">
             <View style={styles.content}>
-              <Pressable
+              <FeedbackPressable
                 onPress={voltar}
                 hitSlop={10}
                 accessibilityRole="button"
@@ -295,7 +295,7 @@ export default function ConversaDaAvaliacao() {
                   size={20}
                   tintColor={theme.accent}
                 />
-              </Pressable>
+              </FeedbackPressable>
 
               {conversa.inexistente ? (
                 <ThemedView
