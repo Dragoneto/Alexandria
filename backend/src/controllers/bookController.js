@@ -1,5 +1,6 @@
 const { mapSearchDocuments, mapWorkDetail } = require('../services/bookMapper');
 const openLibrary = require('../services/openLibrary');
+const { translateBookMetadata } = require('../services/bookTranslation');
 
 const TERMO_MINIMO = 2;
 const LIMITE_PADRAO = 10;
@@ -89,10 +90,19 @@ const detail = async (req, res) => {
     }
 
     const work = await openLibrary.getWork(id);
-    const book = mapWorkDetail(work, await openLibrary.getAuthorNames(work));
-    if (!book) {
+    const baseBook = mapWorkDetail(work, []);
+    if (!baseBook) {
       return res.status(404).json({ error: 'Livro não encontrado na Open Library.' });
     }
+
+    const [authors, translatedMetadata] = await Promise.all([
+      openLibrary.getAuthorNames(work),
+      translateBookMetadata({
+        description: baseBook.description,
+        categories: baseBook.categories,
+      }),
+    ]);
+    const book = { ...baseBook, authors, ...translatedMetadata };
 
     return res.json({ book });
   } catch (error) {
