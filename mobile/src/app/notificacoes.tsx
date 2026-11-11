@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
@@ -40,6 +40,7 @@ export default function NotificacoesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [more, setMore] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [cursor, setCursor] = useState<string | null>(null);
   const lock = useRef(false);
@@ -122,6 +123,7 @@ export default function NotificacoesScreen() {
   const open = async (item: Notificacao) => {
     if (busy) return;
     setBusy(true);
+    setOpeningId(item.lidaEm === null ? item.id : null);
     setError('');
     try {
       const destination = destinoDaNotificacaoRecebida(item);
@@ -150,6 +152,7 @@ export default function NotificacoesScreen() {
       }
     } finally {
       setBusy(false);
+      setOpeningId(null);
     }
   };
 
@@ -210,6 +213,10 @@ export default function NotificacoesScreen() {
             key={item.id}
             accessibilityRole="button"
             disabled={busy || !item.alvoDisponivel}
+            accessibilityState={{
+              disabled: busy || !item.alvoDisponivel,
+              busy: openingId === item.id,
+            }}
             accessibilityLabel={`${item.tipo === 'resposta' ? 'Resposta' : 'Comentário'} de ${item.autor.nome}, ${item.lidaEm ? 'lida' : 'não lida'}`}
             onPress={() => void open(item)}
             style={({ pressed }) => [
@@ -229,6 +236,11 @@ export default function NotificacoesScreen() {
               {dataCurta(item.criadoEm)} · {item.lidaEm ? 'Lida' : 'Não lida'}
             </Text>
             {!item.alvoDisponivel && <Text style={styles.meta}>Comentário não disponível</Text>}
+            {openingId === item.id && (
+              <View style={styles.cardLoading} pointerEvents="none">
+                <ActivityIndicator color={Mint.mint400} accessibilityLabel="Abrindo notificação" />
+              </View>
+            )}
           </Pressable>
         ))}
         {cursor && (
@@ -252,7 +264,21 @@ const styles = StyleSheet.create({
   title: { color: TextColor.primary, fontSize: 28, fontWeight: '800' },
   subtitle: { color: TextColor.secondary, fontSize: 15 },
   actions: { gap: Space.two },
-  card: { borderWidth: 1, borderRadius: Radius.card, padding: Space.four, gap: Space.two },
+  card: {
+    position: 'relative',
+    borderWidth: 1,
+    borderRadius: Radius.card,
+    padding: Space.four,
+    paddingRight: 56,
+    gap: Space.two,
+  },
+  cardLoading: {
+    position: 'absolute',
+    right: Space.four,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
   author: { color: TextColor.primary, fontSize: 15, fontWeight: '700' },
   meta: { color: TextColor.secondary, fontSize: 13 },
   empty: { color: TextColor.secondary, textAlign: 'center', padding: Space.six },

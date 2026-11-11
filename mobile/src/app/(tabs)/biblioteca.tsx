@@ -498,13 +498,16 @@ export default function Biblioteca() {
                             savingFavoriteId !== null && { opacity: DisabledOpacity },
                           ]}
                           onPress={() => void handleFavorite(item)}>
-                          <ThemedText themeColor="accent" style={styles.favButtonText}>
-                            {savingFavoriteId === item.id
-                              ? 'Salvando…'
-                              : item.favorito
-                                ? 'Favorito'
-                                : 'Favoritar'}
-                          </ThemedText>
+                          {savingFavoriteId === item.id ? (
+                            <ActivityIndicator
+                              color={theme.accent}
+                              accessibilityLabel="Salvando favorito"
+                            />
+                          ) : (
+                            <ThemedText themeColor="accent" style={styles.favButtonText}>
+                              {item.favorito ? 'Favorito' : 'Favoritar'}
+                            </ThemedText>
+                          )}
                         </TouchableOpacity>
                         <TouchableOpacity
                           accessibilityRole="button"

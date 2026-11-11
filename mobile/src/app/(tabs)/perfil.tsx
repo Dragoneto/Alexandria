@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonProfileFields } from '@/components/skeletons';
 import {
@@ -176,33 +177,29 @@ export default function PerfilScreen() {
           </Pressable>
 
           <View style={styles.photoActions}>
-            <Pressable
+            <FeedbackPressable
               accessibilityRole="button"
               accessibilityLabel={photo ? 'Alterar foto de perfil' : 'Adicionar foto de perfil'}
               accessibilityState={{ disabled: photoBusy || loading, busy: photoBusy }}
               disabled={photoBusy || loading}
+              loading={photoBusy}
+              loadingColor={Mint.mint400}
               onPress={handleChangePhoto}
-              style={({ pressed }) => [
-                styles.photoActionTarget,
-                pressed && styles.pressed,
-                (photoBusy || loading) && styles.desabilitado,
-              ]}>
+              style={[styles.photoActionTarget, (photoBusy || loading) && styles.desabilitado]}>
               <Text style={styles.photoAction}>{photo ? 'Alterar foto' : 'Adicionar foto'}</Text>
-            </Pressable>
+            </FeedbackPressable>
             {photo && (
-              <Pressable
+              <FeedbackPressable
                 accessibilityRole="button"
                 accessibilityLabel="Remover foto de perfil"
                 accessibilityState={{ disabled: photoBusy, busy: photoBusy }}
                 disabled={photoBusy}
+                loading={photoBusy}
+                loadingColor={Mint.mint400}
                 onPress={handleRemovePhoto}
-                style={({ pressed }) => [
-                  styles.photoActionTarget,
-                  pressed && styles.pressed,
-                  photoBusy && styles.desabilitado,
-                ]}>
+                style={[styles.photoActionTarget, photoBusy && styles.desabilitado]}>
                 <Text style={styles.photoActionMuted}>Remover foto</Text>
-              </Pressable>
+              </FeedbackPressable>
             )}
           </View>
 
