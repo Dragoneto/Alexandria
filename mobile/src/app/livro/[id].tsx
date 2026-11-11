@@ -182,6 +182,11 @@ export default function DetalheDoLivro() {
                     </ThemedText>
                   )}
                 </View>
+                {book.categories.length > 0 && !book.categoriesTranslated && (
+                  <ThemedText themeColor="textSecondary" style={styles.translationNote}>
+                    Algumas categorias ainda estão no idioma original.
+                  </ThemedText>
+                )}
 
                 <ThemedText type="title" style={styles.title}>
                   {book.title}
@@ -195,6 +200,11 @@ export default function DetalheDoLivro() {
                 </ThemedText>
                 {book.description ? (
                   <>
+                    <ThemedText themeColor="textSecondary" style={styles.translationNote}>
+                      {book.descriptionTranslated
+                        ? 'Sinopse traduzida automaticamente para português.'
+                        : 'Sinopse exibida no idioma original da Open Library.'}
+                    </ThemedText>
                     <ThemedText
                       themeColor="textSecondary"
                       style={styles.description}
@@ -354,6 +364,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   description: { marginTop: Spacing.two, fontSize: 15, lineHeight: 23 },
+  translationNote: { marginTop: Spacing.one, fontSize: 12, lineHeight: 17 },
   link: { fontSize: 13, fontWeight: '800', paddingVertical: Spacing.two },
   linkError: { fontSize: 13, lineHeight: 20 },
   addButtonText: { fontSize: 14, fontWeight: '800' },

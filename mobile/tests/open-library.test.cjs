@@ -155,7 +155,9 @@ const detail = {
   title: 'The Lord of the Rings',
   authors: ['J.R.R. Tolkien'],
   description: null,
+  descriptionTranslated: false,
   categories: ['Fantasy'],
+  categoriesTranslated: false,
   coverUrl: 'https://covers.openlibrary.org/b/id/14625765-L.jpg',
   openLibraryUrl: 'https://openlibrary.org/works/OL27448W',
 };
@@ -178,7 +180,9 @@ test('detalhe com campos faltando chega completo para a tela', async () => {
     title: 'Só o título',
     authors: [],
     description: null,
+    descriptionTranslated: false,
     categories: [],
+    categoriesTranslated: false,
     coverUrl: null,
     openLibraryUrl: 'https://openlibrary.org/works/OL1W',
   });

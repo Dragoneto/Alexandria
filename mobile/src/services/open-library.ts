@@ -43,7 +43,11 @@ export type BookDetail = {
   authors: string[];
   /** Sinopse; muitos livros da Open Library não têm. */
   description: string | null;
+  /** True quando a API traduziu a sinopse para português brasileiro. */
+  descriptionTranslated: boolean;
   categories: string[];
+  /** False quando ao menos uma categoria ainda está no idioma original. */
+  categoriesTranslated: boolean;
   coverUrl: string | null;
   openLibraryUrl: string;
 };
@@ -183,7 +187,9 @@ export async function getBookDetail(id: string, signal?: AbortSignal): Promise<B
     authors: stringArray(book.authors),
     description:
       typeof book.description === 'string' && book.description.trim() ? book.description : null,
+    descriptionTranslated: book.descriptionTranslated === true,
     categories: stringArray(book.categories),
+    categoriesTranslated: book.categoriesTranslated === true,
     coverUrl: typeof book.coverUrl === 'string' ? book.coverUrl : null,
     openLibraryUrl:
       typeof book.openLibraryUrl === 'string'
