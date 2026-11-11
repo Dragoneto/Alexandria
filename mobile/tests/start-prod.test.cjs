@@ -4,7 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { checkRailwayUrl, readEnvFile } = require('../scripts/start-railway.js');
+const { checkProductionUrl, readEnvFile } = require('../scripts/start-prod.js');
 
 const PRODUCTION_ENV_FILE = path.join(__dirname, '..', '.env.production');
 
@@ -37,9 +37,9 @@ test('arquivo inexistente não quebra a leitura', () => {
   assert.deepEqual(readEnvFile(path.join(os.tmpdir(), 'nao-existe-alexandria', '.env')), {});
 });
 
-test('avisa quando o link do Railway ainda não foi colado', () => {
+test('avisa quando o link do backend publicado ainda não foi colado', () => {
   for (const value of [undefined, '', '   ']) {
-    const result = checkRailwayUrl(value);
+    const result = checkProductionUrl(value);
     assert.equal(result.ok, false);
     assert.match(result.message, /\.env\.production/);
   }
@@ -57,17 +57,17 @@ test('recusa endereço que o app não conseguiria usar', () => {
   ];
 
   for (const value of recusados) {
-    assert.equal(checkRailwayUrl(value).ok, false, `deveria recusar ${value}`);
+    assert.equal(checkProductionUrl(value).ok, false, `deveria recusar ${value}`);
   }
 });
 
 test('aceita o endereço do backend e remove a barra final', () => {
-  assert.deepEqual(checkRailwayUrl('  https://publicado.up.railway.app//  '), {
+  assert.deepEqual(checkProductionUrl('  https://publicado.up.railway.app//  '), {
     ok: true,
     url: 'https://publicado.up.railway.app',
   });
 
-  assert.deepEqual(checkRailwayUrl('http://192.168.0.10:3000'), {
+  assert.deepEqual(checkProductionUrl('http://192.168.0.10:3000'), {
     ok: true,
     url: 'http://192.168.0.10:3000',
   });
@@ -82,7 +82,7 @@ test('o .env.production do repositório declara a variável e, se preenchida, pa
   );
 
   if (values.EXPO_PUBLIC_API_URL) {
-    const result = checkRailwayUrl(values.EXPO_PUBLIC_API_URL);
+    const result = checkProductionUrl(values.EXPO_PUBLIC_API_URL);
     assert.equal(result.ok, true, result.message);
   }
 });

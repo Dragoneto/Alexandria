@@ -19,14 +19,14 @@ editar código:
 | Comando | Arquivo lido | Aponta para |
 | --- | --- | --- |
 | `npm start` | `.env.development` | backend local, `http://localhost:3000` |
-| `npm run start:railway` | `.env.production` | backend publicado no Railway |
+| `npm run start:prod` | `.env.production` | backend publicado no Render |
 
-O link do Railway fica em `.env.production`, sem `/api` no final. Enquanto ele
-estiver vazio, `npm run start:railway` avisa e não sobe o app.
+O link do backend publicado fica em `.env.production`, sem `/api` no final. Enquanto ele
+estiver vazio, `npm run start:prod` avisa e não sobe o app.
 
 Precisa de um endereço só seu, como o IP do computador para abrir no celular?
 Copie `.env.example` para `.env.local` e ajuste a URL. Esse arquivo vence os
-versionados, não entra no git e não interfere no `npm run start:railway`.
+versionados, não entra no git e não interfere no `npm run start:prod`.
 
 | Ambiente | Backend local |
 | --- | --- |
@@ -77,7 +77,7 @@ usam a tradução local e os demais textos aparecem no idioma original com aviso
 tela.
 
 Para ativar a tradução local, configure `DEEPL_AUTH_KEY` no `backend/.env`; para
-produção, configure a mesma variável como segredo no Railway. Chaves DeepL Free
+produção, configure a mesma variável como segredo no Render. Chaves DeepL Free
 com sufixo `:fx` usam `https://api-free.deepl.com`; outras chaves usam
 `https://api.deepl.com` por padrão. `DEEPL_API_URL` permite substituir o endereço.
 

@@ -43,7 +43,7 @@
   },
   "scripts": {
     "start": "expo start",
-    "start:railway": "node ./scripts/start-railway.js",
+    "start:prod": "node ./scripts/start-prod.js",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",

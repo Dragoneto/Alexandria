@@ -1,12 +1,12 @@
 /**
- * Inicia o app apontando para o backend publicado no Railway.
+ * Inicia o app apontando para o backend publicado no Render.
  *
  * Lê o .env.production, valida o endereço e roda o expo start com essas
  * variáveis já no ambiente do processo. O Expo não sobrescreve variável que
  * já existe, então nenhum arquivo .env local muda o destino das requisições.
  *
- * Uso: npm run start:railway
- * Argumentos extras vão para o expo start (ex.: npm run start:railway -- --android)
+ * Uso: npm run start:prod
+ * Argumentos extras vão para o expo start (ex.: npm run start:prod -- --android)
  */
 const { spawn } = require('node:child_process');
 const fs = require('node:fs');
@@ -40,13 +40,13 @@ function readEnvFile(filePath) {
 }
 
 /** Mesmas regras de src/constants/env.ts, com mensagens para quem está colando o link. */
-function checkRailwayUrl(value) {
+function checkProductionUrl(value) {
   const candidate = (value ?? '').trim();
 
   if (!candidate) {
     return {
       ok: false,
-      message: 'O link do Railway ainda não está em mobile/.env.production (EXPO_PUBLIC_API_URL).',
+      message: 'O link do backend publicado ainda não está em mobile/.env.production (EXPO_PUBLIC_API_URL).',
     };
   }
 
@@ -57,12 +57,12 @@ function checkRailwayUrl(value) {
   } catch {
     return {
       ok: false,
-      message: 'O link do Railway precisa ser um endereço http:// ou https:// válido.',
+      message: 'O link do backend publicado precisa ser um endereço http:// ou https:// válido.',
     };
   }
 
   if (!['http:', 'https:'].includes(url.protocol)) {
-    return { ok: false, message: 'O link do Railway precisa começar com http:// ou https://.' };
+    return { ok: false, message: 'O link do backend publicado precisa começar com http:// ou https://.' };
   }
 
   if (url.username || url.password || url.search || url.hash) {
@@ -86,14 +86,14 @@ function checkRailwayUrl(value) {
 
 function main() {
   const values = readEnvFile(PRODUCTION_ENV_FILE);
-  const result = checkRailwayUrl(values[URL_KEY]);
+  const result = checkProductionUrl(values[URL_KEY]);
 
   if (!result.ok) {
     console.error(result.message);
     process.exit(1);
   }
 
-  console.log(`API: ${result.url} (Railway)`);
+  console.log(`API: ${result.url} (Render)`);
 
   const publicVars = Object.fromEntries(
     Object.entries(values).filter(([key, value]) => key.startsWith('EXPO_PUBLIC_') && value !== ''),
@@ -117,4 +117,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { checkRailwayUrl, readEnvFile };
+module.exports = { checkProductionUrl, readEnvFile };
