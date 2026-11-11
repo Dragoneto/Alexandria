@@ -1,6 +1,6 @@
 const { mapSearchDocuments, mapWorkDetail } = require('../services/bookMapper');
 const openLibrary = require('../services/openLibrary');
-const { translateBookMetadata } = require('../services/bookTranslation');
+const { translateBookMetadata, translateTitles } = require('../services/bookTranslation');
 
 const TERMO_MINIMO = 2;
 const LIMITE_PADRAO = 10;
@@ -16,24 +16,17 @@ const CATEGORY_SUBJECTS = new Map([
   ['Mistério', 'mystery'],
 ]);
 const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502, not_found: 404 };
-const TRADUCOES_PARALELAS = 4;
 
-async function traduzirLivrosDaBusca(books) {
-  const translated = [...books];
-  let nextIndex = 0;
-  const workers = Array.from(
-    { length: Math.min(TRADUCOES_PARALELAS, books.length) },
-    async () => {
-      while (nextIndex < books.length) {
-        const index = nextIndex++;
-        const book = books[index];
-        const metadata = await translateBookMetadata({ title: book.title, categories: book.categories });
-        translated[index] = { ...book, ...metadata, originalTitle: book.originalTitle };
-      }
-    },
-  );
-  await Promise.all(workers);
-  return translated;
+// Na busca o app só mostra título, autor e capa: traduz apenas os títulos,
+// todos numa chamada só ao DeepL (e com cache), para não gastar a cota à toa.
+async function traduzirTitulosDaBusca(books) {
+  const titulos = await translateTitles(books.map((book) => book.title));
+  return books.map((book, index) => ({
+    ...book,
+    title: titulos[index].title || book.title,
+    titleTranslated: titulos[index].titleTranslated,
+    originalTitle: book.originalTitle,
+  }));
 }
 
 function textParam(value) {
@@ -86,7 +79,7 @@ const search = async (req, res) => {
       limit,
     });
 
-    const books = await traduzirLivrosDaBusca(mapSearchDocuments(docs, category || undefined));
+    const books = await traduzirTitulosDaBusca(mapSearchDocuments(docs, category || undefined));
     return res.json({
       books,
       total,

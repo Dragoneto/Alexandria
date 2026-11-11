@@ -1,9 +1,13 @@
 const { createHash } = require('node:crypto');
+const traducoes = require('../repositories/traducaoRepository');
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const MAX_CACHE_ENTRIES = 300;
 const REQUEST_TIMEOUT_MS = 3500;
 const MAX_TEXT_LENGTH = 10000;
+// O DeepL cobra por caractere enviado. Cada texto vai ao provedor uma vez só:
+// fica num cache em memória e também no PostgreSQL (tabela traducoes).
+const MAX_TEXTOS_EM_MEMORIA = 5000;
+// Limite de textos por requisição da API do DeepL
+const TEXTOS_POR_REQUISICAO = 50;
 
 const CATEGORY_TRANSLATIONS = new Map([
   ['adventure', 'Aventura'],
@@ -45,7 +49,7 @@ const CATEGORY_TRANSLATIONS = new Map([
 const CATEGORIAS_PT = new Set(
   [...CATEGORY_TRANSLATIONS.values()].map((value) => normalizarCategoria(value)),
 );
-const cache = new Map();
+const cacheDeTextos = new Map();
 const requisicoesEmAndamento = new Map();
 
 function normalizarCategoria(value) {
@@ -97,30 +101,18 @@ function baseUrl(authKey) {
   return url.toString().replace(/\/+$/, '');
 }
 
-function cacheKey(title, description, categories) {
-  return createHash('sha256')
-    .update(JSON.stringify([title, description, categories]))
-    .digest('hex');
+function hash(value) {
+  return createHash('sha256').update(value).digest('hex');
 }
 
-function lerCache(key) {
-  const item = cache.get(key);
-  if (!item) return null;
-  if (item.expiraEm <= Date.now()) {
-    cache.delete(key);
-    return null;
-  }
-  cache.delete(key);
-  cache.set(key, item);
-  return { ...item.result, categories: [...item.result.categories] };
+function chaveDoTexto(texto) {
+  return hash(`PT-BR\u0000${texto}`);
 }
 
-function gravarCache(key, result) {
-  while (cache.size >= MAX_CACHE_ENTRIES) cache.delete(cache.keys().next().value);
-  cache.set(key, {
-    result: { ...result, categories: [...result.categories] },
-    expiraEm: Date.now() + CACHE_TTL_MS,
-  });
+function guardarNaMemoria(chave, item) {
+  cacheDeTextos.delete(chave);
+  while (cacheDeTextos.size >= MAX_TEXTOS_EM_MEMORIA) cacheDeTextos.delete(cacheDeTextos.keys().next().value);
+  cacheDeTextos.set(chave, item);
 }
 
 async function traduzirComDeepL(texts, authKey) {
@@ -139,6 +131,58 @@ async function traduzirComDeepL(texts, authKey) {
   if (!Array.isArray(payload?.translations) || payload.translations.length !== texts.length) return null;
   if (payload.translations.some((item) => typeof item?.text !== 'string' || !item.text.trim())) return null;
   return payload.translations;
+}
+
+/**
+ * Traduz uma lista de textos mandando ao DeepL só o que nunca foi traduzido,
+ * em lotes. Devolve um item { text, detected_source_language } por texto, na
+ * mesma ordem, ou null se o provedor falhar.
+ */
+async function traduzirTextos(texts, authKey) {
+  const chaves = texts.map(chaveDoTexto);
+  const encontrados = new Map();
+
+  chaves.forEach((chave) => {
+    const item = cacheDeTextos.get(chave);
+    if (item) {
+      guardarNaMemoria(chave, item);
+      encontrados.set(chave, item);
+    }
+  });
+
+  const semMemoria = [...new Set(chaves.filter((chave) => !encontrados.has(chave)))];
+  if (semMemoria.length) {
+    const doBanco = await traducoes.buscar(semMemoria).catch(() => new Map());
+    doBanco.forEach((item, chave) => {
+      guardarNaMemoria(chave, item);
+      encontrados.set(chave, item);
+    });
+  }
+
+  const pendentes = new Map();
+  chaves.forEach((chave, index) => {
+    if (!encontrados.has(chave)) pendentes.set(chave, texts[index]);
+  });
+  const novas = [];
+  const lista = [...pendentes];
+  for (let inicio = 0; inicio < lista.length; inicio += TEXTOS_POR_REQUISICAO) {
+    const lote = lista.slice(inicio, inicio + TEXTOS_POR_REQUISICAO);
+    const translated = await traduzirComDeepL(lote.map(([, texto]) => texto), authKey);
+    if (!translated) return null;
+    translated.forEach((item, index) => {
+      const [chave] = lote[index];
+      const entrada = { text: item.text.trim(), lang: item.detected_source_language ?? null };
+      guardarNaMemoria(chave, entrada);
+      encontrados.set(chave, entrada);
+      novas.push({ chave, ...entrada });
+    });
+  }
+  if (novas.length) await traducoes.salvar(novas).catch(() => {});
+
+  return chaves.map((chave) => {
+    const item = encontrados.get(chave);
+    return { text: item.text, detected_source_language: item.lang ?? undefined };
+  });
 }
 
 async function traduzirMetadata(title, description, categories, authKey) {
@@ -166,7 +210,7 @@ async function traduzirMetadata(title, description, categories, authKey) {
 
   if (!texts.length) return { metadata: fallback, translated: false };
 
-  const translated = await traduzirComDeepL(texts, authKey);
+  const translated = await traduzirTextos(texts, authKey);
   if (!translated) return { metadata: fallback, translated: false };
 
   let translatedDescription = fallback.description;
@@ -224,14 +268,8 @@ async function translateBookMetadata({ title, description, categories }) {
   const authKey = process.env.DEEPL_AUTH_KEY?.trim();
   if (!authKey) return resultadoFallback(normalizedTitle, normalizedDescription, normalizedCategories);
 
-  let key;
-  try {
-    key = cacheKey(normalizedTitle, normalizedDescription, normalizedCategories);
-  } catch {
-    return resultadoFallback(normalizedTitle, normalizedDescription, normalizedCategories);
-  }
-  const cached = lerCache(key);
-  if (cached) return cached;
+  // Pedidos iguais ao mesmo tempo esperam a mesma tradução
+  const key = hash(JSON.stringify([normalizedTitle, normalizedDescription, normalizedCategories]));
   if (requisicoesEmAndamento.has(key)) {
     const pending = await requisicoesEmAndamento.get(key);
     return { ...pending, categories: [...pending.categories] };
@@ -240,7 +278,6 @@ async function translateBookMetadata({ title, description, categories }) {
   const pending = (async () => {
     try {
       const outcome = await traduzirMetadata(normalizedTitle, normalizedDescription, normalizedCategories, authKey);
-      if (outcome.translated) gravarCache(key, outcome.metadata);
       return { ...outcome.metadata, categories: [...outcome.metadata.categories] };
     } catch {
       return resultadoFallback(normalizedTitle, normalizedDescription, normalizedCategories);
@@ -253,4 +290,34 @@ async function translateBookMetadata({ title, description, categories }) {
   return { ...result, categories: [...result.categories] };
 }
 
-module.exports = { translateBookMetadata };
+/**
+ * Traduz só os títulos de uma página de busca, todos numa chamada. Assuntos e
+ * sinopses ficam para o detalhe do livro, que é onde o app mostra.
+ */
+async function translateTitles(titles) {
+  const limpos = titles.map((title) => (typeof title === 'string' ? title.trim() : ''));
+  const original = () => limpos.map((title) => ({ title, titleTranslated: false }));
+  const authKey = process.env.DEEPL_AUTH_KEY?.trim();
+  if (!authKey) return original();
+
+  const enviar = [...new Set(limpos.filter((title) => title && title.length <= MAX_TEXT_LENGTH))];
+  if (!enviar.length) return original();
+
+  let translated;
+  try {
+    translated = await traduzirTextos(enviar, authKey);
+  } catch {
+    translated = null;
+  }
+  if (!translated) return original();
+
+  const porTitulo = new Map(enviar.map((title, index) => [title, translated[index]]));
+  return limpos.map((title) => {
+    const item = porTitulo.get(title);
+    const sourceIsPortuguese = /^PT(?:-|$)/i.test(item?.detected_source_language ?? '');
+    if (!item || sourceIsPortuguese || !item.text) return { title, titleTranslated: false };
+    return { title: item.text, titleTranslated: true };
+  });
+}
+
+module.exports = { translateBookMetadata, translateTitles };
