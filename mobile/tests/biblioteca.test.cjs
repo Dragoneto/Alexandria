@@ -166,12 +166,14 @@ test('marcar como lido não chama a API de novo se o livro já está como lido',
   assert.equal(chamadas, 1);
 });
 
-test('livroEstaLido só responde true para o livro com status LIDO', async () => {
+test('livroEstaNaBiblioteca responde true para o livro com qualquer status', async () => {
   const harness = await logado();
-  harness.fetch = async () => json({ itens: [itemDoLivro('LIDO')] });
-  assert.equal(await harness.biblioteca.livroEstaLido('OL1W'), true);
-  assert.equal(await harness.biblioteca.livroEstaLido('OL2W'), false);
+  for (const status of ['QUERO_LER', 'LENDO', 'LIDO', 'ABANDONADO']) {
+    harness.fetch = async () => json({ itens: [itemDoLivro(status)] });
+    assert.equal(await harness.biblioteca.livroEstaNaBiblioteca('OL1W'), true);
+    assert.equal(await harness.biblioteca.livroEstaNaBiblioteca('OL2W'), false);
+  }
 
-  harness.fetch = async () => json({ itens: [itemDoLivro('QUERO_LER')] });
-  assert.equal(await harness.biblioteca.livroEstaLido('OL1W'), false);
+  harness.fetch = async () => json({ itens: [] });
+  assert.equal(await harness.biblioteca.livroEstaNaBiblioteca('OL1W'), false);
 });

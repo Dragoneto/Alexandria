@@ -33,7 +33,7 @@ import {
   validarAvaliacao,
   type ErrosAvaliacao,
 } from '@/services/avaliacoes';
-import { livroEstaLido, marcarComoLido } from '@/services/biblioteca';
+import { livroEstaNaBiblioteca, marcarComoLido } from '@/services/biblioteca';
 
 const NOTAS = [1, 2, 3, 4, 5];
 
@@ -135,11 +135,11 @@ export default function AvaliarLivro() {
     try {
       if (avaliacaoId !== null) await atualizarAvaliacao(avaliacaoId, { nota, resenha });
       else await criarAvaliacao({ livroId, nota, resenha });
-      // Avaliação nova: a coruja sugere marcar como lido, a menos que o livro já esteja assim.
+      // Avaliação nova: a coruja só sugere marcar como lido se o livro ainda não está na biblioteca.
       if (!editando) {
-        const jaLido = await livroEstaLido(livroId).catch(() => false);
+        const naBiblioteca = await livroEstaNaBiblioteca(livroId).catch(() => true);
         setSaving(false);
-        if (jaLido) voltarAvaliado();
+        if (naBiblioteca) voltarAvaliado();
         else setSugerirLido(true);
         return;
       }

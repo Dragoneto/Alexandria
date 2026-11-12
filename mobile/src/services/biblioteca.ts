@@ -128,8 +128,11 @@ export async function marcarComoLido(
   return atualizarItemBiblioteca(existente.id, { status: 'LIDO' });
 }
 
-// Diz se o livro já está como LIDO na biblioteca (usado para não repetir a sugestão).
-export async function livroEstaLido(livroId: string, signal?: AbortSignal): Promise<boolean> {
-  const item = encontrarItemDoLivro(await listarBiblioteca(signal), livroId);
-  return item?.statusLeitura === 'LIDO';
+// Diz se o livro já está na biblioteca, com qualquer status (a sugestão de marcar como lido só
+// aparece para livros que ainda não estão lá).
+export async function livroEstaNaBiblioteca(
+  livroId: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  return encontrarItemDoLivro(await listarBiblioteca(signal), livroId) !== null;
 }
