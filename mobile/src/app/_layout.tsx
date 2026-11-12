@@ -39,6 +39,7 @@ function SessionRoutes() {
       <Stack.Protected guard={!!user}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="editar_perfil" />
+        <Stack.Screen name="alterar-senha" />
         <Stack.Screen name="configuracoes" />
         <Stack.Screen name="sobre" />
         <Stack.Screen name="equipe" />

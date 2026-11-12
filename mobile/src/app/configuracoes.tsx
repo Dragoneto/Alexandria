@@ -19,6 +19,13 @@ import {
 } from '@/constants/design-system';
 const OPCOES = [
   {
+    titulo: 'Alterar senha',
+    descricao: 'Troque a senha da sua conta',
+    rota: '/alterar-senha',
+    cor: Accent.coral,
+    icone: { ios: 'lock.fill', android: 'lock', web: 'lock' },
+  },
+  {
     titulo: 'Sobre o app',
     descricao: 'O que é o Alexandria',
     rota: '/sobre',
@@ -83,7 +90,7 @@ export default function ConfiguracoesScreen() {
         </Pressable>
 
         <Text style={styles.titulo}>Configurações</Text>
-        <Text style={styles.subtitulo}>Informações e ajuda sobre o app.</Text>
+        <Text style={styles.subtitulo}>Conta, informações e ajuda sobre o app.</Text>
 
         {/* Cartão com todas as opções */}
         <View style={styles.cartao}>
