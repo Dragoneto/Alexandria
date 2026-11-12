@@ -171,7 +171,10 @@ export default function DetalheDoLivro() {
                   {book.categories.length ? (
                     book.categories.map((category) => (
                       <View key={category} style={styles.categoryBadge}>
-                        <ThemedText themeColor="accent" style={styles.categoryText}>
+                        <ThemedText
+                          themeColor="accent"
+                          style={styles.categoryText}
+                          numberOfLines={1}>
                           {category}
                         </ThemedText>
                       </View>
@@ -353,6 +356,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   categoryBadge: {
+    // Categorias longas da Open Library não podem passar da largura da tela.
+    maxWidth: '100%',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
