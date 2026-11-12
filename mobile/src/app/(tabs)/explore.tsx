@@ -72,6 +72,8 @@ export default function Explorar() {
   const [category, setCategory] = useState(initialCategory || 'Todos');
   const [order, setOrder] = useState<BookSearchOrder>('relevance');
   const [quality, setQuality] = useState<BookSearchQuality>('precise');
+  // Ordenação e qualidade ficam recolhidas para os resultados aparecerem logo no celular.
+  const [maisFiltros, setMaisFiltros] = useState(false);
   const [books, setBooks] = useState<BookSearchItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -412,66 +414,86 @@ export default function Explorar() {
               })}
             </ScrollView>
 
-            <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
-              Ordenação
-            </ThemedText>
-            <View style={[styles.segmented, { borderColor: theme.border }]}>
-              {ORDER_OPTIONS.map((option) => {
-                const active = order === option.value;
-                return (
-                  <FeedbackPressable
-                    accessibilityRole="radio"
-                    accessibilityLabel={`Ordenar por ${option.label}`}
-                    accessibilityState={{ checked: active, disabled: loading }}
-                    key={option.value}
-                    disabled={loading}
-                    onPress={() => setOrder(option.value)}
-                    style={[
-                      styles.segment,
-                      active && { backgroundColor: withAlpha(Mint.mint400, 0.1) },
-                      loading && { opacity: DisabledOpacity },
-                    ]}>
-                    <ThemedText
-                      themeColor={active ? 'accent' : 'textSecondary'}
-                      style={styles.segmentText}>
-                      {option.label}
-                    </ThemedText>
-                  </FeedbackPressable>
-                );
-              })}
-            </View>
+            <FeedbackPressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                maisFiltros ? 'Esconder ordenação e qualidade' : 'Mostrar ordenação e qualidade'
+              }
+              accessibilityState={{ expanded: maisFiltros }}
+              onPress={() => setMaisFiltros((aberto) => !aberto)}
+              style={styles.maisFiltros}>
+              <ThemedText themeColor="accent" style={styles.clearButtonText}>
+                {maisFiltros ? 'Menos filtros' : 'Mais filtros'}
+              </ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.maisFiltrosResumo}>
+                {`${ORDER_OPTIONS.find((o) => o.value === order)?.label} · ${QUALITY_OPTIONS.find((o) => o.value === quality)?.label}`}
+              </ThemedText>
+            </FeedbackPressable>
 
-            <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
-              Qualidade
-            </ThemedText>
-            <View style={styles.qualityList}>
-              {QUALITY_OPTIONS.map((option) => {
-                const active = quality === option.value;
-                return (
-                  <FeedbackPressable
-                    accessibilityRole="radio"
-                    accessibilityLabel={`Qualidade: ${option.label}`}
-                    accessibilityState={{ checked: active, disabled: loading }}
-                    key={option.value}
-                    disabled={loading}
-                    onPress={() => setQuality(option.value)}
-                    style={[
-                      styles.qualityCard,
-                      { borderColor: active ? theme.accent : theme.border },
-                      loading && { opacity: DisabledOpacity },
-                    ]}>
-                    <ThemedText
-                      themeColor={active ? 'accent' : 'textSecondary'}
-                      style={styles.qualityLabel}>
-                      {option.label}
-                    </ThemedText>
-                    <ThemedText themeColor="textSecondary" style={styles.qualityDetail}>
-                      {option.detail}
-                    </ThemedText>
-                  </FeedbackPressable>
-                );
-              })}
-            </View>
+            {maisFiltros && (
+              <>
+                <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
+                  Ordenação
+                </ThemedText>
+                <View style={[styles.segmented, { borderColor: theme.border }]}>
+                  {ORDER_OPTIONS.map((option) => {
+                    const active = order === option.value;
+                    return (
+                      <FeedbackPressable
+                        accessibilityRole="radio"
+                        accessibilityLabel={`Ordenar por ${option.label}`}
+                        accessibilityState={{ checked: active, disabled: loading }}
+                        key={option.value}
+                        disabled={loading}
+                        onPress={() => setOrder(option.value)}
+                        style={[
+                          styles.segment,
+                          active && { backgroundColor: withAlpha(Mint.mint400, 0.1) },
+                          loading && { opacity: DisabledOpacity },
+                        ]}>
+                        <ThemedText
+                          themeColor={active ? 'accent' : 'textSecondary'}
+                          style={styles.segmentText}>
+                          {option.label}
+                        </ThemedText>
+                      </FeedbackPressable>
+                    );
+                  })}
+                </View>
+
+                <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
+                  Qualidade
+                </ThemedText>
+                <View style={styles.qualityList}>
+                  {QUALITY_OPTIONS.map((option) => {
+                    const active = quality === option.value;
+                    return (
+                      <FeedbackPressable
+                        accessibilityRole="radio"
+                        accessibilityLabel={`Qualidade: ${option.label}`}
+                        accessibilityState={{ checked: active, disabled: loading }}
+                        key={option.value}
+                        disabled={loading}
+                        onPress={() => setQuality(option.value)}
+                        style={[
+                          styles.qualityCard,
+                          { borderColor: active ? theme.accent : theme.border },
+                          loading && { opacity: DisabledOpacity },
+                        ]}>
+                        <ThemedText
+                          themeColor={active ? 'accent' : 'textSecondary'}
+                          style={styles.qualityLabel}>
+                          {option.label}
+                        </ThemedText>
+                        <ThemedText themeColor="textSecondary" style={styles.qualityDetail}>
+                          {option.detail}
+                        </ThemedText>
+                      </FeedbackPressable>
+                    );
+                  })}
+                </View>
+              </>
+            )}
 
             {!submittedQuery ? (
               <EmptyState
@@ -625,6 +647,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   chipsScroll: { marginTop: Spacing.two },
+  maisFiltros: {
+    marginTop: Spacing.two,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+  },
+  maisFiltrosResumo: { fontSize: 12 },
   chip: {
     borderWidth: 1,
     borderRadius: 999,
