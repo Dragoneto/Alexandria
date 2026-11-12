@@ -3,7 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
@@ -148,7 +148,7 @@ export default function PerfilScreen() {
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.flex}>
-        <View style={styles.content}>
+        <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={photo ? 'Alterar foto de perfil' : 'Adicionar foto de perfil'}
@@ -275,7 +275,7 @@ export default function PerfilScreen() {
               onPress={() => router.push('/configuracoes')}
             />
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -290,9 +290,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: ScreenInset,
     paddingTop: Space.eight,
+    paddingBottom: Space.eight,
   },
   avatar: {
     alignSelf: 'center',
