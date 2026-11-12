@@ -288,12 +288,17 @@ export default function Explorar() {
             <ThemedText themeColor="accent" style={styles.eyebrow}>
               Explorar
             </ThemedText>
-            <ThemedText type="title" style={styles.title}>
-              Encontre sua próxima leitura.
-            </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.subtitle}>
-              Pesquise o catálogo público da Open Library por título, autor ou assunto.
-            </ThemedText>
+            {/* Com uma busca feita, o título sai para os resultados subirem na tela. */}
+            {!submittedQuery && (
+              <>
+                <ThemedText type="title" style={styles.title}>
+                  Encontre sua próxima leitura.
+                </ThemedText>
+                <ThemedText themeColor="textSecondary" style={styles.subtitle}>
+                  Pesquise o catálogo público da Open Library por título, autor ou assunto.
+                </ThemedText>
+              </>
+            )}
 
             <View style={[styles.searchBox, { borderColor: theme.border }]}>
               <ThemedText themeColor="textSecondary" style={styles.searchLabel}>
