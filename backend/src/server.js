@@ -83,7 +83,7 @@ async function start() {
 
   if (!mailer.isConfigured() && process.env.RESET_CODE_DEBUG !== 'true') {
     console.error(
-      '⚠️ Redefinição de senha indisponível: preencha SMTP_USER e SMTP_PASS (ou, só no desenvolvimento, RESET_CODE_DEBUG=true).',
+      '⚠️ Redefinição de senha indisponível: preencha BREVO_API_KEY e MAIL_FROM, ou SMTP_USER e SMTP_PASS (ou, só no desenvolvimento, RESET_CODE_DEBUG=true).',
     );
   }
 
