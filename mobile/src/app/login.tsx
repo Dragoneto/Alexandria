@@ -77,11 +77,9 @@ export default function LoginScreen() {
         </Pressable>
       </View>
 
-      {!!error && <Text style={styles.error}>{error}</Text>}
-
       <View style={styles.actions}>
         {!!error && (
-          <Text accessibilityRole="alert" style={{ color: Accent.coral }}>
+          <Text accessibilityRole="alert" style={styles.error}>
             {error}
           </Text>
         )}
