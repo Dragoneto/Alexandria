@@ -68,6 +68,8 @@ export default function Biblioteca() {
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  // Livro com a confirmação de remoção aberta no próprio card (o mesmo padrão da tela do livro).
+  const [confirmandoRemocaoId, setConfirmandoRemocaoId] = useState<number | null>(null);
 
   const pendingStatus = useRef(new Set<number>());
   const [savingStatusIds, setSavingStatusIds] = useState<number[]>([]);
@@ -235,19 +237,7 @@ export default function Biblioteca() {
     }
   };
 
-  const handleRemove = (id: number, titulo: string) => {
-    const confirmar = () => {
-      void remover(id);
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Remover "${titulo}" da sua biblioteca?`)) confirmar();
-      return;
-    }
-    Alert.alert('Remover livro', `Remover "${titulo}" da sua biblioteca?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: confirmar },
-    ]);
-  };
+  const handleRemove = (id: number) => setConfirmandoRemocaoId(id);
 
   return (
     <ThemedView style={styles.root}>
@@ -545,7 +535,7 @@ export default function Biblioteca() {
                               opacity: removingId !== null ? DisabledOpacity : 1,
                             },
                           ]}
-                          onPress={() => handleRemove(item.id, item.livro.titulo)}>
+                          onPress={() => handleRemove(item.id)}>
                           {removingId === item.id ? (
                             <ActivityIndicator
                               color={theme.danger}
@@ -558,6 +548,34 @@ export default function Biblioteca() {
                           )}
                         </TouchableOpacity>
                       </View>
+                      {confirmandoRemocaoId === item.id && (
+                        <View style={styles.confirmRow}>
+                          <ThemedText themeColor="textSecondary" style={styles.confirmText}>
+                            Remover da biblioteca?
+                          </ThemedText>
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={`Confirmar remoção de ${item.livro.titulo}`}
+                            style={[styles.confirmButton, { borderColor: theme.danger }]}
+                            onPress={() => {
+                              setConfirmandoRemocaoId(null);
+                              void remover(item.id);
+                            }}>
+                            <ThemedText themeColor="danger" style={styles.removeButtonText}>
+                              Confirmar
+                            </ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Cancelar remoção"
+                            style={[styles.confirmButton, { borderColor: theme.border }]}
+                            onPress={() => setConfirmandoRemocaoId(null)}>
+                            <ThemedText themeColor="textSecondary" style={styles.removeButtonText}>
+                              Cancelar
+                            </ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   </ThemedView>
                 ))}
@@ -747,6 +765,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeButtonText: { fontSize: 13, fontWeight: '800' },
+  confirmRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  confirmText: { width: '100%', fontSize: 13 },
+  confirmButton: {
+    flex: 1,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: Spacing.three,
+  },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: {
     borderTopLeftRadius: 20,
