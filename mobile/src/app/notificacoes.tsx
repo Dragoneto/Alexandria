@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { BotaoVoltar } from '@/components/botao-voltar';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
@@ -182,6 +183,7 @@ export default function NotificacoesScreen() {
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
+        <BotaoVoltar />
         <Text accessibilityRole="header" style={styles.title}>
           Notificações
         </Text>

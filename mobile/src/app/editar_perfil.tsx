@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { BotaoVoltar } from '@/components/botao-voltar';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, ScreenInset, Space, TextColor } from '@/constants/design-system';
 import { useAuth } from '@/contexts/auth-context';
@@ -43,6 +44,7 @@ export default function EditarPerfilScreen() {
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <BotaoVoltar style={styles.voltar} />
             <Text style={styles.title}>Editar perfil</Text>
             <Text style={styles.subtitle}>Atualize os dados da sua conta.</Text>
 
@@ -95,6 +97,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Ink.ink900 },
   flex: { flex: 1 },
   content: { paddingHorizontal: ScreenInset, paddingTop: Space.eight, paddingBottom: Space.eight },
+  voltar: { marginBottom: Space.six },
   title: {
     fontFamily: DSFonts.display,
     fontSize: 28,
