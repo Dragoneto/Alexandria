@@ -93,6 +93,7 @@ async function start() {
   await comentarios.initialize();
   await require('./repositories/notificacaoRepository').recover();
   await biblioteca.initialize();
+  await require('./repositories/traducaoRepository').initialize();
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🏛️ Alexandria API rodando em http://localhost:${PORT}`);
     console.log(`💾 Persistência: ${users.mode}`);

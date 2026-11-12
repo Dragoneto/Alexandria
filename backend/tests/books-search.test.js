@@ -92,9 +92,7 @@ test('busca devolve os livros convertidos e o total', async () => {
       originalTitle: 'Dom Casmurro',
       titleTranslated: false,
       categories: [],
-      categoriesTranslated: true,
-      description: null,
-      descriptionTranslated: false,
+      categoriesTranslated: false,
       authors: ['Machado de Assis'],
       category: 'Catálogo geral',
       coverUrl: 'https://covers.openlibrary.org/b/id/987-M.jpg?default=false',
@@ -213,4 +211,54 @@ test('demora da Open Library vira 504', async () => {
   const res = await buscar({ q: 'livro' });
   assert.equal(res.statusCode, 504);
   assert.match(res.body.error, /demorou/);
+});
+
+test('com DeepL, a busca traduz só os títulos, numa chamada, e não manda assuntos', async () => {
+  const chaveOriginal = process.env.DEEPL_AUTH_KEY;
+  process.env.DEEPL_AUTH_KEY = 'test-key:fx';
+  const enviados = [];
+  try {
+    global.fetch = async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.hostname === 'openlibrary.org') {
+        return respostaJson({
+          numFound: 3,
+          docs: [
+            { key: '/works/OL1W', title: 'The Hobbit', subject: ['Fantasy fiction', 'Dragons'] },
+            { key: '/works/OL2W', title: 'Dom Casmurro', subject: ['Brazilian fiction'] },
+            { key: '/works/OL3W', title: 'The Hobbit', subject: ['Middle Earth'] },
+          ],
+        });
+      }
+      const { text } = JSON.parse(options.body);
+      enviados.push(text);
+      return respostaJson({
+        translations: text.map((titulo) =>
+          titulo === 'Dom Casmurro'
+            ? { detected_source_language: 'PT', text: titulo }
+            : { detected_source_language: 'EN', text: 'O Hobbit' },
+        ),
+      });
+    };
+
+    const res = await buscar({ q: 'hobbit' });
+
+    // Uma chamada só, sem título repetido e sem os assuntos
+    assert.deepEqual(enviados, [['The Hobbit', 'Dom Casmurro']]);
+    assert.deepEqual(
+      res.body.books.map((book) => [book.title, book.titleTranslated, book.originalTitle]),
+      [
+        ['O Hobbit', true, 'The Hobbit'],
+        ['Dom Casmurro', false, 'Dom Casmurro'],
+        ['O Hobbit', true, 'The Hobbit'],
+      ],
+    );
+
+    // A mesma busca de novo não gasta nada do DeepL: tudo vem do cache
+    await buscar({ q: 'hobbit' });
+    assert.equal(enviados.length, 1);
+  } finally {
+    if (chaveOriginal === undefined) delete process.env.DEEPL_AUTH_KEY;
+    else process.env.DEEPL_AUTH_KEY = chaveOriginal;
+  }
 });

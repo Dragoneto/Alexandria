@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const { afterEach, test } = require('node:test');
 
-const { translateBookMetadata } = require('../src/services/bookTranslation');
+const { translateBookMetadata, translateTitles } = require('../src/services/bookTranslation');
 
 const fetchOriginal = global.fetch;
 const authKeyOriginal = process.env.DEEPL_AUTH_KEY;
@@ -123,4 +123,54 @@ test('não envia sinopses grandes ao provedor, mas continua traduzindo categoria
   assert.equal(result.descriptionTranslated, false);
   assert.deepEqual(result.categories, ['Tema sem mapeamento']);
   assert.equal(result.categoriesTranslated, true);
+});
+
+test('o título traduzido na busca não é cobrado de novo no detalhe do livro', async () => {
+  process.env.DEEPL_AUTH_KEY = 'test-key';
+  const enviados = [];
+  global.fetch = async (_url, options) => {
+    const { text } = JSON.parse(options.body);
+    enviados.push(text);
+    return respostaTraducao(
+      text.map((item) => ({ detected_source_language: 'EN', text: `PT: ${item}` })),
+    );
+  };
+
+  const [titulo] = await translateTitles(['A Study in Scarlet']);
+  assert.deepEqual(titulo, { title: 'PT: A Study in Scarlet', titleTranslated: true });
+
+  const detalhe = await translateBookMetadata({
+    title: 'A Study in Scarlet',
+    description: 'Sherlock meets Watson.',
+    categories: ['Fantasy'],
+  });
+
+  // Só a sinopse foi ao DeepL no detalhe; o título veio do cache e a categoria do mapa local
+  assert.deepEqual(enviados, [['A Study in Scarlet'], ['Sherlock meets Watson.']]);
+  assert.equal(detalhe.title, 'PT: A Study in Scarlet');
+  assert.equal(detalhe.description, 'PT: Sherlock meets Watson.');
+  assert.deepEqual(detalhe.categories, ['Fantasia']);
+});
+
+test('títulos em português ficam como estão e falha do provedor devolve o original', async () => {
+  process.env.DEEPL_AUTH_KEY = 'test-key';
+  global.fetch = async () =>
+    respostaTraducao([{ detected_source_language: 'PT', text: 'Memórias Póstumas' }]);
+  assert.deepEqual(await translateTitles(['Memórias Póstumas']), [
+    { title: 'Memórias Póstumas', titleTranslated: false },
+  ]);
+
+  global.fetch = async () => {
+    throw new Error('fora do ar');
+  };
+  assert.deepEqual(await translateTitles(['Some Unseen Title', '']), [
+    { title: 'Some Unseen Title', titleTranslated: false },
+    { title: '', titleTranslated: false },
+  ]);
+});
+
+test('sem chave do DeepL, os títulos voltam sem chamar a rede', async () => {
+  delete process.env.DEEPL_AUTH_KEY;
+  global.fetch = async () => assert.fail('não deveria chamar a rede');
+  assert.deepEqual(await translateTitles(['Emma']), [{ title: 'Emma', titleTranslated: false }]);
 });

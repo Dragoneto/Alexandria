@@ -81,3 +81,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS comentarios_idempotency_key_idx ON comentarios
 
 -- Versão do comentário: começa em 1, e a edição confere a versão para não sobrescrever uma alteração mais nova
 ALTER TABLE comentarios ADD COLUMN IF NOT EXISTS versao INTEGER NOT NULL DEFAULT 1;
+
+-- Cache permanente das traduções do DeepL (cada texto é traduzido uma vez só)
+CREATE TABLE IF NOT EXISTS traducoes (
+  chave TEXT PRIMARY KEY,
+  traducao TEXT NOT NULL,
+  idioma_origem TEXT,
+  criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
