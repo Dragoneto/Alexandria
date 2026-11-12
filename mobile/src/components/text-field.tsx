@@ -144,6 +144,8 @@ const styles = StyleSheet.create({
   // Corpo em 16 pt: mantém o placeholder em "sussurro" dentro da regra de >= 16px
   input: {
     flex: 1,
+    // No web o <input> tem largura mínima própria e empurra o botão de senha para fora em 320px
+    minWidth: 0,
     minHeight: TouchMin,
     fontFamily: DSFonts.ui,
     fontSize: 16,
