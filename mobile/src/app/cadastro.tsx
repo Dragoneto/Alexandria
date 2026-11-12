@@ -128,7 +128,7 @@ export default function SignUpScreen() {
         nome={nomeCadastrado ?? undefined}
         onConfirm={() => {
           setNomeCadastrado(null);
-          router.replace('/login');
+          router.replace({ pathname: '/login', params: { email: email.trim() } });
         }}
       />
     </AuthShell>
