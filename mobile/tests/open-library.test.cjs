@@ -169,7 +169,29 @@ test('detalhe busca o livro no backend e aceita livro sem sinopse', async () => 
     assert.equal(options.headers.Authorization, `Bearer ${session.token}`);
     return json({ book: detail });
   };
-  assert.deepEqual(await h.books.getBookDetail('OL27448W'), detail);
+  // Sem título traduzido, o original é o próprio título
+  assert.deepEqual(await h.books.getBookDetail('OL27448W'), {
+    ...detail,
+    originalTitle: detail.title,
+    titleTranslated: false,
+  });
+});
+
+test('detalhe repassa o título traduzido junto com o original', async () => {
+  const h = await loggedServices();
+  h.fetch = async () =>
+    json({
+      book: {
+        ...detail,
+        title: 'O Senhor dos Anéis',
+        originalTitle: 'The Lord of the Rings',
+        titleTranslated: true,
+      },
+    });
+  const book = await h.books.getBookDetail('OL27448W');
+  assert.equal(book.title, 'O Senhor dos Anéis');
+  assert.equal(book.originalTitle, 'The Lord of the Rings');
+  assert.equal(book.titleTranslated, true);
 });
 
 test('detalhe com campos faltando chega completo para a tela', async () => {
@@ -178,6 +200,8 @@ test('detalhe com campos faltando chega completo para a tela', async () => {
   assert.deepEqual(await h.books.getBookDetail('OL1W'), {
     id: 'OL1W',
     title: 'Só o título',
+    originalTitle: 'Só o título',
+    titleTranslated: false,
     authors: [],
     description: null,
     descriptionTranslated: false,

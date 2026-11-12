@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
 import { ErrorState } from '@/components/error-state';
+import { PopupMarcarLido } from '@/components/popup-marcar-lido';
 import { SkeletonReviewForm } from '@/components/skeletons';
 import { DisabledOpacity } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -32,6 +33,7 @@ import {
   validarAvaliacao,
   type ErrosAvaliacao,
 } from '@/services/avaliacoes';
+import { livroEstaLido, marcarComoLido } from '@/services/biblioteca';
 
 const NOTAS = [1, 2, 3, 4, 5];
 
@@ -63,6 +65,9 @@ export default function AvaliarLivro() {
   const [erroAoCarregar, setErroAoCarregar] = useState('');
   const [removida, setRemovida] = useState(false);
   const [recarregar, setRecarregar] = useState(0);
+  const [sugerirLido, setSugerirLido] = useState(false);
+  const [marcandoLido, setMarcandoLido] = useState(false);
+  const [erroLido, setErroLido] = useState('');
   const submitting = useRef(false);
   const tamanho = contarCaracteres(resenha);
   const mostrarSkeleton = useLoadingGate(carregando);
@@ -97,6 +102,28 @@ export default function AvaliarLivro() {
   const voltarAvaliado = () =>
     router.dismissTo({ pathname: '/livro/[id]', params: { id: livroId, avaliado: '1' } });
 
+  const marcarLido = async () => {
+    if (marcandoLido) return;
+    setMarcandoLido(true);
+    setErroLido('');
+    try {
+      await marcarComoLido(livroId);
+      setSugerirLido(false);
+      voltarAvaliado();
+    } catch (failure) {
+      setErroLido(
+        failure instanceof Error ? failure.message : 'Não foi possível atualizar a biblioteca.',
+      );
+    } finally {
+      setMarcandoLido(false);
+    }
+  };
+
+  const fecharSugestao = () => {
+    setSugerirLido(false);
+    voltarAvaliado();
+  };
+
   const publicar = async () => {
     if (submitting.current) return;
     const locais = validarAvaliacao(nota, resenha);
@@ -108,9 +135,17 @@ export default function AvaliarLivro() {
     try {
       if (avaliacaoId !== null) await atualizarAvaliacao(avaliacaoId, { nota, resenha });
       else await criarAvaliacao({ livroId, nota, resenha });
+      // Avaliação nova: a coruja sugere marcar como lido, a menos que o livro já esteja assim.
+      if (!editando) {
+        const jaLido = await livroEstaLido(livroId).catch(() => false);
+        setSaving(false);
+        if (jaLido) voltarAvaliado();
+        else setSugerirLido(true);
+        return;
+      }
       setSaving(false);
       // Na edição volta para quem abriu o formulário (tela do livro ou Minhas avaliações).
-      if (editando && router.canGoBack()) router.back();
+      if (router.canGoBack()) router.back();
       else voltarAvaliado();
     } catch (failure) {
       setSaving(false);
@@ -338,6 +373,15 @@ export default function AvaliarLivro() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <PopupMarcarLido
+        visible={sugerirLido}
+        titulo={titulo}
+        salvando={marcandoLido}
+        erro={erroLido}
+        onMarcar={marcarLido}
+        onDepois={fecharSugestao}
+      />
     </ThemedView>
   );
 }

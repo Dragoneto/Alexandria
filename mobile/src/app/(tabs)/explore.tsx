@@ -62,12 +62,14 @@ function firstParam(value: string | string[] | undefined): string {
 export default function Explorar() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ q?: string | string[] }>();
+  const params = useLocalSearchParams<{ q?: string | string[]; categoria?: string | string[] }>();
   const initialQuery = firstParam(params.q).trim();
+  const paramCategory = firstParam(params.categoria).trim();
+  const initialCategory = CATEGORY_OPTIONS.includes(paramCategory) ? paramCategory : '';
   const [query, setQuery] = useState(initialQuery);
   const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
-  const [category, setCategory] = useState('Todos');
+  const [category, setCategory] = useState(initialCategory || 'Todos');
   const [order, setOrder] = useState<BookSearchOrder>('relevance');
   const [quality, setQuality] = useState<BookSearchQuality>('precise');
   const [books, setBooks] = useState<BookSearchItem[]>([]);
@@ -88,6 +90,7 @@ export default function Explorar() {
   const activeSearchKey = `${submittedQuery}\u0000${category}\u0000${order}\u0000${quality}`;
   const activeSearchKeyRef = useRef(activeSearchKey);
   const lastParamQueryRef = useRef(initialQuery);
+  const lastParamCategoryRef = useRef(initialCategory);
 
   const hasActiveFilters = category !== 'Todos' || order !== 'relevance' || quality !== 'precise';
   const qualityCaption = useMemo(() => {
@@ -106,6 +109,13 @@ export default function Explorar() {
     },
     [],
   );
+
+  // As categorias da home abrem a busca já filtrada (?categoria=Fantasia)
+  useEffect(() => {
+    if (!initialCategory || initialCategory === lastParamCategoryRef.current) return;
+    lastParamCategoryRef.current = initialCategory;
+    void Promise.resolve().then(() => setCategory(initialCategory));
+  }, [initialCategory]);
 
   useEffect(() => {
     if (!initialQuery || initialQuery === lastParamQueryRef.current) return;
