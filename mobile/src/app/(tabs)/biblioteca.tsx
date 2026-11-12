@@ -443,7 +443,8 @@ export default function Biblioteca() {
                     <TouchableOpacity
                       onPress={() => abrirLivro(item.livro.id)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Abrir detalhes de ${item.livro.titulo}`}>
+                      accessibilityLabel={`Abrir detalhes de ${item.livro.titulo}`}
+                      style={styles.cardOpen}>
                       {item.livro.capa ? (
                         <Image
                           source={{ uri: item.livro.capa }}
@@ -459,15 +460,21 @@ export default function Biblioteca() {
                           ]}>
                           <ThemedText
                             themeColor="textSecondary"
-                            style={styles.coverPlaceholderText}>
+                            style={styles.coverPlaceholderText}
+                            numberOfLines={4}>
                             {item.livro.titulo}
                           </ThemedText>
                         </View>
                       )}
 
                       <View style={styles.cardHeading}>
-                        <ThemedText style={styles.cardTitle}>{item.livro.titulo}</ThemedText>
-                        <ThemedText themeColor="textSecondary" style={styles.cardAuthor}>
+                        <ThemedText style={styles.cardTitle} numberOfLines={3}>
+                          {item.livro.titulo}
+                        </ThemedText>
+                        <ThemedText
+                          themeColor="textSecondary"
+                          style={styles.cardAuthor}
+                          numberOfLines={2}>
                           {item.livro.autores.join(', ') || 'Autoria não informada'}
                         </ThemedText>
                       </View>
@@ -692,22 +699,31 @@ const styles = StyleSheet.create({
   clearFiltersText: { fontSize: 13, fontWeight: '800' },
   grid: { gap: Spacing.three },
   card: { borderRadius: 16, overflow: 'hidden' },
-  cover: { width: '100%', height: 200 },
+  // Capa ao lado do título: cabem mais livros por tela no celular.
+  cardOpen: { flexDirection: 'row' },
+  cover: { width: 76, height: 114 },
   coverPlaceholder: {
-    height: 160,
+    width: 76,
+    height: 114,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.three,
+    padding: Spacing.one,
   },
-  coverPlaceholderText: { fontWeight: '800', textAlign: 'center' },
-  cardHeading: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, gap: 8 },
+  coverPlaceholderText: { fontSize: 11, lineHeight: 14, fontWeight: '800', textAlign: 'center' },
+  cardHeading: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
+    gap: 6,
+  },
   cardActions: {
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.three,
     paddingTop: 8,
     gap: 8,
   },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
+  cardTitle: { fontSize: 16, lineHeight: 21, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   statusButton: {
     minHeight: 44,

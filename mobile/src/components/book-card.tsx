@@ -13,7 +13,7 @@ type BookCardProps = {
   onPress: (book: BookSearchItem) => void;
 };
 
-/** Card de um resultado da busca: capa, título e autor. O toque abre o detalhe do livro. */
+/** Linha de um resultado da busca: capa à esquerda, título e autor ao lado. O toque abre o livro. */
 export function BookCard({ book, onPress }: BookCardProps) {
   const theme = useTheme();
   const [coverFailed, setCoverFailed] = useState(false);
@@ -38,7 +38,10 @@ export function BookCard({ book, onPress }: BookCardProps) {
         />
       ) : (
         <View style={[styles.coverPlaceholder, { backgroundColor: theme.backgroundSelected }]}>
-          <ThemedText themeColor="textSecondary" style={styles.coverPlaceholderText}>
+          <ThemedText
+            themeColor="textSecondary"
+            style={styles.coverPlaceholderText}
+            numberOfLines={4}>
             {book.title}
           </ThemedText>
         </View>
@@ -68,26 +71,27 @@ export function BookCard({ book, onPress }: BookCardProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 16, overflow: 'hidden' },
+  card: { flexDirection: 'row', borderRadius: 16, overflow: 'hidden' },
   cardPressed: { opacity: 0.75 },
-  cover: { width: '100%', height: 220, backgroundColor: 'rgba(0,0,0,0.14)' },
+  cover: { width: 76, height: 114, backgroundColor: 'rgba(0,0,0,0.14)' },
   coverPlaceholder: {
-    height: 180,
+    width: 76,
+    height: 114,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.three,
+    padding: Spacing.one,
   },
-  coverPlaceholderText: { fontWeight: '800', textAlign: 'center' },
-  cardBody: { padding: Spacing.three, gap: 8 },
+  coverPlaceholderText: { fontSize: 11, lineHeight: 14, fontWeight: '800', textAlign: 'center' },
+  cardBody: { flex: 1, minWidth: 0, padding: Spacing.three, gap: 6 },
   categoryBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 999,
     backgroundColor: withAlpha(Mint.mint400, 0.08),
   },
   categoryText: { fontSize: 11, fontWeight: '800' },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
+  cardTitle: { fontSize: 16, lineHeight: 21, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
-  cardDescription: { fontSize: 13, lineHeight: 20 },
+  cardDescription: { fontSize: 12, lineHeight: 17 },
 });
