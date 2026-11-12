@@ -194,6 +194,32 @@ test('detalhe repassa o título traduzido junto com o original', async () => {
   assert.equal(book.titleTranslated, true);
 });
 
+test('detalhe mostra a sinopse sem a marcação Markdown da Open Library', async () => {
+  const h = await loggedServices();
+  h.fetch = async () =>
+    json({
+      book: {
+        id: 'OL1003040W',
+        title: 'Dom Casmurro',
+        description:
+          '**Dom Casmurro**, de *Machado*, foi publicado em 1899.\n\n----------\n\n' +
+          'Veja a [edição comentada][1] e o [verbete](https://example.com/x).\n\n' +
+          '[1]: https://example.com/edicao',
+      },
+    });
+  const book = await h.books.getBookDetail('OL1003040W');
+  assert.equal(
+    book.description,
+    'Dom Casmurro, de Machado, foi publicado em 1899.\n\nVeja a edição comentada e o verbete.',
+  );
+});
+
+test('textoSemMarkdown preserva asteriscos soltos e nomes com sublinhado', async () => {
+  const h = await loggedServices();
+  assert.equal(h.books.textoSemMarkdown('Nota 5 * 3 = 15'), 'Nota 5 * 3 = 15');
+  assert.equal(h.books.textoSemMarkdown('arquivo_final_v2'), 'arquivo_final_v2');
+});
+
 test('detalhe com campos faltando chega completo para a tela', async () => {
   const h = await loggedServices();
   h.fetch = async () => json({ book: { id: 'OL1W', title: 'Só o título', description: '  ' } });

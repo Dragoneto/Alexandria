@@ -103,6 +103,20 @@ function positiveInteger(value: unknown, fallback: number): number {
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : fallback;
 }
 
+// A Open Library guarda sinopses em Markdown; a tela mostra texto puro.
+export function textoSemMarkdown(texto: string): string {
+  return texto
+    .replace(/^\s*\[[^\]]+\]:\s*\S+.*$/gm, '')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+    .replace(/^\s*([-*_])(\s*\1){2,}\s*$/gm, '')
+    .replace(/(\*\*|__)(?=\S)([\s\S]*?\S)\1/g, '$2')
+    .replace(/(^|[^\w*])\*(?=\S)([^*\n]*?\S)\*(?!\w)/g, '$1$2')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
@@ -192,7 +206,9 @@ export async function getBookDetail(id: string, signal?: AbortSignal): Promise<B
     titleTranslated: book.titleTranslated === true,
     authors: stringArray(book.authors),
     description:
-      typeof book.description === 'string' && book.description.trim() ? book.description : null,
+      typeof book.description === 'string' && textoSemMarkdown(book.description)
+        ? textoSemMarkdown(book.description)
+        : null,
     descriptionTranslated: book.descriptionTranslated === true,
     categories: stringArray(book.categories),
     categoriesTranslated: book.categoriesTranslated === true,
