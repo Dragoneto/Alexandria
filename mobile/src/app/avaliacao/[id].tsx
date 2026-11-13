@@ -21,6 +21,7 @@ import { DisabledOpacity } from '@/constants/design-system';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
+import { tempoRelativo } from '@/constants/tempo';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useConversa } from '@/hooks/use-conversa';
@@ -328,6 +329,9 @@ export default function ConversaDaAvaliacao() {
                     <ThemedText style={styles.author}>
                       {avaliacao.usuarioNome || 'Leitor'}
                       {avaliacao.minha ? ' (você)' : ''}
+                      <ThemedText themeColor="textSecondary" style={styles.quando}>
+                        {`  ·  ${tempoRelativo(avaliacao.criadoEm)}`}
+                      </ThemedText>
                     </ThemedText>
                     <ThemedText
                       themeColor="accent"
@@ -459,7 +463,12 @@ export default function ConversaDaAvaliacao() {
                             </ThemedText>
                           ) : (
                             <>
-                              <ThemedText style={styles.comentarioAutor}>{nome}</ThemedText>
+                              <ThemedText style={styles.comentarioAutor}>
+                                {nome}
+                                <ThemedText themeColor="textSecondary" style={styles.quando}>
+                                  {`  ·  ${tempoRelativo(comentario.criadoEm)}`}
+                                </ThemedText>
+                              </ThemedText>
                               <ThemedText style={styles.comentarioTexto}>
                                 {comentario.texto}
                               </ThemedText>
@@ -765,6 +774,7 @@ const styles = StyleSheet.create({
   comentarioAutor: { fontSize: 14, fontWeight: '800' },
   comentarioTexto: { fontSize: 14, lineHeight: 21 },
   editado: { fontSize: 12 },
+  quando: { fontSize: 12, fontWeight: '500' },
   acoes: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -17,6 +17,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
+import { tempoRelativo } from '@/constants/tempo';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
@@ -29,8 +30,7 @@ import {
 } from '@/services/notificacoes';
 
 function dataCurta(value: string) {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR') : 'Data indisponível';
+  return tempoRelativo(value) || 'Data indisponível';
 }
 type EstadoNotificacoes = 'loading' | 'success' | 'empty' | 'error';
 
