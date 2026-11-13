@@ -74,3 +74,21 @@ test('401 limpa a sessão e propaga erro para a interface', async () => {
   await assert.rejects(h.notificacoes.contarNaoLidas(), { status: 401 });
   assert.equal(await h.session.getAuth(), null);
 });
+
+test('texto da notificação diz o que aconteceu e em qual livro', async () => {
+  const h = createServices();
+  await h.session.saveAuth(session);
+  h.fetch = async () =>
+    json({ notificacoes: [{ ...item, livroTitulo: ' Dom Casmurro ' }, item], proximoCursor: null });
+  const [comTitulo, semTitulo] = (await h.notificacoes.listarNotificacoes()).notificacoes;
+  assert.equal(comTitulo.livroTitulo, 'Dom Casmurro');
+  assert.equal(semTitulo.livroTitulo, null);
+
+  const texto = h.notificacoes.textoDaNotificacao;
+  assert.equal(texto(comTitulo), 'respondeu ao seu comentário em Dom Casmurro');
+  assert.equal(
+    texto({ ...comTitulo, tipo: 'comentario' }),
+    'comentou na sua avaliação de Dom Casmurro',
+  );
+  assert.equal(texto(semTitulo), 'respondeu ao seu comentário');
+});

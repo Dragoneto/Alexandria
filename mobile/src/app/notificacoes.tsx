@@ -26,6 +26,7 @@ import {
   listarNotificacoes,
   marcarNotificacaoLida,
   marcarTodasNotificacoesLidas,
+  textoDaNotificacao,
   type Notificacao,
 } from '@/services/notificacoes';
 
@@ -238,8 +239,7 @@ export default function NotificacoesScreen() {
               !item.alvoDisponivel && styles.disabled,
             ]}>
             <Text style={styles.author}>
-              {item.autor.nome || 'Leitor'} ·{' '}
-              {item.tipo === 'resposta' ? 'respondeu a uma conversa' : 'comentou em uma avaliação'}
+              {item.autor.nome || 'Leitor'} · {textoDaNotificacao(item)}
             </Text>
             <Text style={styles.meta}>
               {dataCurta(item.criadoEm)} · {item.lidaEm ? 'Lida' : 'Não lida'}

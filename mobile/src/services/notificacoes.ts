@@ -11,6 +11,8 @@ export type Notificacao = {
   criadoEm: string;
   lidaEm: string | null;
   alvoDisponivel: boolean;
+  /** Título do livro da avaliação; servidores antigos não mandam. */
+  livroTitulo?: string | null;
 };
 export type PaginaNotificacoes = { notificacoes: Notificacao[]; proximoCursor: string | null };
 
@@ -37,7 +39,19 @@ function parseItem(value: unknown): Notificacao {
   ) {
     throw new ApiError('server', 'Notificação inválida recebida do servidor.');
   }
-  return item as Notificacao;
+  const livroTitulo =
+    typeof item.livroTitulo === 'string' && item.livroTitulo.trim()
+      ? item.livroTitulo.trim()
+      : null;
+  return { ...(item as Notificacao), livroTitulo };
+}
+
+/** O que aconteceu, dito para quem recebe: "comentou na sua avaliação de Dom Casmurro". */
+export function textoDaNotificacao(item: Pick<Notificacao, 'tipo' | 'livroTitulo'>): string {
+  const base =
+    item.tipo === 'resposta' ? 'respondeu ao seu comentário' : 'comentou na sua avaliação';
+  if (!item.livroTitulo) return base;
+  return `${base} ${item.tipo === 'resposta' ? 'em' : 'de'} ${item.livroTitulo}`;
 }
 
 export async function listarNotificacoes(
