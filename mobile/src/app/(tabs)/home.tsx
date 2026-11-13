@@ -28,13 +28,7 @@ import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { SinoNotificacoes } from '@/components/sino-notificacoes';
 import { SkeletonBookShelf } from '@/components/skeletons';
-import {
-  CATEGORIAS,
-  embaralhar,
-  sortearDestaque,
-  sortearEstantes,
-  type Categoria,
-} from '@/constants/estantes';
+import { CATEGORIAS, embaralhar, sortearDestaque, sortearEstantes } from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { getProfile, getProfilePhoto } from '@/services/auth';
@@ -111,7 +105,7 @@ export default function HomeScreen() {
   );
 
   // Só a categoria vai para o Explorar: a caixa de busca chega vazia e o "t" força uma nova busca.
-  const abrirCategoria = (categoria: Categoria) => {
+  const abrirCategoria = (categoria: string) => {
     router.push(`/explore?categoria=${encodeURIComponent(categoria)}&t=${proximoToque()}` as Href);
   };
 
@@ -382,7 +376,11 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
             accessibilityRole="button"
             accessibilityLabel={`Buscar livros em ${title}`}
             onPress={() =>
-              router.push(`/explore?q=${encodeURIComponent(query)}&t=${proximoToque()}` as Href)
+              router.push(
+                (category
+                  ? `/explore?categoria=${encodeURIComponent(category)}&t=${proximoToque()}`
+                  : `/explore?q=${encodeURIComponent(query)}&t=${proximoToque()}`) as Href,
+              )
             }
             style={styles.shelfAction}>
             <Text style={styles.shelfActionText}>Buscar livros</Text>

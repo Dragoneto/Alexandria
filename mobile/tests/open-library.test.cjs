@@ -92,6 +92,19 @@ test('modo com capa remove resultados sem capa de verdade ou sem autoria', async
   );
 });
 
+test('categoria sem termo busca só pela categoria; sem categoria o termo é obrigatório', async () => {
+  const h = await loggedServices();
+  h.fetch = async () => json({ books: [], total: 0, page: 1, limit: 10, hasMore: false });
+  await h.books.searchBooks({ query: '', category: 'Poesia' });
+  assert.match(h.requests[0].url, /[?&]q=&/);
+  assert.match(h.requests[0].url, /category=Poesia/);
+  await assert.rejects(h.books.searchBooks({ query: '' }), { kind: 'validation' });
+  await assert.rejects(h.books.searchBooks({ query: 'a', category: 'Poesia' }), {
+    kind: 'validation',
+  });
+  assert.equal(h.requests.length, 1);
+});
+
 test('valida termo curto e traduz as falhas do backend', async () => {
   const h = await loggedServices();
   await assert.rejects(h.books.searchBooks({ query: 'a' }), { kind: 'validation' });
