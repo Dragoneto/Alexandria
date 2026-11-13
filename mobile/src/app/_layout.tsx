@@ -11,8 +11,12 @@ import { ErrorState } from '@/components/error-state';
 import { SkeletonSessionShell } from '@/components/skeletons';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
+import { lembrarDestino } from '@/services/destino-pos-login';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+// Link de uma tela privada aberto sem login: depois de entrar, a pessoa volta para ele.
+if (Platform.OS === 'web' && typeof window !== 'undefined')
+  lembrarDestino(window.location.pathname);
 export const ErrorBoundary = AppErrorBoundary;
 
 function SessionRoutes() {

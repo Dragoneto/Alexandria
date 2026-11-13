@@ -9,6 +9,7 @@ import {
 
 import { logoutUser, restoreSession } from '@/services/auth';
 import { subscribeAuth, type StoredUser } from '@/services/auth-storage';
+import { descartarDestino } from '@/services/destino-pos-login';
 
 type AuthState = {
   user: StoredUser | null;
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let active = true;
     restoreSession()
       .then((session) => {
+        if (session) descartarDestino();
         if (active) setUser(session);
       })
       .catch(() => {

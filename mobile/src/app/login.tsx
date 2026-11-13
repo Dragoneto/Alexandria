@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -8,6 +8,7 @@ import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { loginUser } from '@/services/auth';
+import { consumirDestino } from '@/services/destino-pos-login';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -26,7 +27,8 @@ export default function LoginScreen() {
     setError('');
     try {
       await loginUser(email, password);
-      router.replace('/home');
+      // Volta para o link que a pessoa abriu antes de entrar, se houver.
+      router.replace((consumirDestino() ?? '/home') as Href);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Não foi possível entrar.');
     } finally {
