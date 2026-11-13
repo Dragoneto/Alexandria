@@ -329,11 +329,11 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
   const [state, setState] = useState<'loading' | 'success' | 'empty' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
   // Livro cuja capa não carregou sai da estante: a home só mostra livros com capa.
+  // Várias capas podem falhar de uma vez, então cada saída parte da lista mais recente.
   const tirarLivro = (id: string) => {
-    const restantes = books.filter((book) => book.id !== id);
-    setBooks(restantes);
-    if (!restantes.length) setState('empty');
+    setBooks((atuais) => atuais.filter((book) => book.id !== id));
   };
+  const semLivros = state === 'empty' || (state === 'success' && !books.length);
   const loadingVisible = useLoadingGate(state === 'loading');
 
   useEffect(() => {
@@ -369,7 +369,7 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           message="Tente novamente para ver os livros desta seleção."
           onRetry={() => setAttempt((current) => current + 1)}
         />
-      ) : state === 'empty' ? (
+      ) : semLivros ? (
         <View style={styles.shelfEmpty}>
           <Text style={styles.shelfEmptyText}>Nenhum livro apareceu nesta estante.</Text>
           <FeedbackPressable
