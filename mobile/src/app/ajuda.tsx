@@ -84,7 +84,7 @@ const FAQ: Secao[] = [
       {
         pergunta: 'Como encontro um livro?',
         resposta:
-          'Use a busca da Home ou abra a aba Explore. Digite o título ou o nome do autor, por exemplo "Machado de Assis". Você também pode usar os filtros para refinar a busca.',
+          'Use a busca da aba Início ou abra a aba Explorar. Digite o título ou o nome do autor, por exemplo "Machado de Assis", ou toque numa categoria. Você também pode usar os filtros para refinar a busca.',
       },
       {
         pergunta: 'De onde vêm as informações dos livros?',
@@ -101,7 +101,7 @@ const FAQ: Secao[] = [
       {
         pergunta: 'Como organizo minha estante?',
         resposta:
-          'Na aba Biblioteca, cada livro tem um status: "Quero ler", "Lendo" ou "Lido". Toque no status do livro para trocar.',
+          'Na página de um livro, toque em "Adicionar à biblioteca". Depois, cada livro tem um status: "Quero ler", "Lendo", "Lido" ou "Abandonado". Toque no status do livro para trocar.',
       },
       {
         pergunta: 'Posso ver só os livros que estou lendo?',
