@@ -39,6 +39,9 @@ function paraResposta(item) {
 }
 
 const MAX_COMPLETAR_POR_VEZ = 10;
+// Livro que a Open Library não informou: só tenta de novo depois desse intervalo.
+const ESPERA_SEM_PAGINAS_MS = 6 * 60 * 60 * 1000;
+const semPaginas = new Map();
 
 /**
  * Livros guardados antes do tracker não têm o número de páginas. Ao listar, busca o número dos
@@ -48,10 +51,15 @@ const MAX_COMPLETAR_POR_VEZ = 10;
 async function completarPaginas(userId, itens) {
   const pendentes = itens
     .filter((item) => !item.paginas_total && (item.status === 'LENDO' || item.status === 'LIDO'))
+    .filter((item) => !(semPaginas.get(item.livro_id) > Date.now()))
     .slice(0, MAX_COMPLETAR_POR_VEZ);
   for (const item of pendentes) {
     const total = await openLibrary.getPageCount(item.livro_id);
-    if (!total) continue;
+    if (!total) {
+      if (semPaginas.size > 5000) semPaginas.clear();
+      semPaginas.set(item.livro_id, Date.now() + ESPERA_SEM_PAGINAS_MS);
+      continue;
+    }
     const campos = { paginasTotal: total };
     if (item.status === 'LIDO') campos.paginaAtual = total;
     await biblioteca.update(item.id, userId, campos);

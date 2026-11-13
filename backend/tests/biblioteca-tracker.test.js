@@ -159,3 +159,20 @@ test('livros antigos em "Lido" ou "Lendo" ganham o número de páginas ao listar
   assert.equal(quero.paginas_total, null);
 });
 
+test('livro sem páginas na Open Library não é consultado de novo a cada listagem', async () => {
+  const { completarPaginas } = require('../src/controllers/bibliotecaController');
+  await biblioteca.create({ userId: 4, livro: livro('OL11W'), status: 'LENDO' });
+  const stub = openLibrary.getPageCount;
+  const consultas = [];
+  openLibrary.getPageCount = async (id) => {
+    consultas.push(id);
+    return stub(id);
+  };
+  try {
+    await completarPaginas(4, await biblioteca.findByUser(4));
+    await completarPaginas(4, await biblioteca.findByUser(4));
+  } finally {
+    openLibrary.getPageCount = stub;
+  }
+  assert.deepEqual(consultas, ['OL11W']);
+});
