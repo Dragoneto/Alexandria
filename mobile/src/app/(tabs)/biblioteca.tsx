@@ -138,15 +138,17 @@ export default function Biblioteca() {
     router.push({ pathname: '/livro/[id]', params: { id: livroId } });
   };
 
+  // Quantos livros há em cada filtro; o número aparece no próprio chip, como no Skoob.
   const counters = useMemo(() => {
-    return items.reduce(
-      (acc, item) => {
-        acc.total += 1;
-        if (item.statusLeitura === 'LENDO') acc.lendo += 1;
-        return acc;
-      },
-      { total: 0, lendo: 0 },
-    );
+    const contagem: Record<FiltroStatus, number> = {
+      TODOS: items.length,
+      QUERO_LER: 0,
+      LENDO: 0,
+      LIDO: 0,
+      ABANDONADO: 0,
+    };
+    for (const item of items) contagem[item.statusLeitura] += 1;
+    return contagem;
   }, [items]);
 
   const avisar = (texto: string) => {
@@ -257,22 +259,6 @@ export default function Biblioteca() {
               Organize livros salvos, acompanhe status e marque favoritos.
             </ThemedText>
 
-            {/* STATS */}
-            <View style={styles.statsRow}>
-              <ThemedView type="backgroundElement" style={styles.statCard}>
-                <ThemedText style={styles.statNumber}>{counters.total}</ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
-                  Total
-                </ThemedText>
-              </ThemedView>
-              <ThemedView type="backgroundElement" style={styles.statCard}>
-                <ThemedText style={styles.statNumber}>{counters.lendo}</ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
-                  Lendo
-                </ThemedText>
-              </ThemedView>
-            </View>
-
             <View style={styles.searchContainer}>
               <TextInput
                 accessibilityLabel="Buscar na biblioteca por título ou autor"
@@ -321,7 +307,7 @@ export default function Biblioteca() {
                     <TouchableOpacity
                       key={option.value}
                       accessibilityRole="radio"
-                      accessibilityLabel={`Filtrar por ${option.label}`}
+                      accessibilityLabel={`Filtrar por ${option.label}, ${counters[option.value]} ${counters[option.value] === 1 ? 'livro' : 'livros'}`}
                       aria-checked={active}
                       onPress={() => setFilter(option.value)}
                       style={[
@@ -332,6 +318,9 @@ export default function Biblioteca() {
                         themeColor={active ? 'accent' : 'textSecondary'}
                         style={styles.filterChipText}>
                         {active ? `✓ ${option.label}` : option.label}
+                        <ThemedText themeColor="textSecondary" style={styles.filterChipCount}>
+                          {`  ${counters[option.value]}`}
+                        </ThemedText>
                       </ThemedText>
                     </TouchableOpacity>
                   );
@@ -668,10 +657,6 @@ const styles = StyleSheet.create({
   },
   title: { marginTop: Spacing.one, fontSize: 30, lineHeight: 34 },
   subtitle: { marginTop: Spacing.two, lineHeight: 22 },
-  statsRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.four },
-  statCard: { flex: 1, borderRadius: 16, padding: Spacing.three, gap: 4 },
-  statNumber: { fontSize: 22, fontWeight: '800' },
-  statLabel: { fontSize: 12 },
   searchContainer: { marginTop: Spacing.four, justifyContent: 'center' },
   searchInput: {
     borderWidth: 1,
@@ -702,6 +687,7 @@ const styles = StyleSheet.create({
   },
   filtersRow: { flexDirection: 'row' },
   filterChipText: { fontSize: 13, fontWeight: '700' },
+  filterChipCount: { fontSize: 12, fontWeight: '600' },
   aviso: { marginBottom: Spacing.two, fontSize: 14 },
   emptyCard: { borderRadius: 16, padding: Spacing.four, gap: 8 },
   emptyTitle: { fontSize: 18 },
