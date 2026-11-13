@@ -174,6 +174,7 @@ export default function CuriosidadesScreen() {
                 onPress={() => escolherFiltro(opcao)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: ativo }}
+                aria-checked={ativo}
                 accessibilityLabel={`${opcao}, ${plural(n)}`}
                 style={({ pressed }) => [
                   styles.chip,

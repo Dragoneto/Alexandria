@@ -451,6 +451,7 @@ export default function Explorar() {
                     accessibilityRole="radio"
                     accessibilityLabel={`Categoria ${option}`}
                     accessibilityState={{ checked: active, disabled: loading }}
+                    aria-checked={active}
                     key={option}
                     disabled={loading}
                     onPress={() => escolherCategoria(option)}
@@ -480,6 +481,7 @@ export default function Explorar() {
                       accessibilityRole="radio"
                       accessibilityLabel={`Categoria ${rotulo}`}
                       accessibilityState={{ checked: active, disabled: loading }}
+                      aria-checked={active}
                       key={option}
                       disabled={loading}
                       onPress={() => escolherCategoria(option)}
@@ -528,6 +530,7 @@ export default function Explorar() {
                         accessibilityRole="radio"
                         accessibilityLabel={`Ordenar por ${option.label}`}
                         accessibilityState={{ checked: active, disabled: loading }}
+                        aria-checked={active}
                         key={option.value}
                         disabled={loading}
                         onPress={() => setOrder(option.value)}
@@ -557,6 +560,7 @@ export default function Explorar() {
                         accessibilityRole="radio"
                         accessibilityLabel={`Qualidade: ${option.label}`}
                         accessibilityState={{ checked: active, disabled: loading }}
+                        aria-checked={active}
                         key={option.value}
                         disabled={loading}
                         onPress={() => setQuality(option.value)}

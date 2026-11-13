@@ -282,7 +282,8 @@ export default function AvaliarLivro() {
                         key={valor}
                         accessibilityRole="radio"
                         accessibilityLabel={`Nota ${valor} de 5`}
-                        accessibilityState={{ selected: ativa }}
+                        accessibilityState={{ checked: ativa }}
+                        aria-checked={ativa}
                         disabled={saving}
                         onPress={() => {
                           setNota(valor);

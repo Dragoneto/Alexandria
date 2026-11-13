@@ -301,6 +301,7 @@ function Chip({ titulo, ativo, onPress, icone, cor = Mint.mint400 }: ChipProps) 
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ checked: ativo }}
+      aria-checked={ativo}
       style={({ pressed }) => [
         styles.chip,
         ativo && { backgroundColor: withAlpha(cor, 0.14), borderColor: withAlpha(cor, 0.5) },
