@@ -38,7 +38,7 @@ const RECURSOS = [
   },
   {
     titulo: 'Comunidade',
-    descricao: 'Veja resenhas, listas e o que outros leitores andam lendo.',
+    descricao: 'Leia avaliações de outros leitores, comente e responda as conversas.',
     cor: Accent.lilac,
     icone: { ios: 'person.2.fill', android: 'groups', web: 'groups' },
   },
