@@ -12,6 +12,7 @@ import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BotaoVoltar } from '@/components/botao-voltar';
+import { LinhaDeChips } from '@/components/linha-de-chips';
 import {
   CATEGORIAS_CURIOSIDADES,
   CURIOSIDADES,
@@ -162,11 +163,7 @@ export default function CuriosidadesScreen() {
         </Animated.View>
 
         {/* Categorias com a contagem, como os filtros da biblioteca */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipsLista}
-          contentContainerStyle={styles.chips}>
+        <LinhaDeChips style={styles.chipsLista} contentContainerStyle={styles.chips}>
           {(['Todas', ...CATEGORIAS_CURIOSIDADES] as Filtro[]).map((opcao) => {
             const ativo = filtro === opcao;
             const n = opcao === 'Todas' ? CURIOSIDADES.length : contagem[opcao];
@@ -177,6 +174,7 @@ export default function CuriosidadesScreen() {
                 onPress={() => escolherFiltro(opcao)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: ativo }}
+                aria-checked={ativo}
                 accessibilityLabel={`${opcao}, ${plural(n)}`}
                 style={({ pressed }) => [
                   styles.chip,
@@ -195,7 +193,7 @@ export default function CuriosidadesScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </LinhaDeChips>
 
         <View style={styles.lista}>
           {lista.slice(0, visiveis).map((item, index) => {

@@ -19,6 +19,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BotaoVoltar } from '@/components/botao-voltar';
+import { LinhaDeChips } from '@/components/linha-de-chips';
 import {
   Accent,
   DSFonts,
@@ -158,11 +159,7 @@ export default function AjudaScreen() {
           )}
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipsLista}
-          contentContainerStyle={styles.chips}>
+        <LinhaDeChips style={styles.chipsLista} contentContainerStyle={styles.chips}>
           <Chip titulo="Todas" ativo={assunto === null} onPress={() => escolherAssunto(null)} />
           {FAQ.map((secao) => (
             <Chip
@@ -174,7 +171,7 @@ export default function AjudaScreen() {
               onPress={() => escolherAssunto(secao.assunto)}
             />
           ))}
-        </ScrollView>
+        </LinhaDeChips>
 
         {filtrando && encontradas > 0 && (
           <Text style={styles.resultado} accessibilityLiveRegion="polite">
@@ -304,6 +301,7 @@ function Chip({ titulo, ativo, onPress, icone, cor = Mint.mint400 }: ChipProps) 
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ checked: ativo }}
+      aria-checked={ativo}
       style={({ pressed }) => [
         styles.chip,
         ativo && { backgroundColor: withAlpha(cor, 0.14), borderColor: withAlpha(cor, 0.5) },
@@ -367,6 +365,7 @@ function ItemPergunta({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityState={{ expanded: aberta }}
+        aria-expanded={aberta}
         style={({ pressed }) => [styles.perguntaLinha, pressed && styles.pressionado]}>
         <Destacado
           texto={pergunta}

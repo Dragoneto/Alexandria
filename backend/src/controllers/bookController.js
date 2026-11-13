@@ -7,14 +7,7 @@ const LIMITE_PADRAO = 10;
 const LIMITE_MAXIMO = 20;
 const ID_OBRA = /^OL\d+W$/;
 // Categorias do app e o assunto equivalente na Open Library
-const CATEGORY_SUBJECTS = new Map([
-  ['Fantasia', 'fantasy'],
-  ['Romance', 'romance'],
-  ['História', 'history'],
-  ['Tecnologia', 'technology'],
-  ['Biografia', 'biography'],
-  ['Mistério', 'mystery'],
-]);
+const { FILTRO_POR_CATEGORIA } = require('../constants/categorias');
 const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502, not_found: 404 };
 
 // Na busca o app só mostra título, autor e capa: traduz apenas os títulos,
@@ -54,13 +47,13 @@ function responderFalha(res, error, contexto) {
 const search = async (req, res) => {
   try {
     const query = textParam(req.query?.q);
-    if (query.length < TERMO_MINIMO) {
-      return res.status(400).json({ error: 'Digite pelo menos dois caracteres para buscar.' });
-    }
-
     const category = textParam(req.query?.category);
-    if (category && !CATEGORY_SUBJECTS.has(category)) {
+    if (category && !FILTRO_POR_CATEGORIA.has(category)) {
       return res.status(400).json({ error: 'Categoria inválida' });
+    }
+    // Com categoria, a busca pode vir sem termo: lista os livros daquela categoria.
+    if (query.length < TERMO_MINIMO && !(category && query === '')) {
+      return res.status(400).json({ error: 'Digite pelo menos dois caracteres para buscar.' });
     }
 
     const page = positiveIntParam(req.query?.page, 1);
@@ -73,7 +66,7 @@ const search = async (req, res) => {
     // A Open Library já pagina: página e tamanho seguem direto para ela
     const { docs, total } = await openLibrary.searchWorks({
       query,
-      subject: CATEGORY_SUBJECTS.get(category),
+      filtro: FILTRO_POR_CATEGORIA.get(category),
       sort: req.query?.order === 'newest' ? 'new' : undefined,
       page,
       limit,

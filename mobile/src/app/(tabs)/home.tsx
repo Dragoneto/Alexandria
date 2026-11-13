@@ -26,15 +26,10 @@ import {
 } from '@/constants/design-system';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
+import { LinhaDeChips, useTelaLarga } from '@/components/linha-de-chips';
 import { SinoNotificacoes } from '@/components/sino-notificacoes';
 import { SkeletonBookShelf } from '@/components/skeletons';
-import {
-  CATEGORIAS,
-  embaralhar,
-  sortearDestaque,
-  sortearEstantes,
-  type Categoria,
-} from '@/constants/estantes';
+import { CATEGORIAS, embaralhar, sortearDestaque, sortearEstantes } from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { getProfile, getProfilePhoto } from '@/services/auth';
@@ -111,7 +106,7 @@ export default function HomeScreen() {
   );
 
   // Só a categoria vai para o Explorar: a caixa de busca chega vazia e o "t" força uma nova busca.
-  const abrirCategoria = (categoria: Categoria) => {
+  const abrirCategoria = (categoria: string) => {
     router.push(`/explore?categoria=${encodeURIComponent(categoria)}&t=${proximoToque()}` as Href);
   };
 
@@ -185,10 +180,7 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Explore por categoria</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}>
+          <LinhaDeChips contentContainerStyle={styles.chipsRow}>
             {categorias.map((categoria) => (
               <FeedbackPressable
                 key={categoria}
@@ -199,7 +191,7 @@ export default function HomeScreen() {
                 <Text style={styles.chipText}>{categoria}</Text>
               </FeedbackPressable>
             ))}
-          </ScrollView>
+          </LinhaDeChips>
         </View>
 
         {estantes.map(({ key, ...estante }) => (
@@ -335,12 +327,14 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
   const [state, setState] = useState<'loading' | 'success' | 'empty' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
   // Livro cuja capa não carregou sai da estante: a home só mostra livros com capa.
+  // Várias capas podem falhar de uma vez, então cada saída parte da lista mais recente.
   const tirarLivro = (id: string) => {
-    const restantes = books.filter((book) => book.id !== id);
-    setBooks(restantes);
-    if (!restantes.length) setState('empty');
+    setBooks((atuais) => atuais.filter((book) => book.id !== id));
   };
+  const semLivros = state === 'empty' || (state === 'success' && !books.length);
   const loadingVisible = useLoadingGate(state === 'loading');
+  // No computador a roda do mouse não rola a estante para o lado: a barra fica à mostra.
+  const telaLarga = useTelaLarga();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -375,14 +369,18 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           message="Tente novamente para ver os livros desta seleção."
           onRetry={() => setAttempt((current) => current + 1)}
         />
-      ) : state === 'empty' ? (
+      ) : semLivros ? (
         <View style={styles.shelfEmpty}>
           <Text style={styles.shelfEmptyText}>Nenhum livro apareceu nesta estante.</Text>
           <FeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={`Buscar livros em ${title}`}
             onPress={() =>
-              router.push(`/explore?q=${encodeURIComponent(query)}&t=${proximoToque()}` as Href)
+              router.push(
+                (category
+                  ? `/explore?categoria=${encodeURIComponent(category)}&t=${proximoToque()}`
+                  : `/explore?q=${encodeURIComponent(query)}&t=${proximoToque()}`) as Href,
+              )
             }
             style={styles.shelfAction}>
             <Text style={styles.shelfActionText}>Buscar livros</Text>
@@ -393,7 +391,7 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           horizontal
           data={books}
           keyExtractor={(book) => book.id}
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={telaLarga}
           contentContainerStyle={styles.shelfRow}
           renderItem={({ item }) => (
             <Pressable

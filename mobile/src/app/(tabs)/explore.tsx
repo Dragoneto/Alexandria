@@ -17,12 +17,13 @@ import { BookCard } from '@/components/book-card';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
+import { LinhaDeChips } from '@/components/linha-de-chips';
 import { SkeletonGrid } from '@/components/skeletons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { CATEGORIAS, termoDaCategoria, type Categoria } from '@/constants/estantes';
+import { GRUPOS_DE_CATEGORIAS, ehCategoria, grupoDaCategoria } from '@/constants/categorias';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useTheme } from '@/hooks/use-theme';
@@ -36,11 +37,13 @@ import {
   type SearchErrorView,
 } from '@/services/open-library';
 
-const CATEGORY_OPTIONS: string[] = ['Todos', ...CATEGORIAS];
+const CATEGORY_OPTIONS: string[] = ['Todos', ...GRUPOS_DE_CATEGORIAS.map((grupo) => grupo.nome)];
 
-function ehCategoria(valor: string): valor is Categoria {
-  return (CATEGORIAS as readonly string[]).includes(valor);
-}
+// Busca só pela categoria: não há termo. A marca guarda a categoria para a busca ser refeita
+// quando ela muda e nunca chega ao backend (lá vai o termo vazio).
+const MARCA_DA_CATEGORIA = '\u0000categoria:';
+const marcaDaCategoria = (nome: string) => MARCA_DA_CATEGORIA + nome;
+const termoDaBusca = (enviado: string) => (enviado.startsWith(MARCA_DA_CATEGORIA) ? '' : enviado);
 const ORDER_OPTIONS: { label: string; value: BookSearchOrder }[] = [
   { label: 'Mais relevantes', value: 'relevance' },
   { label: 'Mais recentes', value: 'newest' },
@@ -75,7 +78,7 @@ export default function Explorar() {
   const [query, setQuery] = useState(initialQuery);
   const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [submittedQuery, setSubmittedQuery] = useState(() =>
-    initialCategory ? termoDaCategoria(initialCategory) : initialQuery,
+    initialCategory ? marcaDaCategoria(initialCategory) : initialQuery,
   );
   const [category, setCategory] = useState(initialCategory || 'Todos');
   // true quando os resultados vêm só da categoria, sem nada digitado na caixa.
@@ -105,6 +108,7 @@ export default function Explorar() {
   const lastParamCategoryRef = useRef(paramCategoryKey);
 
   const hasActiveFilters = category !== 'Todos' || order !== 'relevance' || quality !== 'precise';
+  const grupoEscolhido = category === 'Todos' ? undefined : grupoDaCategoria(category);
   const qualityCaption = useMemo(() => {
     if (quality === 'curated') return 'Exibindo obras com capa e autoria informada.';
     if (quality === 'all') return 'Exibindo todos os resultados válidos da Open Library.';
@@ -130,7 +134,7 @@ export default function Explorar() {
       setCategory(initialCategory);
       setQuery('');
       setError('');
-      setSubmittedQuery(termoDaCategoria(initialCategory));
+      setSubmittedQuery(marcaDaCategoria(initialCategory));
       setBuscaDaCategoria(true);
     });
   }, [initialCategory, paramCategoryKey]);
@@ -162,7 +166,7 @@ export default function Explorar() {
       setLoadMoreError('');
       try {
         const result = await searchBooks({
-          query: submittedQuery,
+          query: termoDaBusca(submittedQuery),
           category: category === 'Todos' ? undefined : category,
           order,
           quality,
@@ -238,7 +242,7 @@ export default function Explorar() {
     // Sem nada digitado, a categoria sozinha já mostra livros.
     if (!buscaDaCategoria && submittedQuery) return;
     if (ehCategoria(opcao)) {
-      setSubmittedQuery(termoDaCategoria(opcao));
+      setSubmittedQuery(marcaDaCategoria(opcao));
       setBuscaDaCategoria(true);
     } else if (buscaDaCategoria) {
       limparResultados();
@@ -259,7 +263,7 @@ export default function Explorar() {
       let more = true;
       for (let attempt = 0; attempt < MAX_EMPTY_PAGES && more && !fresh.length; attempt += 1) {
         const result = await searchBooks({
-          query: submittedQuery,
+          query: termoDaBusca(submittedQuery),
           category: category === 'Todos' ? undefined : category,
           order,
           quality,
@@ -437,17 +441,17 @@ export default function Explorar() {
             <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
               Categorias
             </ThemedText>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.chipsScroll}>
+            <LinhaDeChips style={styles.chipsScroll}>
               {CATEGORY_OPTIONS.map((option) => {
-                const active = category === option;
+                // O grupo fica marcado também quando uma subcategoria dele está escolhida.
+                const active =
+                  category === option || (option !== 'Todos' && grupoEscolhido?.nome === option);
                 return (
                   <FeedbackPressable
                     accessibilityRole="radio"
                     accessibilityLabel={`Categoria ${option}`}
                     accessibilityState={{ checked: active, disabled: loading }}
+                    aria-checked={active}
                     key={option}
                     disabled={loading}
                     onPress={() => escolherCategoria(option)}
@@ -464,7 +468,38 @@ export default function Explorar() {
                   </FeedbackPressable>
                 );
               })}
-            </ScrollView>
+            </LinhaDeChips>
+            {grupoEscolhido && (
+              <LinhaDeChips
+                style={styles.chipsScroll}
+                accessibilityLabel={`Subcategorias de ${grupoEscolhido.nome}`}>
+                {[grupoEscolhido.nome, ...grupoEscolhido.subcategorias].map((option) => {
+                  const active = category === option;
+                  const rotulo = option === grupoEscolhido.nome ? `Tudo em ${option}` : option;
+                  return (
+                    <FeedbackPressable
+                      accessibilityRole="radio"
+                      accessibilityLabel={`Categoria ${rotulo}`}
+                      accessibilityState={{ checked: active, disabled: loading }}
+                      aria-checked={active}
+                      key={option}
+                      disabled={loading}
+                      onPress={() => escolherCategoria(option)}
+                      style={[
+                        styles.chip,
+                        { borderColor: active ? theme.accent : theme.border },
+                        loading && { opacity: DisabledOpacity },
+                      ]}>
+                      <ThemedText
+                        themeColor={active ? 'accent' : 'textSecondary'}
+                        style={styles.chipText}>
+                        {rotulo}
+                      </ThemedText>
+                    </FeedbackPressable>
+                  );
+                })}
+              </LinhaDeChips>
+            )}
 
             <FeedbackPressable
               accessibilityRole="button"
@@ -472,6 +507,7 @@ export default function Explorar() {
                 maisFiltros ? 'Esconder ordenação e qualidade' : 'Mostrar ordenação e qualidade'
               }
               accessibilityState={{ expanded: maisFiltros }}
+              aria-expanded={maisFiltros}
               onPress={() => setMaisFiltros((aberto) => !aberto)}
               style={styles.maisFiltros}>
               <ThemedText themeColor="accent" style={styles.clearButtonText}>
@@ -495,6 +531,7 @@ export default function Explorar() {
                         accessibilityRole="radio"
                         accessibilityLabel={`Ordenar por ${option.label}`}
                         accessibilityState={{ checked: active, disabled: loading }}
+                        aria-checked={active}
                         key={option.value}
                         disabled={loading}
                         onPress={() => setOrder(option.value)}
@@ -524,6 +561,7 @@ export default function Explorar() {
                         accessibilityRole="radio"
                         accessibilityLabel={`Qualidade: ${option.label}`}
                         accessibilityState={{ checked: active, disabled: loading }}
+                        aria-checked={active}
                         key={option.value}
                         disabled={loading}
                         onPress={() => setQuality(option.value)}

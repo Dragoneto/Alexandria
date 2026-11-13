@@ -4,16 +4,23 @@ const path = require('node:path');
 const { test } = require('node:test');
 const ts = require('typescript');
 
-// estantes.ts não importa nada, então basta transpilar e executar
-const source = fs.readFileSync(path.resolve(__dirname, '../src/constants/estantes.ts'), 'utf8');
-const estantes = { exports: {} };
-new Function(
-  'module',
-  'exports',
-  ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-  }).outputText,
-)(estantes, estantes.exports);
+// Transpila e executa o módulo; o único import (o catálogo de categorias) é carregado do mesmo jeito.
+function carregar(arquivo, dependencias = {}) {
+  const source = fs.readFileSync(path.resolve(__dirname, '../src/constants', arquivo), 'utf8');
+  const modulo = { exports: {} };
+  new Function(
+    'module',
+    'exports',
+    'require',
+    ts.transpileModule(source, {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText,
+  )(modulo, modulo.exports, (nome) => dependencias[nome] ?? require(nome));
+  return modulo;
+}
+const categorias = carregar('categorias.ts');
+const { TODAS_AS_CATEGORIAS, GRUPOS_DE_CATEGORIAS } = categorias.exports;
+const estantes = carregar('estantes.ts', { '@/constants/categorias': categorias.exports });
 const {
   AUTORES,
   AUTORES_INTERNACIONAIS,
@@ -57,7 +64,12 @@ test('mostra primeiro 3 categorias diferentes e depois 1 autor nacional e 1 inte
 
     assert.equal(lista.length, 5);
     const [c1, c2, c3, nacional, internacional] = lista;
-    [c1, c2, c3].forEach((e) => assert.ok(CATEGORIAS.includes(e.category)));
+    [c1, c2, c3].forEach((e) => {
+      assert.ok(TODAS_AS_CATEGORIAS.includes(e.category));
+      // Estante de categoria busca só pela categoria e usa o nome dela como título
+      assert.equal(e.query, '');
+      assert.equal(e.title, e.category);
+    });
     assert.equal(new Set([c1, c2, c3].map((e) => e.category)).size, 3);
     assert.equal(nacional.category, undefined);
     assert.equal(internacional.category, undefined);
@@ -89,15 +101,31 @@ test('mesmo com aleatório no limite (0 e quase 1) não sai do intervalo', () =>
   for (const valor of [0, 0.9999999999]) {
     const lista = sortearEstantes({}, () => valor);
     assert.equal(lista.length, 5);
-    lista.forEach((e) => assert.ok(e.page >= 1 && e.page <= PAGINA_MAXIMA && e.query));
+    lista.forEach((e) =>
+      assert.ok(e.page >= 1 && e.page <= PAGINA_MAXIMA && (e.query || e.category)),
+    );
   }
 });
 
 test('destaque usa um autor ou uma categoria aceita pelo backend', () => {
   for (let s = 1; s <= 30; s += 1) {
     const d = sortearDestaque(semente(s));
-    assert.ok(d.query.length >= 2);
-    if (d.category) assert.ok(CATEGORIAS.includes(d.category));
-    else assert.ok(AUTORES.some((a) => a.busca === d.query));
+    if (d.category) {
+      assert.ok(TODAS_AS_CATEGORIAS.includes(d.category));
+      assert.equal(d.query, '');
+    } else assert.ok(AUTORES.some((a) => a.busca === d.query));
   }
+});
+
+test('os atalhos de categoria da home são os 11 grupos e as estantes variam entre todas as categorias', () => {
+  assert.deepEqual(
+    [...CATEGORIAS],
+    GRUPOS_DE_CATEGORIAS.map((g) => g.nome),
+  );
+  assert.equal(CATEGORIAS.length, 11);
+  const vistas = new Set();
+  for (let s = 1; s <= 200; s += 1) {
+    sortearEstantes({}, semente(s)).forEach((e) => e.category && vistas.add(e.category));
+  }
+  assert.ok(vistas.size > 60, `só ${vistas.size} categorias apareceram`);
 });

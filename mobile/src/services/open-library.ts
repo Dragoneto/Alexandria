@@ -155,7 +155,8 @@ function toBookError(error: unknown): unknown {
 
 export async function searchBooks(options: BookSearchOptions): Promise<BookSearchResult> {
   const query = options.query.trim();
-  if (query.length < 2) {
+  // Com categoria, a busca pode ir sem termo: lista os livros da categoria.
+  if (query.length < 2 && !(options.category && query === '')) {
     throw new OpenLibraryError('validation', 'Digite pelo menos dois caracteres para buscar.');
   }
 
