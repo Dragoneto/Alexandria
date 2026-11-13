@@ -118,7 +118,7 @@ export default function SignUpScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => router.replace('/login')}
-          style={({ pressed }) => pressed && styles.pressed}>
+          style={({ pressed }) => [styles.footerLinkArea, pressed && styles.pressed]}>
           <Text style={styles.footerLink}>Entrar</Text>
         </Pressable>
       </View>
@@ -169,6 +169,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: TextColor.secondary,
   },
+  // Alvo de toque de 44px sem mudar o desenho do link
+  footerLinkArea: { minHeight: 44, justifyContent: 'center' },
   footerLink: {
     fontFamily: DSFonts.ui,
     fontSize: 15,

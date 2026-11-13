@@ -171,7 +171,7 @@ export default function ResetPasswordScreen() {
           onPress={() =>
             router.replace({ pathname: '/esqueci-senha', params: { email: email.trim() } })
           }
-          style={({ pressed }) => pressed && styles.pressed}>
+          style={({ pressed }) => [styles.footerLinkArea, pressed && styles.pressed]}>
           <Text style={styles.footerLink}>Pedir outro</Text>
         </Pressable>
       </View>
@@ -213,6 +213,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: TextColor.secondary,
   },
+  // Alvo de toque de 44px sem mudar o desenho do link
+  footerLinkArea: { minHeight: 44, justifyContent: 'center' },
   footerLink: {
     fontFamily: DSFonts.ui,
     fontSize: 15,
