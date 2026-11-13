@@ -124,6 +124,39 @@ test('categoria e ordenação viram assunto e sort da Open Library', async () =>
   assert.equal(chamadas[0].url.searchParams.get('sort'), 'new');
 });
 
+test('categoria sem termo lista os livros da categoria; categorias novas usam o filtro do catálogo', async () => {
+  simularOpenLibrary(() => respostaJson({ numFound: 0, docs: [] }));
+
+  assert.equal((await buscar({ q: '', category: 'Poesia' })).statusCode, 200);
+  assert.equal(chamadas[0].url.searchParams.get('q'), 'subject:poetry');
+
+  assert.equal((await buscar({ category: 'Biografias históricas' })).statusCode, 200);
+  assert.equal(chamadas[1].url.searchParams.get('q'), 'subject:biography subject:history');
+
+  assert.equal((await buscar({ q: 'amado', category: 'Brasil' })).statusCode, 200);
+  assert.equal(chamadas[2].url.searchParams.get('q'), 'amado place:brazil');
+});
+
+test('sem categoria o termo continua obrigatório; categoria fora do catálogo é recusada', async () => {
+  simularOpenLibrary(() => respostaJson({ numFound: 0, docs: [] }));
+  assert.equal((await buscar({ q: '' })).statusCode, 400);
+  assert.equal((await buscar({ q: 'a', category: 'Poesia' })).statusCode, 400);
+  assert.equal((await buscar({ q: '', category: 'Em inglês' })).statusCode, 400);
+  assert.equal(chamadas.length, 0);
+});
+
+test('catálogo tem nomes únicos e todo filtro usa subject ou place', () => {
+  const { GRUPOS, FILTRO_POR_CATEGORIA } = require('../src/constants/categorias');
+  const nomes = GRUPOS.flatMap((g) => [g.nome, ...g.subcategorias.map((s) => s.nome)]);
+  assert.equal(new Set(nomes).size, nomes.length);
+  assert.equal(FILTRO_POR_CATEGORIA.size, nomes.length);
+  for (const filtro of FILTRO_POR_CATEGORIA.values()) assert.match(filtro, /^(subject|place):/);
+  // As seis categorias antigas continuam valendo (links e URLs já salvos)
+  for (const antiga of ['Fantasia', 'Romance', 'História', 'Tecnologia', 'Biografia', 'Mistério']) {
+    assert.ok(FILTRO_POR_CATEGORIA.has(antiga), antiga);
+  }
+});
+
 test('página e tamanho são repassados para a Open Library', async () => {
   simularOpenLibrary(() => respostaJson({ numFound: 45, docs: [] }));
 

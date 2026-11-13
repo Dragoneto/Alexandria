@@ -56,16 +56,16 @@ async function getJson(path, timeoutMs = TIMEOUT_MS) {
  * Busca obras em /search.json e devolve os documentos como vieram.
  *
  * @param {object} options
- * @param {string} options.query      termo já validado
- * @param {string} [options.subject]  assunto da Open Library (ex.: fantasy)
+ * @param {string} options.query      termo já validado (pode ser vazio quando há filtro)
+ * @param {string} [options.filtro]   filtro da categoria na sintaxe da Open Library (ex.: subject:fantasy)
  * @param {string} [options.sort]     ordenação da Open Library (ex.: new)
  * @param {number} options.page       página, a partir de 1
  * @param {number} options.limit      resultados por página
  * @returns {Promise<{ docs: unknown[], total: number }>}
  */
-async function searchWorks({ query, subject, sort, page, limit }) {
+async function searchWorks({ query, filtro, sort, page, limit }) {
   const parameters = new URLSearchParams({
-    q: subject ? `${query} subject:${subject}` : query,
+    q: [query, filtro].filter(Boolean).join(' '),
     fields: SEARCH_FIELDS,
     lang: 'pt',
     page: String(page),
