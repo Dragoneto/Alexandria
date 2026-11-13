@@ -14,6 +14,7 @@ import { SkeletonList } from '@/components/skeletons';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
+import { useVoltar } from '@/hooks/use-voltar';
 import { ApiError } from '@/services/api';
 import {
   estrelas,
@@ -30,6 +31,7 @@ type EstadoAvaliacoes = 'loading' | 'success' | 'empty' | 'error';
 export default function MinhasAvaliacoes() {
   const theme = useTheme();
   const router = useRouter();
+  const voltar = useVoltar('/perfil');
   const [lista, setLista] = useState<AvaliacaoLida[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
@@ -124,7 +126,7 @@ export default function MinhasAvaliacoes() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <FeedbackPressable
-              onPress={() => router.back()}
+              onPress={voltar}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Voltar"

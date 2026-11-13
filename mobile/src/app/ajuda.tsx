@@ -26,6 +26,7 @@ import {
   withAlpha,
 } from '@/constants/design-system';
 import { useFoco } from '@/hooks/use-foco';
+import { useVoltar } from '@/hooks/use-voltar';
 
 type Pergunta = { pergunta: string; resposta: string };
 
@@ -108,6 +109,7 @@ const FAQ: Secao[] = [
 
 export default function AjudaScreen() {
   const router = useRouter();
+  const voltar = useVoltar('/configuracoes');
   const [busca, setBusca] = useState('');
   const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [assunto, setAssunto] = useState<string | null>(null); // null = todos os assuntos
@@ -151,7 +153,7 @@ export default function AjudaScreen() {
     showsVerticalScrollIndicator={false}
     keyboardShouldPersistTaps="handled">
     <Pressable
-      onPress={() => router.back()}
+      onPress={voltar}
       hitSlop={Space.two}
       accessibilityRole="button"
       accessibilityLabel="Voltar"

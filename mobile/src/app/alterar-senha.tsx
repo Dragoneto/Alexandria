@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,11 +5,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionButton } from '@/components/action-button';
 import { BotaoVoltar } from '@/components/botao-voltar';
 import { TextField } from '@/components/text-field';
-import { Accent, DSFonts, Ink, Mint, ScreenInset, Space, TextColor } from '@/constants/design-system';
+import {
+  Accent,
+  DSFonts,
+  Ink,
+  Mint,
+  ScreenInset,
+  Space,
+  TextColor,
+} from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
 import { ApiError, changePassword, PASSWORD_HINT } from '@/services/auth';
 
 export default function AlterarSenhaScreen() {
-  const router = useRouter();
+  const voltar = useVoltar('/configuracoes');
   const [atual, setAtual] = useState('');
   const [nova, setNova] = useState('');
   const [confirmacao, setConfirmacao] = useState('');
@@ -37,7 +45,8 @@ export default function AlterarSenhaScreen() {
           ? (failure.fieldErrors?.senhaAtual ?? failure.fieldErrors?.novaSenha)
           : undefined;
       setErro(
-        doCampo ?? (failure instanceof Error ? failure.message : 'Não foi possível alterar a senha.'),
+        doCampo ??
+          (failure instanceof Error ? failure.message : 'Não foi possível alterar a senha.'),
       );
     } finally {
       enviando.current = false;
@@ -112,7 +121,7 @@ export default function AlterarSenhaScreen() {
                 </Text>
               )}
               <ActionButton label="Salvar nova senha" onPress={salvar} loading={salvando} />
-              <ActionButton label="Voltar" variant="ghost" onPress={() => router.back()} />
+              <ActionButton label="Voltar" variant="ghost" onPress={voltar} />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

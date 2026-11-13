@@ -1,5 +1,4 @@
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
 
 const EQUIPE = [
   {
@@ -57,14 +57,14 @@ const EQUIPE = [
 
 
 export default function EquipeScreen() {
-  const router = useRouter();
+  const voltar = useVoltar('/configuracoes');
 
   return (
     <SafeAreaView style={styles.tela}>
       <ScrollView contentContainerStyle={styles.conteudo}>
         {/* Botão de voltar (o mesmo das outras telas) */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={voltar}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Voltar"

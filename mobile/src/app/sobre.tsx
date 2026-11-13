@@ -17,6 +17,7 @@ import {
   withAlpha,
   Shadow,
 } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
 
 
 const VERSAO = Constants.expoConfig?.version ?? '1.0.0';
@@ -82,13 +83,14 @@ const ATALHOS = [
 
 export default function SobreScreen() {
   const router = useRouter();
+  const voltar = useVoltar('/configuracoes');
 
   return (
     <SafeAreaView style={styles.tela} edges={['top']}>
       <ScrollView contentContainerStyle={styles.conteudo} showsVerticalScrollIndicator={false}>
         {/* Botão de voltar (o mesmo da tela de Ajuda) */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={voltar}
           hitSlop={Space.two}
           accessibilityRole="button"
           accessibilityLabel="Voltar"

@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -22,6 +22,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
+import { useVoltar } from '@/hooks/use-voltar';
 import { ApiError } from '@/services/api';
 import {
   atualizarAvaliacao,
@@ -51,6 +52,8 @@ export default function AvaliarLivro() {
     avaliacaoId?: string | string[];
   }>();
   const livroId = firstParam(params.id);
+  const voltarPara = (livroId ? `/livro/${livroId}` : '/home') as Href;
+  const voltar = useVoltar(voltarPara);
   const tituloParam = firstParam(params.titulo);
   // Aberta por link direto (sem ?titulo=), a tela busca o nome do livro em vez de "Este livro".
   const [tituloBuscado, setTituloBuscado] = useState('');
@@ -195,7 +198,7 @@ export default function AvaliarLivro() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
             <FeedbackPressable
-              onPress={() => router.back()}
+              onPress={voltar}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Voltar"
@@ -234,7 +237,7 @@ export default function AvaliarLivro() {
                 </ThemedText>
                 <TouchableOpacity
                   accessibilityRole="button"
-                  onPress={() => router.back()}
+                  onPress={voltar}
                   style={[styles.outlineButton, { borderColor: theme.accent }]}>
                   <ThemedText themeColor="accent" style={styles.buttonText}>
                     Voltar

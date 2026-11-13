@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,11 +6,12 @@ import { ActionButton } from '@/components/action-button';
 import { BotaoVoltar } from '@/components/botao-voltar';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, ScreenInset, Space, TextColor } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
 import { useAuth } from '@/contexts/auth-context';
 import { updateProfile } from '@/services/auth';
 
 export default function EditarPerfilScreen() {
-  const router = useRouter();
+  const voltar = useVoltar('/perfil');
   const { user } = useAuth();
 
   // Os campos começam preenchidos com os dados atuais do usuário
@@ -28,7 +28,7 @@ export default function EditarPerfilScreen() {
     setError('');
     try {
       await updateProfile({ name, email });
-      router.back(); // volta para a tela de perfil
+      voltar(); // volta para a tela de perfil
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Não foi possível salvar.');
     } finally {
@@ -84,7 +84,7 @@ export default function EditarPerfilScreen() {
                 </Text>
               )}
               <ActionButton label="Salvar alterações" onPress={handleSave} loading={saving} />
-              <ActionButton label="Cancelar" variant="ghost" onPress={() => router.back()} />
+              <ActionButton label="Cancelar" variant="ghost" onPress={voltar} />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

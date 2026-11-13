@@ -17,6 +17,7 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
 const OPCOES = [
   {
     titulo: 'Alterar senha',
@@ -57,6 +58,7 @@ const OPCOES = [
 
 export default function ConfiguracoesScreen() {
   const router = useRouter();
+  const voltar = useVoltar('/perfil');
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
 
@@ -77,7 +79,7 @@ export default function ConfiguracoesScreen() {
     <SafeAreaView style={styles.tela}>
       <ScrollView contentContainerStyle={styles.conteudo}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={voltar}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Voltar"

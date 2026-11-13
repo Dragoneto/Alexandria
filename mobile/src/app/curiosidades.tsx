@@ -1,4 +1,3 @@
-import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -15,6 +14,7 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
 
 // Lista de curiosidades. Para adicionar uma nova, é só copiar um bloco { ... }.
 const CURIOSIDADES = [
@@ -77,7 +77,7 @@ const CURIOSIDADES = [
 ] as const;
 
 export default function CuriosidadesScreen() {
-  const router = useRouter();
+  const voltar = useVoltar('/configuracoes');
 
   // Guarda qual curiosidade aparece no destaque (começa na primeira, posição 0)
   const [indice, setIndice] = useState(0);
@@ -93,7 +93,7 @@ export default function CuriosidadesScreen() {
       <ScrollView contentContainerStyle={styles.conteudo}>
         {/* Botão de voltar (o mesmo das outras telas) */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={voltar}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
