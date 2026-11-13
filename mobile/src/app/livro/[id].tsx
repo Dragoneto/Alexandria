@@ -208,11 +208,13 @@ export default function DetalheDoLivro() {
                 </ThemedText>
                 {book.description ? (
                   <>
-                    <ThemedText themeColor="textSecondary" style={styles.translationNote}>
-                      {book.descriptionTranslated
-                        ? 'Sinopse traduzida automaticamente para português.'
-                        : 'Sinopse exibida no idioma original da Open Library.'}
-                    </ThemedText>
+                    {/* Sinopse que já veio em português também chega com descriptionTranslated
+                        false, então o aviso só aparece quando houve tradução de fato. */}
+                    {book.descriptionTranslated && (
+                      <ThemedText themeColor="textSecondary" style={styles.translationNote}>
+                        Sinopse traduzida automaticamente para português.
+                      </ThemedText>
+                    )}
                     <ThemedText
                       themeColor="textSecondary"
                       style={styles.description}
