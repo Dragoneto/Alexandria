@@ -63,9 +63,36 @@ async function getJson(path, timeoutMs = TIMEOUT_MS) {
  * @param {number} options.limit      resultados por página
  * @returns {Promise<{ docs: unknown[], total: number }>}
  */
+const OPERADOR_NO_INICIO = /^(?:AND|OR|&&|\|\||[-+!])$/;
+const OPERADOR_NO_FIM = /^(?:AND|OR|NOT|&&|\|\||[-+!])$/;
+
+/**
+ * O termo vem da pessoa e entra na consulta da Open Library junto com o filtro da categoria.
+ * Aspas ou parênteses sem par e operador solto nas pontas engoliam o filtro ("dragon OR" com
+ * Fantasia trazia toda a fantasia; `"dragon` trazia 1 livro), então saem antes da busca.
+ */
+function termoSeguro(query) {
+  let termo = query;
+  if ((termo.match(/"/g) ?? []).length % 2) termo = termo.replace(/"/g, ' ');
+  if ((termo.match(/\(/g) ?? []).length !== (termo.match(/\)/g) ?? []).length) {
+    termo = termo.replace(/[()]/g, ' ');
+  }
+  const partes = termo.split(/\s+/).filter(Boolean);
+  while (partes.length && OPERADOR_NO_INICIO.test(partes[0])) partes.shift();
+  while (partes.length && OPERADOR_NO_FIM.test(partes.at(-1))) partes.pop();
+  return partes.join(' ');
+}
+
+function consulta(query, filtro) {
+  const termo = termoSeguro(query);
+  if (!filtro) return termo || query;
+  // Entre parênteses, um OR no meio do termo não escapa do filtro da categoria.
+  return termo ? `(${termo}) ${filtro}` : filtro;
+}
+
 async function searchWorks({ query, filtro, sort, page, limit }) {
   const parameters = new URLSearchParams({
-    q: [query, filtro].filter(Boolean).join(' '),
+    q: consulta(query, filtro),
     fields: SEARCH_FIELDS,
     lang: 'pt',
     page: String(page),

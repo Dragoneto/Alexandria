@@ -133,7 +133,7 @@ test('categoria e ordenação viram assunto e sort da Open Library', async () =>
 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body, { books: [], total: 0, page: 1, limit: 10, hasMore: false });
-  assert.equal(chamadas[0].url.searchParams.get('q'), 'tolkien subject:fantasy');
+  assert.equal(chamadas[0].url.searchParams.get('q'), '(tolkien) subject:fantasy');
   assert.equal(chamadas[0].url.searchParams.get('sort'), 'new');
 });
 
@@ -147,7 +147,30 @@ test('categoria sem termo lista os livros da categoria; categorias novas usam o 
   assert.equal(chamadas[1].url.searchParams.get('q'), 'subject:biography subject:history');
 
   assert.equal((await buscar({ q: 'amado', category: 'Brasil' })).statusCode, 200);
-  assert.equal(chamadas[2].url.searchParams.get('q'), 'amado place:brazil');
+  assert.equal(chamadas[2].url.searchParams.get('q'), '(amado) place:brazil');
+});
+
+test('termo com aspas sem par ou operador solto não engole o filtro da categoria', async () => {
+  simularOpenLibrary(() => respostaJson({ numFound: 0, docs: [] }));
+  const enviados = [
+    ['"dragon', 'Fantasia', '(dragon) subject:fantasy'],
+    ['dragon OR', 'Fantasia', '(dragon) subject:fantasy'],
+    ['dragon -', 'Fantasia', '(dragon) subject:fantasy'],
+    ['OR dragon', 'Fantasia', '(dragon) subject:fantasy'],
+    ['(dragon', 'Fantasia', '(dragon) subject:fantasy'],
+    ['cats OR dogs', 'Fantasia', '(cats OR dogs) subject:fantasy'],
+    ['"dom casmurro"', 'Brasil', '("dom casmurro") place:brazil'],
+    ['OR', 'Fantasia', 'subject:fantasy'],
+    ['"dom casmurro', undefined, 'dom casmurro'],
+    ['NOT dragon', undefined, 'NOT dragon'],
+  ];
+  for (const [q, category] of enviados) {
+    assert.equal((await buscar({ q, category })).statusCode, 200, q);
+  }
+  assert.deepEqual(
+    chamadas.map((chamada) => chamada.url.searchParams.get('q')),
+    enviados.map(([, , esperado]) => esperado),
+  );
 });
 
 test('sem categoria o termo continua obrigatório; categoria fora do catálogo é recusada', async () => {
