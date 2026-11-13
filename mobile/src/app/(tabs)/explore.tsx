@@ -693,7 +693,13 @@ const styles = StyleSheet.create({
   },
   filterHeaderTitle: { fontSize: 15, fontWeight: '800' },
   filterHeaderSubtitle: { fontSize: 12, marginTop: 2 },
-  clearButton: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  clearButton: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   clearButtonText: { fontSize: 12, fontWeight: '800' },
   filterBlockLabel: {
     marginTop: Spacing.three,
