@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
+import { Estrelas } from '@/components/estrelas';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
@@ -10,7 +11,7 @@ import { DisabledOpacity } from '@/constants/design-system';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
-import { estrelas, resumoAvaliacoes, type AvaliacoesDoLivro as Dados } from '@/services/avaliacoes';
+import { resumoAvaliacoes, type AvaliacoesDoLivro as Dados } from '@/services/avaliacoes';
 
 type Props = {
   dados: Dados | null;
@@ -89,12 +90,9 @@ export function AvaliacoesDoLivro({
                   </ThemedText>
                 )}
               </View>
-              <ThemedText
-                themeColor="accent"
-                style={styles.stars}
-                accessibilityLabel={`Nota ${avaliacao.nota} de 5`}>
-                {estrelas(avaliacao.nota)}
-              </ThemedText>
+              <View style={styles.stars}>
+                <Estrelas nota={avaliacao.nota} tamanho={16} />
+              </View>
               {!!avaliacao.resenha && (
                 <ThemedText themeColor="textSecondary" style={styles.resenha}>
                   {avaliacao.resenha}
@@ -151,7 +149,7 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   author: { flexShrink: 1, fontSize: 15, fontWeight: '800' },
   badge: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
-  stars: { fontSize: 16, letterSpacing: 2 },
+  stars: { marginVertical: 2 },
   resenha: { fontSize: 14, lineHeight: 21 },
   outlineButton: {
     minHeight: 48,

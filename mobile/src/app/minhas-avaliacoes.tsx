@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Estrelas } from '@/components/estrelas';
 import { ThemedText } from '@/components/themed-text';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
@@ -17,7 +18,6 @@ import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useVoltar } from '@/hooks/use-voltar';
 import { ApiError } from '@/services/api';
 import {
-  estrelas,
   excluirAvaliacao,
   listarMinhasAvaliacoes,
   type AvaliacaoLida,
@@ -197,12 +197,9 @@ export default function MinhasAvaliacoes() {
                           <ThemedText style={styles.bookTitle} numberOfLines={2}>
                             {avaliacao.livro.titulo}
                           </ThemedText>
-                          <ThemedText
-                            themeColor="accent"
-                            style={styles.stars}
-                            accessibilityLabel={`Nota ${avaliacao.nota} de 5`}>
-                            {estrelas(avaliacao.nota)}
-                          </ThemedText>
+                          <View style={styles.stars}>
+                            <Estrelas nota={avaliacao.nota} tamanho={15} />
+                          </View>
                           {!!avaliacao.resenha && (
                             <ThemedText
                               themeColor="textSecondary"
@@ -361,7 +358,7 @@ const styles = StyleSheet.create({
   cover: { width: 56, height: 84, borderRadius: 8 },
   cardBody: { flex: 1, gap: 4 },
   bookTitle: { fontSize: 16, fontWeight: '800' },
-  stars: { fontSize: 15, letterSpacing: 2 },
+  stars: { marginVertical: 2 },
   resenha: { fontSize: 14, lineHeight: 21 },
   actions: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: Spacing.two },
   confirmText: { fontSize: 13, fontWeight: '700' },

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Estrelas } from '@/components/estrelas';
 import { ThemedText } from '@/components/themed-text';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
@@ -51,10 +52,6 @@ type Modo =
   | { tipo: 'editar'; alvo: Comentario };
 
 const RECUO = 16;
-
-function estrelas(nota: number): string {
-  return '★'.repeat(nota) + '☆'.repeat(Math.max(0, 5 - nota));
-}
 
 function primeiroParam(valor: string | string[] | undefined): string {
   return Array.isArray(valor) ? (valor[0] ?? '') : (valor ?? '');
@@ -333,12 +330,9 @@ export default function ConversaDaAvaliacao() {
                         {`  ·  ${tempoRelativo(avaliacao.criadoEm)}`}
                       </ThemedText>
                     </ThemedText>
-                    <ThemedText
-                      themeColor="accent"
-                      style={styles.stars}
-                      accessibilityLabel={`Nota ${avaliacao.nota} de 5`}>
-                      {estrelas(avaliacao.nota)}
-                    </ThemedText>
+                    <View style={styles.stars}>
+                      <Estrelas nota={avaliacao.nota} tamanho={18} />
+                    </View>
                     {!!avaliacao.resenha && (
                       <ThemedText style={styles.resenha}>{avaliacao.resenha}</ThemedText>
                     )}
@@ -764,7 +758,7 @@ const styles = StyleSheet.create({
   reviewCard: { borderRadius: 16, padding: Spacing.four, gap: 6 },
   bookTitle: { fontSize: 13, fontWeight: '700' },
   author: { fontSize: 17, fontWeight: '800' },
-  stars: { fontSize: 18, letterSpacing: 2 },
+  stars: { marginVertical: 2 },
   resenha: { fontSize: 15, lineHeight: 23 },
   conversaHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   conversaTitle: { fontSize: 18, lineHeight: 26 },
