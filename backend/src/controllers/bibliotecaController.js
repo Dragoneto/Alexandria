@@ -124,6 +124,7 @@ const add = async (req, res) => {
       status,
       progresso,
     });
+    if (status === 'LENDO') await biblioteca.registrarDiaDoUsuario(req.user.id, hojeNoBrasil());
     return res.status(201).json({ item: paraResposta(criado) });
   } catch (error) {
     if (error.code === 'DUPLICATE_LIBRARY_ITEM') {
@@ -198,6 +199,7 @@ const update = async (req, res) => {
     // Começou a ler hoje: hoje já conta como um dia de leitura.
     if (mudouStatus && status === 'LENDO') {
       await biblioteca.registrarDiaDeLeitura(req.user.id, hojeNoBrasil(), id);
+      await biblioteca.registrarDiaDoUsuario(req.user.id, hojeNoBrasil());
       item = (await biblioteca.findById(id, req.user.id)) ?? item;
     }
     return res.json({ item: paraResposta(item) });
@@ -225,15 +227,40 @@ const remove = async (req, res) => {
   }
 };
 
-/** O app chama ao abrir: cada dia com o app aberto soma 1 dia aos livros em "Lendo". */
+/**
+ * O app chama ao abrir: cada dia com o app aberto soma 1 dia aos livros em "Lendo" e, se houver
+ * algum, 1 dia de leitura no perfil (dois livros no mesmo dia continuam sendo um dia só).
+ */
 const registrarDia = async (req, res) => {
   try {
-    const contados = await biblioteca.registrarDiaDeLeitura(req.user.id, hojeNoBrasil());
-    return res.json({ livrosAtualizados: contados });
+    const hoje = hojeNoBrasil();
+    const contados = await biblioteca.registrarDiaDeLeitura(req.user.id, hoje);
+    const lendo = (await biblioteca.findByUser(req.user.id, 'LENDO')).length;
+    if (lendo) await biblioteca.registrarDiaDoUsuario(req.user.id, hoje);
+    const diasLeitura = await biblioteca.contarDiasDoUsuario(req.user.id);
+    return res.json({ livrosAtualizados: contados, diasLeitura });
   } catch (error) {
     console.error('Erro ao registrar dia de leitura:', error.message);
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 };
 
-module.exports = { list, add, update, remove, registrarDia, hojeNoBrasil, completarPaginas };
+const diasDeLeitura = async (req, res) => {
+  try {
+    return res.json({ diasLeitura: await biblioteca.contarDiasDoUsuario(req.user.id) });
+  } catch (error) {
+    console.error('Erro ao contar dias de leitura:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+module.exports = {
+  list,
+  add,
+  update,
+  remove,
+  registrarDia,
+  diasDeLeitura,
+  hojeNoBrasil,
+  completarPaginas,
+};

@@ -102,4 +102,11 @@ if (!urlDeTeste) {
     const voltou = await chamar(update, { params, body: { status: 'LENDO' } });
     assert.equal(voltou.body.item.progresso.concluidoEm, null);
   });
+
+  test('dias de leitura do perfil contam cada dia uma vez só', async () => {
+    assert.equal(await biblioteca.contarDiasDoUsuario(userId), 1);
+    await biblioteca.registrarDiaDoUsuario(userId, '2099-01-01');
+    await biblioteca.registrarDiaDoUsuario(userId, '2099-01-01');
+    assert.equal((await chamar(registrarDia)).body.diasLeitura, 2);
+  });
 }

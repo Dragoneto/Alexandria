@@ -6,15 +6,17 @@ const pool = require('../config/database');
 const localFile = process.env.LOCAL_LIBRARY_FILE
   ? path.resolve(process.env.LOCAL_LIBRARY_FILE)
   : path.resolve(__dirname, '../../.data/biblioteca.json');
+// Dias em que a pessoa abriu o app com algum livro em "Lendo" (um registro por dia).
+const localDaysFile = path.join(path.dirname(localFile), 'dias-de-leitura.json');
 let pendingWrite = Promise.resolve();
 
 function usePostgres() {
   return pool !== null;
 }
 
-async function readLocalItems() {
+async function readLocalItems(arquivo = localFile) {
   try {
-    const parsed = JSON.parse(await fs.readFile(localFile, 'utf8'));
+    const parsed = JSON.parse(await fs.readFile(arquivo, 'utf8'));
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     if (error.code === 'ENOENT') return [];
@@ -22,11 +24,11 @@ async function readLocalItems() {
   }
 }
 
-async function writeLocalItems(itens) {
-  await fs.mkdir(path.dirname(localFile), { recursive: true });
-  const temporaryFile = `${localFile}.tmp`;
+async function writeLocalItems(itens, arquivo = localFile) {
+  await fs.mkdir(path.dirname(arquivo), { recursive: true });
+  const temporaryFile = `${arquivo}.tmp`;
   await fs.writeFile(temporaryFile, JSON.stringify(itens, null, 2), 'utf8');
-  await fs.rename(temporaryFile, localFile);
+  await fs.rename(temporaryFile, arquivo);
 }
 
 function serializeWrite(operation) {
@@ -66,6 +68,13 @@ async function initialize() {
         ADD COLUMN IF NOT EXISTS dias_leitura INTEGER NOT NULL DEFAULT 0,
         ADD COLUMN IF NOT EXISTS ultimo_dia_leitura DATE,
         ADD COLUMN IF NOT EXISTS concluido_em TIMESTAMPTZ
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS dias_de_leitura (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        dia DATE NOT NULL,
+        PRIMARY KEY (user_id, dia)
+      )
     `);
     return;
   }
@@ -275,6 +284,35 @@ async function registrarDiaDeLeitura(userId, hoje, itemId) {
   });
 }
 
+/** Marca o dia como dia de leitura da pessoa; o mesmo dia não conta duas vezes. */
+async function registrarDiaDoUsuario(userId, dia) {
+  if (usePostgres()) {
+    await pool.query(
+      'INSERT INTO dias_de_leitura (user_id, dia) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [userId, dia],
+    );
+    return;
+  }
+  await serializeWrite(async () => {
+    const dias = await readLocalItems(localDaysFile);
+    if (dias.some((registro) => registro.user_id === Number(userId) && registro.dia === dia)) return;
+    dias.push({ user_id: Number(userId), dia });
+    await writeLocalItems(dias, localDaysFile);
+  });
+}
+
+async function contarDiasDoUsuario(userId) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'SELECT COUNT(*)::int AS total FROM dias_de_leitura WHERE user_id = $1',
+      [userId],
+    );
+    return result.rows[0]?.total ?? 0;
+  }
+  const dias = await readLocalItems(localDaysFile);
+  return dias.filter((registro) => registro.user_id === Number(userId)).length;
+}
+
 module.exports = {
   initialize,
   findById,
@@ -284,4 +322,6 @@ module.exports = {
   remove,
   countByStatus,
   registrarDiaDeLeitura,
+  registrarDiaDoUsuario,
+  contarDiasDoUsuario,
 };

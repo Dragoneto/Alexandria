@@ -176,3 +176,22 @@ test('livro sem páginas na Open Library não é consultado de novo a cada lista
   }
   assert.deepEqual(consultas, ['OL11W']);
 });
+
+test('dias de leitura do perfil: um por dia, mesmo com vários livros em "Lendo"', async () => {
+  const { diasDeLeitura } = require('../src/controllers/bibliotecaController');
+  await biblioteca.create({ userId: 5, livro: livro('OL10W'), status: 'LENDO' });
+  await biblioteca.create({ userId: 5, livro: livro('OL12W'), status: 'LENDO' });
+
+  const hoje = await chamar(registrarDia, { userId: 5 });
+  assert.equal(hoje.body.livrosAtualizados, 2);
+  assert.equal(hoje.body.diasLeitura, 1);
+  assert.equal((await chamar(registrarDia, { userId: 5 })).body.diasLeitura, 1);
+
+  await biblioteca.registrarDiaDoUsuario(5, '2099-01-01');
+  assert.equal((await chamar(diasDeLeitura, { userId: 5 })).body.diasLeitura, 2);
+});
+
+test('abrir o app sem livro em "Lendo" não conta dia de leitura', async () => {
+  await biblioteca.create({ userId: 6, livro: livro('OL10W'), status: 'QUERO_LER' });
+  assert.equal((await chamar(registrarDia, { userId: 6 })).body.diasLeitura, 0);
+});
