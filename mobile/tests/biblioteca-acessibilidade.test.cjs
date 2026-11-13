@@ -51,7 +51,8 @@ test('filtros e opções do modal expõem a seleção sem depender só da cor', 
   assert.equal(radios.length, 2);
   for (const radio of radios) {
     assert.match(radio, /aria-checked=\{/);
-    assert.match(radio, /`✓ \$\{/);
+    // O ícone de check marca a opção escolhida, além da cor
+    assert.match(radio, /ios: 'checkmark'/);
   }
 });
 

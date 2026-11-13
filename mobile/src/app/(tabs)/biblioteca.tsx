@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -319,9 +320,11 @@ export default function Biblioteca() {
                   onPress={() => setBusca('')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={styles.clearSearchButton}>
-                  <ThemedText themeColor="textSecondary" style={styles.clearSearchIcon}>
-                    ✕
-                  </ThemedText>
+                  <SymbolView
+                    name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                    size={18}
+                    tintColor={theme.textSecondary}
+                  />
                 </TouchableOpacity>
               )}
             </View>
@@ -348,10 +351,17 @@ export default function Biblioteca() {
                         styles.filterChip,
                         { borderColor: active ? theme.accent : theme.border },
                       ]}>
+                      {active && (
+                        <SymbolView
+                          name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+                          size={14}
+                          tintColor={theme.accent}
+                        />
+                      )}
                       <ThemedText
                         themeColor={active ? 'accent' : 'textSecondary'}
                         style={styles.filterChipText}>
-                        {active ? `✓ ${option.label}` : option.label}
+                        {option.label}
                         <ThemedText themeColor="textSecondary" style={styles.filterChipCount}>
                           {`  ${counters[option.value]}`}
                         </ThemedText>
@@ -370,10 +380,15 @@ export default function Biblioteca() {
                   styles.filterChip,
                   { borderColor: somenteFavoritos ? theme.accent : theme.border },
                 ]}>
+                <SymbolView
+                  name={{ ios: 'heart.fill', android: 'favorite', web: 'favorite' }}
+                  size={14}
+                  tintColor={somenteFavoritos ? theme.accent : theme.textSecondary}
+                />
                 <ThemedText
                   themeColor={somenteFavoritos ? 'accent' : 'textSecondary'}
                   style={styles.filterChipText}>
-                  {somenteFavoritos ? '✓ Favoritos' : 'Favoritos'}
+                  Favoritos
                 </ThemedText>
               </TouchableOpacity>
             </ScrollView>
@@ -667,9 +682,18 @@ export default function Biblioteca() {
                   {savingStatus === value ? (
                     <ActivityIndicator color={theme.accent} accessibilityLabel="Salvando status" />
                   ) : (
-                    <ThemedText themeColor="textSecondary">
-                      {atual ? `✓ ${label}` : label}
-                    </ThemedText>
+                    <View style={styles.modalOptionRow}>
+                      <ThemedText themeColor={atual ? 'accent' : 'textSecondary'}>
+                        {label}
+                      </ThemedText>
+                      {atual && (
+                        <SymbolView
+                          name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+                          size={14}
+                          tintColor={theme.accent}
+                        />
+                      )}
+                    </View>
                   )}
                 </TouchableOpacity>
               );
@@ -729,10 +753,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  clearSearchIcon: { fontSize: 14 },
   filtersScroll: { marginTop: Spacing.three, marginBottom: Spacing.three },
   filterChip: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -827,4 +853,5 @@ const styles = StyleSheet.create({
   },
   modalTitle: { marginBottom: Spacing.two },
   modalOption: { minHeight: TouchMin, justifyContent: 'center' },
+  modalOptionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

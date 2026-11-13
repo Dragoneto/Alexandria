@@ -1,4 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -376,9 +377,11 @@ export default function Explorar() {
                       onPress={handleClearQuery}
                       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       style={styles.clearInputButton}>
-                      <ThemedText themeColor="textSecondary" style={styles.clearInputIcon}>
-                        ✕
-                      </ThemedText>
+                      <SymbolView
+                        name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                        size={18}
+                        tintColor={theme.textSecondary}
+                      />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -674,16 +677,12 @@ const styles = StyleSheet.create({
   },
   clearInputButton: {
     position: 'absolute',
-    right: 12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    right: 0,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  clearInputIcon: {
-    fontSize: 14,
-    fontWeight: '700',
   },
   searchButton: { minHeight: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   searchButtonText: { fontWeight: '800', fontSize: 14 },
