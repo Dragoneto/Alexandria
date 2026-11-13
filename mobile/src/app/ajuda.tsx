@@ -10,9 +10,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BotaoVoltar } from '@/components/botao-voltar';
 import {
   Accent,
   DSFonts,
@@ -25,122 +31,70 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import {
+  FAQ,
+  MAIS_PROCURADAS,
+  filtrarFaq,
+  partesDestacadas,
+  type Assunto,
+  type Pergunta,
+} from '@/constants/faq';
 import { useFoco } from '@/hooks/use-foco';
-import { useVoltar } from '@/hooks/use-voltar';
 
-type Pergunta = { pergunta: string; resposta: string };
-
-type Secao = {
-  assunto: string;
-  cor: string;
-  icone: SymbolViewProps['name'];
-  perguntas: Pergunta[];
-};
-
-function normalizar(texto: string) {
-  return texto
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
-const FAQ: Secao[] = [
-  {
-    assunto: 'Conta',
+const VISUAL: Record<Assunto, { cor: string; icone: SymbolViewProps['name'] }> = {
+  Conta: {
     cor: Accent.sapphire,
     icone: { ios: 'person.crop.circle.fill', android: 'account_circle', web: 'account_circle' },
-    perguntas: [
-      {
-        pergunta: 'Como eu crio uma conta?',
-        resposta:
-          'Na tela inicial, toque em "Começar agora". Preencha seu nome, e-mail e senha, confirme a senha e toque em "Criar conta".',
-      },
-      {
-        pergunta: 'Como edito meu perfil?',
-        resposta:
-          'Vá até a aba Perfil e toque em "Editar perfil". Altere seu nome ou e-mail e toque em "Salvar alterações".',
-      },
-      {
-        pergunta: 'Esqueci minha senha. E agora?',
-        resposta:
-          'Na tela de login, toque em "Esqueci minha senha" e digite seu e-mail. Você vai receber um link com um código. Depois, toque em "Já tenho o código" e crie uma nova senha.',
-      },
-      {
-        pergunta: 'Como saio da minha conta?',
-        resposta: 'Na aba Perfil, toque em "Configurações" e depois em "Sair da conta".',
-      },
-      {
-        pergunta: 'Como troco minha senha?',
-        resposta:
-          'Na aba Perfil, toque em "Configurações" e depois em "Alterar senha". Confirme a senha atual e escolha a nova.',
-      },
-    ],
   },
-  {
-    assunto: 'Livros e busca',
+  'Livros e busca': {
     cor: Accent.lilac,
     icone: { ios: 'magnifyingglass', android: 'search', web: 'search' },
-    perguntas: [
-      {
-        pergunta: 'Como encontro um livro?',
-        resposta:
-          'Use a busca da aba Início ou abra a aba Explorar. Digite o título ou o nome do autor, por exemplo "Machado de Assis", ou toque numa categoria. Você também pode usar os filtros para refinar a busca.',
-      },
-      {
-        pergunta: 'De onde vêm as informações dos livros?',
-        resposta:
-          'Os títulos, autores, capas e descrições vêm da Open Library, um catálogo aberto e gratuito de livros do mundo todo.',
-      },
-    ],
   },
-  {
-    assunto: 'Minha biblioteca',
+  'Minha biblioteca': {
     cor: Accent.laurel,
     icone: { ios: 'books.vertical.fill', android: 'library_books', web: 'library_books' },
-    perguntas: [
-      {
-        pergunta: 'Como organizo minha estante?',
-        resposta:
-          'Na página de um livro, toque em "Adicionar à biblioteca". Depois, cada livro tem um status: "Quero ler", "Lendo", "Lido" ou "Abandonado". Toque no status do livro para trocar.',
-      },
-      {
-        pergunta: 'Posso ver só os livros que estou lendo?',
-        resposta:
-          'Sim! No topo da aba Biblioteca existem filtros. Escolha um status para ver só os livros dele.',
-      },
-    ],
   },
-];
+  'Tracker de leitura': {
+    cor: Accent.amber,
+    icone: { ios: 'chart.bar.fill', android: 'insights', web: 'insights' },
+  },
+  'Avaliações e conversas': {
+    cor: Accent.coral,
+    icone: { ios: 'star.bubble.fill', android: 'reviews', web: 'reviews' },
+  },
+  'Problemas comuns': {
+    cor: Mint.mint400,
+    icone: { ios: 'wrench.and.screwdriver.fill', android: 'build', web: 'build' },
+  },
+};
+
+const TOTAL = FAQ.reduce((soma, secao) => soma + secao.perguntas.length, 0);
+
+// Junta cada pergunta procurada com o assunto dela, para usar a cor certa.
+const PROCURADAS = MAIS_PROCURADAS.flatMap((texto) => {
+  const secao = FAQ.find((s) => s.perguntas.some((p) => p.pergunta === texto));
+  const item = secao?.perguntas.find((p) => p.pergunta === texto);
+  return secao && item ? [{ assunto: secao.assunto, item }] : [];
+});
 
 export default function AjudaScreen() {
   const router = useRouter();
-  const voltar = useVoltar('/configuracoes');
   const [busca, setBusca] = useState('');
   const { focado: buscaFocada, propsDeFoco } = useFoco();
-  const [assunto, setAssunto] = useState<string | null>(null); // null = todos os assuntos
-  const [aberta, setAberta] = useState<string | null>(null); // null = nenhuma pergunta aberta
+  const [assunto, setAssunto] = useState<Assunto | null>(null);
+  // Chave "lugar|pergunta": a mesma pergunta pode estar nas mais procuradas e na seção.
+  const [aberta, setAberta] = useState<string | null>(null);
 
-  // Seções que aparecem na tela, já filtradas pelo assunto escolhido e pelo texto da busca
-  const secoes = useMemo(() => {
-    const termo = normalizar(busca.trim());
+  const secoes = useMemo(() => filtrarFaq(FAQ, busca, assunto), [busca, assunto]);
+  const encontradas = secoes.reduce((soma, secao) => soma + secao.perguntas.length, 0);
+  const filtrando = busca.trim().length > 0 || assunto !== null;
 
-    return FAQ.filter((secao) => assunto === null || secao.assunto === assunto)
-      .map((secao) => ({
-        ...secao,
-        perguntas: secao.perguntas.filter((item) =>
-          normalizar(`${item.pergunta} ${item.resposta}`).includes(termo),
-        ),
-      }))
-      .filter((secao) => secao.perguntas.length > 0);
-  }, [busca, assunto]);
-
-  // Abre a pergunta tocada. Se ela já estava aberta, fecha.
-  function alternarPergunta(pergunta: string) {
+  function alternar(chave: string) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setAberta((atual) => (atual === pergunta ? null : pergunta));
+    setAberta((atual) => (atual === chave ? null : chave));
   }
 
-  function escolherAssunto(novo: string | null) {
+  function escolherAssunto(novo: Assunto | null) {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setAssunto(novo);
   }
@@ -156,24 +110,18 @@ export default function AjudaScreen() {
         contentContainerStyle={styles.conteudo}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        <Pressable
-          onPress={voltar}
-          hitSlop={Space.two}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          style={({ pressed }) => [styles.voltar, pressed && styles.pressionado]}>
-          <SymbolView
-            name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-            size={20}
-            tintColor={TextColor.primary}
-          />
-        </Pressable>
+        <View style={styles.voltar}>
+          <BotaoVoltar fallback="/configuracoes" />
+        </View>
 
-        {/* Cabeçalho no mesmo formato da Home: rótulo pequeno + título serifado */}
         <View style={styles.cabecalho}>
           <Text style={styles.rotulo}>Central de ajuda</Text>
-          <Text style={styles.titulo}>Como podemos ajudar?</Text>
-          <Text style={styles.subtitulo}>Respostas rápidas para as dúvidas mais comuns.</Text>
+          <Text accessibilityRole="header" style={styles.titulo}>
+            Como podemos ajudar?
+          </Text>
+          <Text style={styles.subtitulo}>
+            {TOTAL} respostas sobre conta, livros, biblioteca, tracker e conversas.
+          </Text>
         </View>
 
         <View style={[styles.busca, buscaFocada && styles.buscaFocada]}>
@@ -186,7 +134,7 @@ export default function AjudaScreen() {
             {...propsDeFoco}
             style={styles.buscaInput}
             accessibilityLabel="Buscar uma dúvida"
-            placeholder="Buscar uma dúvida"
+            placeholder="Buscar: senha, páginas, capa…"
             placeholderTextColor={TextColor.muted}
             value={busca}
             onChangeText={setBusca}
@@ -198,11 +146,12 @@ export default function AjudaScreen() {
               onPress={() => setBusca('')}
               hitSlop={Space.two}
               accessibilityRole="button"
-              accessibilityLabel="Limpar busca">
+              accessibilityLabel="Limpar busca"
+              style={styles.limpar}>
               <SymbolView
                 name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
                 size={18}
-                tintColor={TextColor.muted}
+                tintColor={TextColor.secondary}
               />
             </Pressable>
           )}
@@ -218,19 +167,60 @@ export default function AjudaScreen() {
             <Chip
               key={secao.assunto}
               titulo={secao.assunto}
-              icone={secao.icone}
-              cor={secao.cor}
+              icone={VISUAL[secao.assunto].icone}
+              cor={VISUAL[secao.assunto].cor}
               ativo={assunto === secao.assunto}
               onPress={() => escolherAssunto(secao.assunto)}
             />
           ))}
         </ScrollView>
 
+        {filtrando && encontradas > 0 && (
+          <Text style={styles.resultado} accessibilityLiveRegion="polite">
+            {encontradas === 1 ? '1 resposta encontrada' : `${encontradas} respostas encontradas`}
+          </Text>
+        )}
+
+        {/* Atalho para as dúvidas mais comuns, só quando não há busca nem filtro */}
+        {!filtrando && (
+          <View style={styles.secao}>
+            <View style={styles.secaoCabecalho}>
+              <View style={[styles.secaoIcone, { backgroundColor: withAlpha(Mint.mint400, 0.15) }]}>
+                <SymbolView
+                  name={{ ios: 'flame.fill', android: 'trending_up', web: 'trending_up' }}
+                  size={16}
+                  tintColor={Mint.mint400}
+                />
+              </View>
+              <Text style={styles.secaoTitulo}>Mais procuradas</Text>
+            </View>
+            {PROCURADAS.map(({ assunto: deQual, item }) => (
+              <ItemPergunta
+                key={`top|${item.pergunta}`}
+                {...item}
+                cor={VISUAL[deQual].cor}
+                termo=""
+                aberta={aberta === `top|${item.pergunta}`}
+                onPress={() => alternar(`top|${item.pergunta}`)}
+                onAcao={(rota) => router.push(rota)}
+              />
+            ))}
+          </View>
+        )}
+
         {secoes.map((secao) => (
           <View key={secao.assunto} style={styles.secao}>
             <View style={styles.secaoCabecalho}>
-              <View style={[styles.secaoIcone, { backgroundColor: withAlpha(secao.cor, 0.15) }]}>
-                <SymbolView name={secao.icone} size={16} tintColor={secao.cor} />
+              <View
+                style={[
+                  styles.secaoIcone,
+                  { backgroundColor: withAlpha(VISUAL[secao.assunto].cor, 0.15) },
+                ]}>
+                <SymbolView
+                  name={VISUAL[secao.assunto].icone}
+                  size={16}
+                  tintColor={VISUAL[secao.assunto].cor}
+                />
               </View>
               <Text style={styles.secaoTitulo}>{secao.assunto}</Text>
               <Text style={styles.secaoContagem}>
@@ -241,11 +231,13 @@ export default function AjudaScreen() {
             {secao.perguntas.map((item) => (
               <ItemPergunta
                 key={item.pergunta}
-                pergunta={item.pergunta}
-                resposta={item.resposta}
-                cor={secao.cor}
-                aberta={aberta === item.pergunta}
-                onPress={() => alternarPergunta(item.pergunta)}
+                {...item}
+                cor={VISUAL[secao.assunto].cor}
+                termo={busca}
+                // Com uma busca, as respostas já aparecem abertas para mostrar o trecho achado.
+                aberta={busca.trim().length > 1 || aberta === `${secao.assunto}|${item.pergunta}`}
+                onPress={() => alternar(`${secao.assunto}|${item.pergunta}`)}
+                onAcao={(rota) => router.push(rota)}
               />
             ))}
           </View>
@@ -258,18 +250,19 @@ export default function AjudaScreen() {
               size={28}
               tintColor={TextColor.secondary}
             />
-            <Text style={styles.vazioTitulo}>Nenhuma dúvida encontrada</Text>
-            <Text style={styles.vazioTexto}>Tente outras palavras ou veja todas as perguntas.</Text>
+            <Text style={styles.vazioTitulo}>Nenhuma resposta para “{busca.trim()}”</Text>
+            <Text style={styles.vazioTexto}>
+              Tente uma palavra só, como “senha”, “capa” ou “páginas”, ou veja todas as perguntas.
+            </Text>
             <Pressable
               onPress={limparFiltros}
               accessibilityRole="button"
               style={({ pressed }) => [styles.botaoSecundario, pressed && styles.pressionado]}>
-              <Text style={styles.botaoSecundarioTexto}>Ver todas</Text>
+              <Text style={styles.botaoSecundarioTexto}>Ver todas as perguntas</Text>
             </Pressable>
           </View>
         )}
 
-        {/* Cartão final: ainda com dúvidas */}
         <View style={styles.contato}>
           <View style={styles.contatoTopo}>
             <View style={styles.contatoIcone}>
@@ -284,7 +277,6 @@ export default function AjudaScreen() {
               <Text style={styles.contatoTexto}>Fale com a equipe que criou o Alexandria.</Text>
             </View>
           </View>
-
           <Pressable
             onPress={() => router.push('/equipe')}
             accessibilityRole="button"
@@ -309,31 +301,59 @@ function Chip({ titulo, ativo, onPress, icone, cor = Mint.mint400 }: ChipProps) 
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: ativo }}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: ativo }}
       style={({ pressed }) => [
         styles.chip,
-        ativo && styles.chipAtivo,
+        ativo && { backgroundColor: withAlpha(cor, 0.14), borderColor: withAlpha(cor, 0.5) },
         pressed && styles.pressionado,
       ]}>
-      {icone && <SymbolView name={icone} size={14} tintColor={ativo ? Mint.mint400 : cor} />}
-      <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{titulo}</Text>
+      {icone && <SymbolView name={icone} size={14} tintColor={cor} />}
+      <Text style={[styles.chipTexto, ativo && { color: cor }]}>{titulo}</Text>
     </Pressable>
+  );
+}
+
+/** Texto com o termo buscado destacado (a comparação ignora acentos). */
+function Destacado({ texto, termo, style }: { texto: string; termo: string; style: object }) {
+  return (
+    <Text style={style}>
+      {partesDestacadas(texto, termo).map((parte, index) =>
+        parte.destaque ? (
+          <Text key={index} style={styles.marca}>
+            {parte.texto}
+          </Text>
+        ) : (
+          parte.texto
+        ),
+      )}
+    </Text>
   );
 }
 
 type ItemPerguntaProps = Pergunta & {
   cor: string;
+  termo: string;
   aberta: boolean;
   onPress: () => void;
+  onAcao: (rota: NonNullable<Pergunta['acao']>['rota']) => void;
 };
 
-function ItemPergunta({ pergunta, resposta, cor, aberta, onPress }: ItemPerguntaProps) {
-  // Giro da seta: 0 = apontando para baixo, 1 = apontando para cima
+function ItemPergunta({
+  pergunta,
+  resposta,
+  acao,
+  cor,
+  termo,
+  aberta,
+  onPress,
+  onAcao,
+}: ItemPerguntaProps) {
+  // Giro da seta: 0 = para baixo (fechada), 1 = para cima (aberta)
   const giro = useSharedValue(aberta ? 1 : 0);
 
   useEffect(() => {
-    giro.value = withTiming(aberta ? 1 : 0, { duration: 250 });
+    giro.set(withTiming(aberta ? 1 : 0, { duration: 250 }));
   }, [aberta, giro]);
 
   const setaStyle = useAnimatedStyle(() => ({
@@ -341,17 +361,17 @@ function ItemPergunta({ pergunta, resposta, cor, aberta, onPress }: ItemPergunta
   }));
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ expanded: aberta }}
-      style={({ pressed }) => [
-        styles.item,
-        aberta && { borderColor: withAlpha(cor, 0.4) },
-        pressed && styles.pressionado,
-      ]}>
-      <View style={styles.perguntaLinha}>
-        <Text style={[styles.pergunta, aberta && { color: cor }]}>{pergunta}</Text>
+    <View style={[styles.item, aberta && { borderColor: withAlpha(cor, 0.4) }]}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: aberta }}
+        style={({ pressed }) => [styles.perguntaLinha, pressed && styles.pressionado]}>
+        <Destacado
+          texto={pergunta}
+          termo={termo}
+          style={[styles.pergunta, aberta && { color: cor }]}
+        />
         <Animated.View style={setaStyle}>
           <SymbolView
             name={{ ios: 'chevron.down', android: 'expand_more', web: 'expand_more' }}
@@ -359,11 +379,27 @@ function ItemPergunta({ pergunta, resposta, cor, aberta, onPress }: ItemPergunta
             tintColor={aberta ? cor : TextColor.secondary}
           />
         </Animated.View>
-      </View>
+      </Pressable>
 
-      {/* A resposta só aparece quando a pergunta está aberta */}
-      {aberta && <Text style={styles.resposta}>{resposta}</Text>}
-    </Pressable>
+      {aberta && (
+        <Animated.View entering={FadeIn.duration(200)}>
+          <Destacado texto={resposta} termo={termo} style={styles.resposta} />
+          {acao && (
+            <Pressable
+              onPress={() => onAcao(acao.rota)}
+              accessibilityRole="link"
+              style={({ pressed }) => [styles.acao, pressed && styles.pressionado]}>
+              <Text style={[styles.acaoTexto, { color: cor }]}>{acao.rotulo}</Text>
+              <SymbolView
+                name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
+                size={14}
+                tintColor={cor}
+              />
+            </Pressable>
+          )}
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -372,16 +408,7 @@ const styles = StyleSheet.create({
   conteudo: { paddingTop: Space.four, paddingBottom: Space.twelve },
   pressionado: { opacity: 0.7 },
 
-  // Cabeçalho
-  voltar: {
-    width: 44,
-    height: 44,
-    marginLeft: ScreenInset,
-    borderRadius: Radius.pill,
-    backgroundColor: Ink.ink600,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  voltar: { paddingHorizontal: ScreenInset },
   cabecalho: { marginTop: Space.six, paddingHorizontal: ScreenInset, gap: Space.one },
   rotulo: {
     fontFamily: DSFonts.ui,
@@ -400,7 +427,6 @@ const styles = StyleSheet.create({
     color: TextColor.secondary,
   },
 
-  // Busca
   busca: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -425,8 +451,8 @@ const styles = StyleSheet.create({
     // Sem o contorno do navegador: a borda de foco já é do próprio campo.
     outlineWidth: 0,
   },
+  limpar: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 
-  // Filtro por assunto
   chipsLista: { marginTop: Space.four, flexGrow: 0 },
   chips: { paddingHorizontal: ScreenInset, gap: Space.two },
   chip: {
@@ -434,23 +460,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Space.two,
     minHeight: 44,
-    paddingVertical: Space.two,
     paddingHorizontal: Space.four,
     borderRadius: Radius.pill,
     backgroundColor: Ink.ink600,
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  chipAtivo: { backgroundColor: Mint.mint900, borderColor: withAlpha(Mint.mint400, 0.4) },
   chipTexto: {
     fontFamily: DSFonts.ui,
     fontSize: 14,
     fontWeight: '600',
     color: TextColor.secondary,
   },
-  chipTextoAtivo: { color: Mint.mint400 },
+  resultado: {
+    marginTop: Space.four,
+    paddingHorizontal: ScreenInset,
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    fontWeight: '600',
+    color: TextColor.secondary,
+  },
 
-  // Seções
   secao: { marginTop: Space.eight, paddingHorizontal: ScreenInset, gap: Space.three },
   secaoCabecalho: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
   secaoIcone: {
@@ -474,15 +504,20 @@ const styles = StyleSheet.create({
     color: TextColor.secondary,
   },
 
-  // Pergunta
   item: {
-    padding: Space.four,
     borderRadius: Radius.card,
     backgroundColor: Ink.ink700,
     borderWidth: 1,
     borderColor: 'transparent',
+    overflow: 'hidden',
   },
-  perguntaLinha: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
+  perguntaLinha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.three,
+    padding: Space.four,
+    minHeight: 56,
+  },
   pergunta: {
     flex: 1,
     fontFamily: DSFonts.ui,
@@ -492,14 +527,29 @@ const styles = StyleSheet.create({
     color: TextColor.primary,
   },
   resposta: {
-    marginTop: Space.three,
+    paddingHorizontal: Space.four,
+    paddingBottom: Space.four,
     fontFamily: DSFonts.ui,
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
     color: TextColor.secondary,
   },
+  marca: {
+    color: TextColor.primary,
+    backgroundColor: withAlpha(Accent.amber, 0.28),
+    fontWeight: '700',
+  },
+  acao: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.two,
+    marginHorizontal: Space.four,
+    marginBottom: Space.two,
+  },
+  acaoTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700' },
 
-  // Nada encontrado
   vazio: {
     alignItems: 'center',
     gap: Space.two,
@@ -515,6 +565,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
     color: TextColor.primary,
+    textAlign: 'center',
   },
   vazioTexto: {
     fontFamily: DSFonts.ui,
@@ -539,7 +590,6 @@ const styles = StyleSheet.create({
     color: Mint.mint400,
   },
 
-  // Cartão final
   contato: {
     gap: Space.four,
     marginTop: Space.eight,
