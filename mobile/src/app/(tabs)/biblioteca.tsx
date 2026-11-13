@@ -717,6 +717,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+    // Sem o contorno do navegador: a borda de foco já é do próprio campo.
+    outlineWidth: 0,
   },
   clearSearchButton: {
     position: 'absolute',

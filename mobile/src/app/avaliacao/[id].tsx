@@ -825,6 +825,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    // Sem o contorno do navegador: a borda de foco já é do próprio campo.
+    outlineWidth: 0,
   },
   sendButton: {
     minHeight: 44,
