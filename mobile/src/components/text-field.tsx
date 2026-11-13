@@ -76,7 +76,6 @@ export function TextField({
             accessibilityRole="button"
             accessibilityLabel={revealed ? 'Ocultar senha' : 'Mostrar senha'}
             accessibilityState={{ selected: revealed }}
-            hitSlop={Space.one}
             onPress={() => setRevealed((current) => !current)}
             style={({ pressed }) => [
               styles.revealButton,
@@ -155,9 +154,11 @@ const styles = StyleSheet.create({
     outlineWidth: 0,
     outlineStyle: 'solid',
   },
+  // 44 px de toque também na web, onde o hitSlop não vale; a margem negativa mantém o alinhamento.
   revealButton: {
-    width: 36,
-    height: 36,
+    width: TouchMin,
+    height: TouchMin,
+    marginRight: -Space.one,
     borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
