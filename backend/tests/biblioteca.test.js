@@ -10,6 +10,10 @@ const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 const { list, update } = require('../src/controllers/bibliotecaController');
 const biblioteca = require('../src/repositories/bibliotecaRepository');
+const openLibrary = require('../src/services/openLibrary');
+
+// A listagem completa páginas em segundo plano; nos testes, sem rede.
+openLibrary.getPageCount = async () => null;
 
 const livro = (id) => ({ id, titulo: `Livro ${id}`, autores: ['Autora'], capa: null });
 

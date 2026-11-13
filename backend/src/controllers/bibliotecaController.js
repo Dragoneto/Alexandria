@@ -38,6 +38,26 @@ function paraResposta(item) {
   };
 }
 
+const MAX_COMPLETAR_POR_VEZ = 10;
+
+/**
+ * Livros guardados antes do tracker não têm o número de páginas. Ao listar, busca o número dos
+ * que estão em "Lendo" ou "Lido" (até 10 por vez) e grava; "Lido" passa a contar as páginas todas.
+ * Roda depois da resposta, então a lista não espera a Open Library.
+ */
+async function completarPaginas(userId, itens) {
+  const pendentes = itens
+    .filter((item) => !item.paginas_total && (item.status === 'LENDO' || item.status === 'LIDO'))
+    .slice(0, MAX_COMPLETAR_POR_VEZ);
+  for (const item of pendentes) {
+    const total = await openLibrary.getPageCount(item.livro_id);
+    if (!total) continue;
+    const campos = { paginasTotal: total };
+    if (item.status === 'LIDO') campos.paginaAtual = total;
+    await biblioteca.update(item.id, userId, campos);
+  }
+}
+
 const list = async (req, res) => {
   try {
     const status = typeof req.query?.status === 'string' ? req.query.status.trim() : '';
@@ -46,7 +66,11 @@ const list = async (req, res) => {
     }
 
     const itens = await biblioteca.findByUser(req.user.id, status || undefined);
-    return res.json({ itens: itens.map(paraResposta) });
+    res.json({ itens: itens.map(paraResposta) });
+    completarPaginas(req.user.id, itens).catch((error) =>
+      console.error('Erro ao completar páginas:', error.message),
+    );
+    return res;
   } catch (error) {
     console.error('Erro ao listar biblioteca:', error.message);
     return res.status(500).json({ error: 'Erro interno do servidor' });
@@ -200,4 +224,4 @@ const registrarDia = async (req, res) => {
   }
 };
 
-module.exports = { list, add, update, remove, registrarDia, hojeNoBrasil };
+module.exports = { list, add, update, remove, registrarDia, hojeNoBrasil, completarPaginas };

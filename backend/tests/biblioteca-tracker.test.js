@@ -126,3 +126,22 @@ test('marcar "Lido" completa as páginas e registra a conclusão; voltar desfaz 
   const voltou = await chamar(update, { params, body: { status: 'LENDO' } });
   assert.equal(voltou.body.item.progresso.concluidoEm, null);
 });
+
+test('livros antigos em "Lido" ou "Lendo" ganham o número de páginas ao listar', async () => {
+  const { completarPaginas } = require('../src/controllers/bibliotecaController');
+  // Itens gravados antes do tracker: sem paginas_total
+  await biblioteca.create({ userId: 3, livro: livro('OL12W'), status: 'LIDO' });
+  await biblioteca.create({ userId: 3, livro: livro('OL10W'), status: 'LENDO' });
+  await biblioteca.create({ userId: 3, livro: livro('OL11W'), status: 'QUERO_LER' });
+
+  await completarPaginas(3, await biblioteca.findByUser(3));
+
+  const lido = await itemDe('OL12W', 3);
+  const lendo = await itemDe('OL10W', 3);
+  const quero = await itemDe('OL11W', 3);
+  assert.equal(lido.paginas_total, 200);
+  assert.equal(lido.pagina_atual, 200);
+  assert.equal(lendo.paginas_total, 320);
+  assert.equal(lendo.pagina_atual, 0);
+  assert.equal(quero.paginas_total, null);
+});
