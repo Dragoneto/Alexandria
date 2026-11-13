@@ -365,6 +365,7 @@ function ItemPergunta({
         onPress={onPress}
         accessibilityRole="button"
         accessibilityState={{ expanded: aberta }}
+        aria-expanded={aberta}
         style={({ pressed }) => [styles.perguntaLinha, pressed && styles.pressionado]}>
         <Destacado
           texto={pergunta}

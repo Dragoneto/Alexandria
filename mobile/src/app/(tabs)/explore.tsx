@@ -507,6 +507,7 @@ export default function Explorar() {
                 maisFiltros ? 'Esconder ordenação e qualidade' : 'Mostrar ordenação e qualidade'
               }
               accessibilityState={{ expanded: maisFiltros }}
+              aria-expanded={maisFiltros}
               onPress={() => setMaisFiltros((aberto) => !aberto)}
               style={styles.maisFiltros}>
               <ThemedText themeColor="accent" style={styles.clearButtonText}>
