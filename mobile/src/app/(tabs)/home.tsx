@@ -26,6 +26,7 @@ import {
 } from '@/constants/design-system';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
+import { LinhaDeChips, useTelaLarga } from '@/components/linha-de-chips';
 import { SinoNotificacoes } from '@/components/sino-notificacoes';
 import { SkeletonBookShelf } from '@/components/skeletons';
 import { CATEGORIAS, embaralhar, sortearDestaque, sortearEstantes } from '@/constants/estantes';
@@ -179,10 +180,7 @@ export default function HomeScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Explore por categoria</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}>
+          <LinhaDeChips contentContainerStyle={styles.chipsRow}>
             {categorias.map((categoria) => (
               <FeedbackPressable
                 key={categoria}
@@ -193,7 +191,7 @@ export default function HomeScreen() {
                 <Text style={styles.chipText}>{categoria}</Text>
               </FeedbackPressable>
             ))}
-          </ScrollView>
+          </LinhaDeChips>
         </View>
 
         {estantes.map(({ key, ...estante }) => (
@@ -335,6 +333,8 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
   };
   const semLivros = state === 'empty' || (state === 'success' && !books.length);
   const loadingVisible = useLoadingGate(state === 'loading');
+  // No computador a roda do mouse não rola a estante para o lado: a barra fica à mostra.
+  const telaLarga = useTelaLarga();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -391,7 +391,7 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           horizontal
           data={books}
           keyExtractor={(book) => book.id}
-          showsHorizontalScrollIndicator={false}
+          showsHorizontalScrollIndicator={telaLarga}
           contentContainerStyle={styles.shelfRow}
           renderItem={({ item }) => (
             <Pressable

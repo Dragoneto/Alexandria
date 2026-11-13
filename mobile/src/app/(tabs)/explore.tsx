@@ -17,6 +17,7 @@ import { BookCard } from '@/components/book-card';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
+import { LinhaDeChips } from '@/components/linha-de-chips';
 import { SkeletonGrid } from '@/components/skeletons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -440,10 +441,7 @@ export default function Explorar() {
             <ThemedText themeColor="textSecondary" style={styles.filterBlockLabel}>
               Categorias
             </ThemedText>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.chipsScroll}>
+            <LinhaDeChips style={styles.chipsScroll}>
               {CATEGORY_OPTIONS.map((option) => {
                 // O grupo fica marcado também quando uma subcategoria dele está escolhida.
                 const active =
@@ -469,11 +467,9 @@ export default function Explorar() {
                   </FeedbackPressable>
                 );
               })}
-            </ScrollView>
+            </LinhaDeChips>
             {grupoEscolhido && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
+              <LinhaDeChips
                 style={styles.chipsScroll}
                 accessibilityLabel={`Subcategorias de ${grupoEscolhido.nome}`}>
                 {[grupoEscolhido.nome, ...grupoEscolhido.subcategorias].map((option) => {
@@ -500,7 +496,7 @@ export default function Explorar() {
                     </FeedbackPressable>
                   );
                 })}
-              </ScrollView>
+              </LinhaDeChips>
             )}
 
             <FeedbackPressable
