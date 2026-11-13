@@ -105,6 +105,7 @@ export default function SobreScreen() {
               source={require('@/assets/images/logo_app.png')}
               style={styles.logo}
               contentFit="contain"
+              accessibilityLabel="Logo do Alexandria"
             />
           </View>
           <View style={styles.marcaTextos}>
