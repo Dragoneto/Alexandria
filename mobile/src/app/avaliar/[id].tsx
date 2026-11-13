@@ -34,6 +34,7 @@ import {
   type ErrosAvaliacao,
 } from '@/services/avaliacoes';
 import { livroEstaNaBiblioteca, marcarComoLido } from '@/services/biblioteca';
+import { getBookDetail } from '@/services/open-library';
 
 const NOTAS = [1, 2, 3, 4, 5];
 
@@ -50,7 +51,10 @@ export default function AvaliarLivro() {
     avaliacaoId?: string | string[];
   }>();
   const livroId = firstParam(params.id);
-  const titulo = firstParam(params.titulo);
+  const tituloParam = firstParam(params.titulo);
+  // Aberta por link direto (sem ?titulo=), a tela busca o nome do livro em vez de "Este livro".
+  const [tituloBuscado, setTituloBuscado] = useState('');
+  const titulo = tituloParam || tituloBuscado;
   const avaliacaoParam = firstParam(params.avaliacaoId);
   const avaliacaoId = /^[1-9]\d*$/.test(avaliacaoParam) ? Number(avaliacaoParam) : null;
   const editando = avaliacaoId !== null;
@@ -68,6 +72,15 @@ export default function AvaliarLivro() {
   const [sugerirLido, setSugerirLido] = useState(false);
   const [marcandoLido, setMarcandoLido] = useState(false);
   const [erroLido, setErroLido] = useState('');
+
+  useEffect(() => {
+    if (tituloParam || !livroId) return;
+    const controller = new AbortController();
+    getBookDetail(livroId, controller.signal)
+      .then((livro) => setTituloBuscado(livro.title))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [livroId, tituloParam]);
   const submitting = useRef(false);
   const tamanho = contarCaracteres(resenha);
   const mostrarSkeleton = useLoadingGate(carregando);
