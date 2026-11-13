@@ -479,6 +479,7 @@ const styles = StyleSheet.create({
     color: TextColor.primary,
     // Sem o contorno do navegador: a borda de foco já é do próprio campo.
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
 
   // Seções novas: destaque, categorias e cabeçalho das estantes

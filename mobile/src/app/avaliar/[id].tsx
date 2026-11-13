@@ -458,6 +458,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     // Sem o contorno do navegador: a borda de foco já é do próprio campo.
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   error: { marginTop: Spacing.three, fontSize: 13, lineHeight: 20 },
   fieldError: { marginTop: Spacing.one, fontSize: 13, lineHeight: 20 },

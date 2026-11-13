@@ -153,6 +153,7 @@ const styles = StyleSheet.create({
     color: TextColor.primary,
     // No web o navegador desenhava um contorno branco dentro da borda de foco do próprio campo.
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   revealButton: {
     width: 36,

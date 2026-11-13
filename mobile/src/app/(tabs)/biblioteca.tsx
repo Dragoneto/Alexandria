@@ -743,6 +743,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     // Sem o contorno do navegador: a borda de foco já é do próprio campo.
     outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   clearSearchButton: {
     position: 'absolute',
