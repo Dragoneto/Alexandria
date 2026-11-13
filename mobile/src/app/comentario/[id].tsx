@@ -164,7 +164,8 @@ export default function ComentarioContextoScreen() {
               onPress={() =>
                 router.push({
                   pathname: '/avaliacao/[id]',
-                  params: { id: String(data.avaliacaoId) },
+                  // A conversa já abre respondendo a este comentário.
+                  params: { id: String(data.avaliacaoId), responder: String(data.alvo.id) },
                 })
               }
             />

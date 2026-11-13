@@ -60,8 +60,14 @@ function primeiroParam(valor: string | string[] | undefined): string {
 export default function ConversaDaAvaliacao() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    responder?: string | string[];
+  }>();
   const textoId = primeiroParam(params.id);
+  // Vindo de "Responder na conversa": abre já respondendo àquele comentário.
+  const textoResponder = primeiroParam(params.responder);
+  const responderId = /^[1-9]d*$/.test(textoResponder) ? Number(textoResponder) : 0;
   const avaliacaoId = /^[1-9]\d*$/.test(textoId) ? Number(textoId) : 0;
   const conversa = useConversa(avaliacaoId);
   const itens = useMemo(() => montarConversa(conversa.comentarios ?? []), [conversa.comentarios]);
@@ -109,6 +115,18 @@ export default function ConversaDaAvaliacao() {
     setModo({ tipo: 'comentar' });
     setErroEnvio('Esse comentário foi removido. Seu texto continua aqui.');
   }, [alvoId, tipoModo, conversa.comentarios]);
+
+  const respostaPedidaAberta = useRef(false);
+  useEffect(() => {
+    if (!responderId || respostaPedidaAberta.current || !conversa.comentarios) return;
+    respostaPedidaAberta.current = true;
+    const alvo = conversa.comentarios.find((c) => c.id === responderId && !c.removido);
+    if (!alvo) return;
+    void Promise.resolve().then(() => {
+      setModo({ tipo: 'responder', alvo });
+      campo.current?.focus();
+    });
+  }, [responderId, conversa.comentarios]);
 
   // Só a edição que deu conflito salva sobre a versão recarregada: a pessoa já viu que mudou
   const conflitoEm = useRef<Comentario | null>(null);
