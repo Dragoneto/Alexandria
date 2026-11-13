@@ -36,14 +36,15 @@ type PopupDestaqueProps = {
   destaque: Destaque | null;
   /** Chamado depois que a animação de saída termina. */
   onFechado: () => void;
-  onComecar: () => void;
+  /** Botão principal: na tela inicial cria a conta; no "Sobre o app" leva ao recurso. */
+  acao: (destaque: Destaque) => { rotulo: string; onPress: () => void };
 };
 
 const ENTRADA = 280;
 const SAIDA = 200;
 
-/** Explica um dos destaques da tela de boas-vindas, com entrada e saída suaves. */
-export function PopupDestaque({ destaque, onFechado, onComecar }: PopupDestaqueProps) {
+/** Explica um dos recursos do app, com entrada e saída suaves. */
+export function PopupDestaque({ destaque, onFechado, acao }: PopupDestaqueProps) {
   const reduzirMovimento = useReducedMotion();
   const progresso = useSharedValue(0);
   const fechando = useRef(false);
@@ -136,7 +137,10 @@ export function PopupDestaque({ destaque, onFechado, onComecar }: PopupDestaqueP
               </View>
 
               <View style={styles.acoes}>
-                <ActionButton label="Criar minha conta" onPress={() => fechar(onComecar)} />
+                <ActionButton
+                  label={acao(destaque).rotulo}
+                  onPress={() => fechar(acao(destaque).onPress)}
+                />
                 <ActionButton label="Fechar" variant="ghost" onPress={() => fechar()} />
               </View>
             </ScrollView>
