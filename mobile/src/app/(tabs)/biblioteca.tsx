@@ -372,8 +372,9 @@ export default function Biblioteca() {
               </View>
               <TouchableOpacity
                 onPress={() => setSomenteFavoritos((atual) => !atual)}
-                accessibilityRole="togglebutton"
-                accessibilityState={{ checked: somenteFavoritos }}
+                // "togglebutton" sai na web como um papel ARIA que não existe; botão com aria-pressed é o padrão
+                accessibilityRole="button"
+                accessibilityState={{ selected: somenteFavoritos }}
                 aria-pressed={somenteFavoritos}
                 accessibilityLabel="Mostrar só favoritos"
                 style={[
