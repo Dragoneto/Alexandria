@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionButton } from '@/components/action-button';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
+import { ResumoLeitura } from '@/components/resumo-leitura';
 import { SkeletonProfileFields } from '@/components/skeletons';
 import {
   Accent,
@@ -208,6 +209,10 @@ export default function PerfilScreen() {
           <Text style={styles.title}>Meu perfil</Text>
           <Text style={styles.subtitle}>Confira os dados da sua conta.</Text>
 
+          <View style={styles.resumo}>
+            <ResumoLeitura />
+          </View>
+
           {!!error && (
             <ErrorState
               message={error}
@@ -245,13 +250,6 @@ export default function PerfilScreen() {
                 <View style={styles.field}>
                   <Text style={styles.fieldLabel}>Email de acesso</Text>
                   <Text style={styles.fieldValue}>{profile.email || 'Não informado'}</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Status da conta</Text>
-                  <Text style={styles.fieldValue}>Conta ativa</Text>
                 </View>
               </View>
             )
@@ -357,6 +355,7 @@ const styles = StyleSheet.create({
     color: TextColor.primary,
     textAlign: 'center',
   },
+  resumo: { alignSelf: 'stretch', marginTop: Space.six },
   subtitle: {
     marginTop: Space.two,
     fontFamily: DSFonts.ui,
