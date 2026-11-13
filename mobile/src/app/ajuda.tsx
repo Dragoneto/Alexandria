@@ -180,6 +180,7 @@ export default function AjudaScreen() {
       <TextInput
         {...propsDeFoco}
         style={styles.buscaInput}
+        accessibilityLabel="Buscar uma dúvida"
         placeholder="Buscar uma dúvida"
         placeholderTextColor={TextColor.muted}
         value={busca}
@@ -406,7 +407,14 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   buscaFocada: { borderColor: Mint.mint400 },
-  buscaInput: { flex: 1, fontFamily: DSFonts.ui, fontSize: 16, color: TextColor.primary },
+  // O campo ocupa a altura toda da pílula: tocar em qualquer ponto dela já abre o teclado.
+  buscaInput: {
+    flex: 1,
+    alignSelf: 'stretch',
+    fontFamily: DSFonts.ui,
+    fontSize: 16,
+    color: TextColor.primary,
+  },
 
   // Filtro por assunto
   chipsLista: { marginTop: Space.four, flexGrow: 0 },

@@ -162,6 +162,7 @@ export default function HomeScreen() {
           <TextInput
             {...propsDeFoco}
             style={styles.searchInput}
+            accessibilityLabel="Buscar livros ou autores"
             placeholder="Buscar livros ou autores"
             placeholderTextColor={TextColor.muted}
             value={searchTerm}
@@ -463,6 +464,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
+    // O campo ocupa a altura toda da pílula: tocar em qualquer ponto dela já abre o teclado.
+    alignSelf: 'stretch',
     fontFamily: DSFonts.ui,
     fontSize: 16,
     color: TextColor.primary,
