@@ -170,6 +170,10 @@ const update = async (req, res) => {
         return res.status(400).json({ error: `O livro tem ${total} páginas.` });
       }
       campos.paginaAtual = paginaAtual;
+    } else if (paginasTotal !== undefined) {
+      // Total novo menor que a página salva, ou livro já lido: a página acompanha o total.
+      const lido = (status ?? atual.status) === 'LIDO';
+      if (lido || (atual.pagina_atual ?? 0) > paginasTotal) campos.paginaAtual = paginasTotal;
     }
     const mudouStatus = status !== undefined && status !== atual.status;
     if (mudouStatus && status === 'LIDO') {

@@ -102,6 +102,19 @@ test('página atual é validada contra o total do livro', async () => {
   assert.equal(ok.body.item.progresso.paginaAtual, 120);
 });
 
+test('total menor que a página salva puxa a página junto', async () => {
+  const item = await itemDe('OL10W');
+  const params = { id: String(item.id) };
+  const res = await chamar(update, { params, body: { paginasTotal: 100 } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.item.progresso.paginasTotal, 100);
+  assert.equal(res.body.item.progresso.paginaAtual, 100);
+
+  // Total maior não mexe na página
+  const maior = await chamar(update, { params, body: { paginasTotal: 320 } });
+  assert.equal(maior.body.item.progresso.paginaAtual, 100);
+});
+
 test('sem páginas na Open Library, a pessoa informa o total à mão', async () => {
   const item = await itemDe('OL11W');
   const params = { id: String(item.id) };
@@ -145,3 +158,4 @@ test('livros antigos em "Lido" ou "Lendo" ganham o número de páginas ao listar
   assert.equal(lendo.pagina_atual, 0);
   assert.equal(quero.paginas_total, null);
 });
+
