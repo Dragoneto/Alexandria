@@ -67,7 +67,12 @@ const FAQ: Secao[] = [
       },
       {
         pergunta: 'Como saio da minha conta?',
-        resposta: 'Na aba Perfil, role até o final e toque em "Sair da conta".',
+        resposta: 'Na aba Perfil, toque em "Configurações" e depois em "Sair da conta".',
+      },
+      {
+        pergunta: 'Como troco minha senha?',
+        resposta:
+          'Na aba Perfil, toque em "Configurações" e depois em "Alterar senha". Confirme a senha atual e escolha a nova.',
       },
     ],
   },
