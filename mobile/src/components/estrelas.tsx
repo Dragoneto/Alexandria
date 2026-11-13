@@ -1,7 +1,7 @@
 import { SymbolView } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
 
-import { Accent, Ink } from '@/constants/design-system';
+import { Accent, TextColor } from '@/constants/design-system';
 
 type EstrelasProps = { nota: number; tamanho?: number };
 
@@ -19,7 +19,9 @@ export function Estrelas({ nota, tamanho = 16 }: EstrelasProps) {
           key={posicao}
           name={{ ios: 'star.fill', android: 'star', web: 'star' }}
           size={tamanho}
-          tintColor={posicao <= cheias ? Accent.amber : Ink.ink500}
+          // Na web e no Android os ícones são vazados: o traço mais grosso marca as estrelas da nota.
+          weight={posicao <= cheias ? 'bold' : 'regular'}
+          tintColor={posicao <= cheias ? Accent.amber : TextColor.muted}
         />
       ))}
     </View>
