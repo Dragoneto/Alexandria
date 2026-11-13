@@ -118,7 +118,8 @@ export default function DetalheDoLivro() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <FeedbackPressable
-              onPress={() => router.back()}
+              // Aberto por link compartilhado não há tela anterior: volta para o início.
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Voltar"
@@ -138,13 +139,19 @@ export default function DetalheDoLivro() {
                 <SkeletonBookDetail />
               ) : null
             ) : detailStatus === 'error' || failure || !book ? (
-              <ErrorState
-                title={failure?.title ?? 'Não foi possível abrir o livro'}
-                message={failure?.message ?? 'Tente de novo em instantes.'}
-                onRetry={
-                  (failure?.canRetry ?? true) ? () => setRefresh((value) => value + 1) : undefined
-                }
-              />
+              <View style={styles.erro}>
+                <ErrorState
+                  title={failure?.title ?? 'Não foi possível abrir o livro'}
+                  message={failure?.message ?? 'Tente de novo em instantes.'}
+                  onRetry={
+                    (failure?.canRetry ?? true) ? () => setRefresh((value) => value + 1) : undefined
+                  }
+                  secondaryAction={{
+                    label: 'Explorar livros',
+                    onPress: () => router.replace('/explore'),
+                  }}
+                />
+              </View>
             ) : (
               <>
                 {showCover ? (
@@ -334,6 +341,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  erro: { marginTop: Spacing.four },
   cover: {
     marginTop: Spacing.four,
     width: '100%',
