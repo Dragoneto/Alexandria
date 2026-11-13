@@ -187,7 +187,9 @@ export default function NotificacoesScreen() {
         <Text accessibilityRole="header" style={styles.title}>
           Notificações
         </Text>
-        <Text style={styles.subtitle}>{unread} não lidas</Text>
+        <Text style={styles.subtitle}>
+          {unread} {unread === 1 ? 'não lida' : 'não lidas'}
+        </Text>
         <View style={styles.actions}>
           <ActionButton
             label="Atualizar"
