@@ -31,6 +31,15 @@ function stringArray(value, max) {
     .slice(0, max);
 }
 
+// Etiquetas internas da Open Library (series:Harry_Potter, nyt:series_books=2006-09-16) não são
+// categorias: saem antes do limite, para não ocupar o lugar de uma categoria de verdade.
+const ETIQUETA_INTERNA = /^[a-z_]+:\S/;
+
+function categorias(value) {
+  const assuntos = stringArray(value).filter((assunto) => !ETIQUETA_INTERNA.test(assunto));
+  return [...new Set(assuntos)].slice(0, MAX_CATEGORIES);
+}
+
 function positiveInteger(value, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
@@ -61,7 +70,7 @@ function mapSearchDocument(document, selectedCategory) {
     id: key.slice('/works/'.length),
     title,
     originalTitle: title,
-    categories: stringArray(document.subject, MAX_CATEGORIES),
+    categories: categorias(document.subject),
     categoriesTranslated: false,
     authors: stringArray(document.author_name, MAX_AUTHORS),
     category: selectedCategory || 'Catálogo geral',
@@ -112,7 +121,7 @@ function mapWorkDetail(work, authorNames) {
     title,
     authors: stringArray(authorNames, MAX_AUTHORS),
     description: normalizeDescription(work.description),
-    categories: [...new Set(stringArray(work.subjects))].slice(0, MAX_CATEGORIES),
+    categories: categorias(work.subjects),
     coverUrl: buildCoverUrl({ coverId: firstCoverId(work.covers) }, 'L'),
     openLibraryUrl: `${OPEN_LIBRARY_URL}${key}`,
   };

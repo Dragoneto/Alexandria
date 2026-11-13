@@ -120,6 +120,19 @@ test('detalhe com descrição em texto puro', async () => {
   });
 });
 
+test('etiquetas internas da Open Library não viram categoria nem tomam o lugar de uma', async () => {
+  delete process.env.DEEPL_AUTH_KEY;
+  simularOpenLibrary({
+    ...AUTOR,
+    '/works/OL100W.json': obra({
+      subjects: ['series:Harry_Potter', 'nyt:series_books=2006-09-16', 'Ghosts', 'History: Ancient', 'Magic', 'Witches', 'Wizards', 'Owls'],
+    }),
+  });
+  const res = await detalhar('OL100W');
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.book.categories, ['Ghosts', 'History: Ancient', 'Magic', 'Witches', 'Wizards']);
+});
+
 test('detalhe com descrição em objeto', async () => {
   delete process.env.DEEPL_AUTH_KEY;
   simularOpenLibrary({
