@@ -78,6 +78,8 @@ test('falha ao materializar notificações preserva o evento para recuperação'
 test('listagem privada, cursor sem repetição e leitura idempotente', async () => {
   const first = await list(author, { limit: '2' });
   assert.equal(first.body.notificacoes.length, 2);
+  // O título do livro vai junto para a notificação dizer onde foi o comentário
+  assert.ok(first.body.notificacoes.every((n) => n.livroTitulo === 'Livro'));
   assert.ok(first.body.proximoCursor);
   const second = await list(author, { limit: '2', cursor: first.body.proximoCursor });
   assert.ok(second.body.notificacoes.every((n) => !first.body.notificacoes.some((a) => a.id === n.id)));

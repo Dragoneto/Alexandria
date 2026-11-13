@@ -1,12 +1,23 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { CartaoDestaque, DESTAQUES } from '@/components/destaques';
+import { PopupDestaque, type Destaque } from '@/components/popup-destaque';
 import {
-  Accent,
   DSFonts,
   Ink,
   Mint,
@@ -18,29 +29,70 @@ import {
   withAlpha,
 } from '@/constants/design-system';
 
-const HIGHLIGHTS = [
-  {
-    icon: { ios: 'books.vertical.fill', android: 'library_books', web: 'library_books' },
-    tint: Accent.laurel,
-    title: 'Sua estante',
-    description: 'Organize o que já leu, o que está lendo e o que ficou para depois.',
-  },
-  {
-    icon: { ios: 'person.2.fill', android: 'groups', web: 'groups' },
-    tint: Accent.lilac,
-    title: 'Comunidade',
-    description: 'Resenhas, listas e atividades recentes de outros leitores.',
-  },
-  {
-    icon: { ios: 'sparkle.magnifyingglass', android: 'travel_explore', web: 'travel_explore' },
-    tint: Accent.sapphire,
-    title: 'Descobertas',
-    description: 'Lançamentos e clássicos filtrados por gênero, autor ou título.',
-  },
-] as const;
+/**
+ * Atalho fixo para quem já tem conta. Fica no canto e só "acena" duas vezes
+ * ao abrir a tela, para ser notado sem disputar com o botão principal.
+ */
+function AtalhoEntrar({ onPress }: { onPress: () => void }) {
+  const reduzirMovimento = useReducedMotion();
+  const aceno = useSharedValue(0);
+  const [realcado, setRealcado] = useState(false);
+
+  useEffect(() => {
+    if (reduzirMovimento) return;
+    aceno.set(
+      withDelay(
+        1400,
+        withRepeat(
+          withSequence(withTiming(1, { duration: 650 }), withTiming(0, { duration: 850 })),
+          2,
+        ),
+      ),
+    );
+  }, [aceno, reduzirMovimento]);
+
+  const anel = useAnimatedStyle(() => ({
+    opacity: aceno.value * 0.7,
+    transform: [{ scale: 1 + aceno.value * 0.12 }],
+  }));
+  const seta = useAnimatedStyle(() => ({ transform: [{ translateX: aceno.value * 3 }] }));
+
+  return (
+    <SafeAreaView edges={['top']} pointerEvents="box-none" style={styles.topo}>
+      <View pointerEvents="box-none" style={styles.topoLinha}>
+        <View>
+          <Animated.View pointerEvents="none" style={[styles.entrarAnel, anel]} />
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Já tenho conta. Entrar"
+            onPress={onPress}
+            onHoverIn={() => setRealcado(true)}
+            onHoverOut={() => setRealcado(false)}
+            onFocus={() => setRealcado(true)}
+            onBlur={() => setRealcado(false)}
+            hitSlop={6}
+            style={({ pressed }) => [
+              styles.entrar,
+              (realcado || pressed) && styles.entrarRealcado,
+            ]}>
+            <Text style={styles.entrarTexto}>Entrar</Text>
+            <Animated.View style={seta}>
+              <SymbolView
+                name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
+                size={16}
+                tintColor={Mint.mint400}
+              />
+            </Animated.View>
+          </Pressable>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const [aberto, setAberto] = useState<Destaque | null>(null);
 
   return (
     <View style={styles.root}>
@@ -77,23 +129,8 @@ export default function WelcomeScreen() {
 
           {/* ── DESTAQUES ── */}
           <View style={styles.highlights}>
-            {HIGHLIGHTS.map((item) => (
-              <View key={item.title} style={styles.card}>
-                <View
-                  style={[
-                    styles.cardBadge,
-                    {
-                      backgroundColor: withAlpha(item.tint, 0.14),
-                      borderColor: withAlpha(item.tint, 0.4),
-                    },
-                  ]}>
-                  <SymbolView name={item.icon} size={30} weight="semibold" tintColor={item.tint} />
-                </View>
-                <View style={styles.cardContent}>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.cardDescription}>{item.description}</Text>
-                </View>
-              </View>
+            {DESTAQUES.map((item) => (
+              <CartaoDestaque key={item.title} item={item} onPress={() => setAberto(item)} />
             ))}
           </View>
 
@@ -108,6 +145,14 @@ export default function WelcomeScreen() {
           </View>
         </SafeAreaView>
       </ScrollView>
+
+      <AtalhoEntrar onPress={() => router.push('/login')} />
+
+      <PopupDestaque
+        destaque={aberto}
+        onFechado={() => setAberto(null)}
+        acao={() => ({ rotulo: 'Criar minha conta', onPress: () => router.push('/cadastro') })}
+      />
     </View>
   );
 }
@@ -116,6 +161,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Ink.ink900,
+    // O halo é mais largo que telas de 320px; sem isso a página rola para o lado.
+    overflow: 'hidden',
   },
   halo: {
     position: 'absolute',
@@ -197,45 +244,40 @@ const styles = StyleSheet.create({
     marginTop: Space.eight,
     gap: Space.three,
   },
-  card: {
+  // Atalho "Entrar" no canto superior
+  topo: { position: 'absolute', top: 0, left: 0, right: 0 },
+  topoLinha: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: ScreenInset,
+    paddingTop: Space.three,
+  },
+  entrar: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.four,
-    padding: Space.four,
-    borderRadius: Radius.card,
-    backgroundColor: Ink.ink700,
+    gap: Space.two,
+    paddingHorizontal: Space.four,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: Ink.ink500,
-    ...Shadow.e1,
+    borderColor: withAlpha(Mint.mint400, 0.35),
+    backgroundColor: withAlpha(Ink.ink800, 0.9),
   },
-  // Selo do ícone — véu e borda derivados do próprio acento do cartão
-  cardBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: Radius.sheet,
+  entrarRealcado: {
+    borderColor: withAlpha(Mint.mint400, 0.75),
+    backgroundColor: withAlpha(Mint.mint400, 0.12),
+  },
+  entrarAnel: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: Mint.mint400,
   },
-  cardContent: {
-    flex: 1,
-    gap: Space.one,
-  },
-  // Rótulo forte · sans 16/22 · 700
-  cardTitle: {
+  entrarTexto: {
     fontFamily: DSFonts.ui,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
     fontWeight: '700',
-    color: TextColor.primary,
-  },
-  // Corpo pequeno · sans 13/20 · 500
-  cardDescription: {
-    fontFamily: DSFonts.ui,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
-    color: TextColor.secondary,
+    color: Mint.mint400,
   },
 
   // Ação

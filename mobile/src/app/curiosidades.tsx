@@ -1,9 +1,24 @@
-import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
+import { useMemo, useRef, useState } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ScrollViewInstance,
+} from 'react-native';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BotaoVoltar } from '@/components/botao-voltar';
+import {
+  CATEGORIAS_CURIOSIDADES,
+  CURIOSIDADES,
+  sortearOutra,
+  type CategoriaCuriosidade,
+  type Curiosidade,
+} from '@/constants/curiosidades';
 import {
   Accent,
   DSFonts,
@@ -15,159 +30,225 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { MaxContentWidth } from '@/constants/theme';
 
-// Lista de curiosidades. Para adicionar uma nova, é só copiar um bloco { ... }.
-const CURIOSIDADES = [
-  {
-    categoria: 'História',
-    texto:
-      'A Biblioteca de Alexandria, no Egito, foi fundada há mais de 2.200 anos e pode ter guardado centenas de milhares de rolos de papiro. Ela inspirou o nome deste app!',
+// A lista cresce de 6 em 6 por botão, em vez de rolar sem fim.
+const POR_VEZ = 6;
+
+type Filtro = CategoriaCuriosidade | 'Todas';
+
+const VISUAL: Record<CategoriaCuriosidade, { cor: string; icone: SymbolViewProps['name'] }> = {
+  História: {
     cor: Accent.amber,
     icone: { ios: 'building.columns.fill', android: 'account_balance', web: 'account_balance' },
   },
-  {
-    categoria: 'Invenções',
-    texto:
-      'Por volta de 1450, Johannes Gutenberg criou a prensa de tipos móveis. Antes disso, os livros eram copiados à mão, um por um.',
-    cor: Accent.sapphire,
-    icone: { ios: 'printer.fill', android: 'print', web: 'print' },
-  },
-  {
-    categoria: 'Literatura',
-    texto:
-      'Dom Quixote, de Miguel de Cervantes, publicado em 1605, é considerado por muitos o primeiro romance moderno.',
+  Literatura: {
     cor: Accent.lilac,
     icone: { ios: 'book.closed.fill', android: 'menu_book', web: 'menu_book' },
   },
-  {
-    categoria: 'Brasil',
-    texto:
-      'Machado de Assis foi um dos fundadores da Academia Brasileira de Letras, em 1897, e o seu primeiro presidente.',
-    cor: Accent.laurel,
-    icone: { ios: 'graduationcap.fill', android: 'school', web: 'school' },
-  },
-  {
-    categoria: 'Palavras',
-    texto:
-      '"Tsundoku" é uma palavra japonesa para o hábito de comprar livros e deixá-los empilhados sem ler. Conhece alguém assim?',
+  Brasil: { cor: Accent.laurel, icone: { ios: 'flag.fill', android: 'flag', web: 'flag' } },
+  Palavras: {
     cor: Accent.coral,
-    icone: { ios: 'square.stack.3d.up.fill', android: 'layers', web: 'layers' },
+    icone: { ios: 'character.book.closed.fill', android: 'spellcheck', web: 'spellcheck' },
   },
-  {
-    categoria: 'Ciência',
-    texto:
-      'O cheiro de livro antigo vem do papel se desgastando com o tempo. Esse processo libera substâncias como a vanilina, que lembra baunilha.',
-    cor: Mint.mint400,
-    icone: { ios: 'wind', android: 'air', web: 'air' },
-  },
-  {
-    categoria: 'Recordes',
-    texto:
-      'A Biblioteca do Congresso, nos Estados Unidos, é a maior do mundo, com mais de 170 milhões de itens no acervo.',
-    cor: Accent.amber,
-    icone: { ios: 'archivebox.fill', android: 'inventory_2', web: 'inventory_2' },
-  },
-  {
-    categoria: 'Tecnologia',
-    texto:
-      'Os dados dos livros do Alexandria vêm da Open Library, um projeto que quer ter uma página para cada livro já publicado.',
+  Ciência: { cor: Mint.mint400, icone: { ios: 'flask.fill', android: 'science', web: 'science' } },
+  Invenções: {
     cor: Accent.sapphire,
-    icone: { ios: 'globe', android: 'public', web: 'public' },
+    icone: { ios: 'printer.fill', android: 'print', web: 'print' },
   },
-] as const;
+  Recordes: {
+    cor: Accent.amber,
+    icone: { ios: 'trophy.fill', android: 'emoji_events', web: 'emoji_events' },
+  },
+  Bibliotecas: {
+    cor: Accent.sapphire,
+    icone: { ios: 'books.vertical.fill', android: 'local_library', web: 'local_library' },
+  },
+};
+
+const plural = (n: number) => (n === 1 ? '1 curiosidade' : `${n} curiosidades`);
 
 export default function CuriosidadesScreen() {
-  const router = useRouter();
+  const reduzirMovimento = useReducedMotion();
+  const rolagem = useRef<ScrollViewInstance>(null);
+  const [filtro, setFiltro] = useState<Filtro>('Todas');
+  const [destaque, setDestaque] = useState<Curiosidade>(CURIOSIDADES[0]);
+  const [visiveis, setVisiveis] = useState(POR_VEZ);
 
-  // Guarda qual curiosidade aparece no destaque (começa na primeira, posição 0)
-  const [indice, setIndice] = useState(0);
-  const destaque = CURIOSIDADES[indice];
+  const lista = useMemo(
+    () => (filtro === 'Todas' ? CURIOSIDADES : CURIOSIDADES.filter((c) => c.categoria === filtro)),
+    [filtro],
+  );
+  const contagem = useMemo(() => {
+    const porCategoria = Object.fromEntries(CATEGORIAS_CURIOSIDADES.map((c) => [c, 0])) as Record<
+      CategoriaCuriosidade,
+      number
+    >;
+    for (const item of CURIOSIDADES) porCategoria[item.categoria] += 1;
+    return porCategoria;
+  }, []);
 
-  // Vai para a próxima curiosidade. Quando chega na última, volta para a primeira.
-  function proximaCuriosidade() {
-    setIndice((atual) => (atual + 1) % CURIOSIDADES.length);
-  }
+  const visual = VISUAL[destaque.categoria];
+  const restantes = Math.max(0, lista.length - visiveis);
+
+  const escolherFiltro = (novo: Filtro) => {
+    setFiltro(novo);
+    setVisiveis(POR_VEZ);
+    // O destaque acompanha a categoria escolhida.
+    if (novo !== 'Todas' && destaque.categoria !== novo) {
+      const primeira = CURIOSIDADES.find((c) => c.categoria === novo);
+      if (primeira) setDestaque(primeira);
+    }
+  };
+
+  const outra = () => {
+    const sorteada = sortearOutra(lista, destaque.id);
+    if (sorteada) setDestaque(sorteada);
+  };
+
+  const colocarEmDestaque = (item: Curiosidade) => {
+    setDestaque(item);
+    rolagem.current?.scrollTo({ y: 0, animated: !reduzirMovimento });
+  };
 
   return (
     <SafeAreaView style={styles.tela}>
-      <ScrollView contentContainerStyle={styles.conteudo}>
-        {/* Botão de voltar (o mesmo das outras telas) */}
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          style={({ pressed }) => [styles.voltar, pressed && styles.voltarPressionado]}>
-          <SymbolView
-            name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-            size={20}
-            tintColor={Mint.mint400}
-          />
-        </Pressable>
+      <ScrollView ref={rolagem} contentContainerStyle={styles.conteudo}>
+        <BotaoVoltar fallback="/configuracoes" />
 
-        {/* Cabeçalho */}
         <View style={styles.cabecalho}>
           <View style={styles.cabecalhoIcone}>
             <SymbolView
               name={{ ios: 'lightbulb.fill', android: 'lightbulb', web: 'lightbulb' }}
-              size={36}
+              size={32}
               tintColor={Accent.amber}
             />
           </View>
-          <Text style={styles.titulo}>Você sabia?</Text>
-          <Text style={styles.subtitulo}>Curiosidades sobre livros, leitura e bibliotecas.</Text>
+          <Text accessibilityRole="header" style={styles.titulo}>
+            Você sabia?
+          </Text>
+          <Text style={styles.subtitulo}>
+            {plural(CURIOSIDADES.length)} sobre livros, leitura e bibliotecas.
+          </Text>
         </View>
 
-        {/* Cartão de destaque */}
-        <Text style={styles.secaoTitulo}>Curiosidade em destaque</Text>
-        <View style={[styles.destaque, { borderColor: withAlpha(destaque.cor, 0.5) }]}>
-          <View style={[styles.selo, { backgroundColor: withAlpha(destaque.cor, 0.15) }]}>
-            <SymbolView name={destaque.icone} size={14} tintColor={destaque.cor} />
-            <Text style={[styles.seloTexto, { color: destaque.cor }]}>{destaque.categoria}</Text>
+        {/* Destaque: troca com um fade curto a cada curiosidade */}
+        <Animated.View
+          key={destaque.id}
+          entering={reduzirMovimento ? undefined : FadeIn.duration(250)}
+          style={[styles.destaque, { borderColor: withAlpha(visual.cor, 0.5) }]}>
+          <View style={[styles.selo, { backgroundColor: withAlpha(visual.cor, 0.15) }]}>
+            <SymbolView name={visual.icone} size={14} tintColor={visual.cor} />
+            <Text style={[styles.seloTexto, { color: visual.cor }]}>{destaque.categoria}</Text>
           </View>
-
-          <Text style={styles.destaqueTexto}>{destaque.texto}</Text>
-
-          <View style={styles.destaqueRodape}>
-            <Text style={styles.contador}>
-              {indice + 1} de {CURIOSIDADES.length}
-            </Text>
-            <Pressable
-              onPress={proximaCuriosidade}
-              accessibilityRole="button"
-              style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}>
-              <Text style={styles.botaoTexto}>Outra curiosidade</Text>
-              <SymbolView
-                name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
-                size={16}
-                tintColor={Ink.ink900}
-              />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Lista com todas as curiosidades */}
-        <Text style={styles.secaoTitulo}>Todas as curiosidades</Text>
-        {CURIOSIDADES.map((item, index) => (
+          <Text style={styles.destaqueTexto} accessibilityLiveRegion="polite">
+            {destaque.texto}
+          </Text>
           <Pressable
-            key={index}
-            onPress={() => setIndice(index)}
-            style={({ pressed }) => [
-              styles.cartao,
-              index === indice && { borderColor: item.cor },
-              pressed && styles.cartaoPressionado,
-            ]}>
-            <View style={[styles.iconeFundo, { backgroundColor: withAlpha(item.cor, 0.15) }]}>
-              <SymbolView name={item.icone} size={20} tintColor={item.cor} />
-            </View>
-            <View style={styles.flex}>
-              <Text style={[styles.categoria, { color: item.cor }]}>{item.categoria}</Text>
-              <Text style={styles.cartaoTexto}>{item.texto}</Text>
-            </View>
+            onPress={outra}
+            disabled={lista.length < 2}
+            accessibilityRole="button"
+            accessibilityLabel={
+              filtro === 'Todas' ? 'Outra curiosidade' : `Outra curiosidade de ${filtro}`
+            }
+            style={({ pressed }) => [styles.botao, pressed && styles.pressionado]}>
+            <SymbolView
+              name={{ ios: 'shuffle', android: 'shuffle', web: 'shuffle' }}
+              size={16}
+              tintColor={Ink.ink900}
+            />
+            <Text style={styles.botaoTexto}>Outra curiosidade</Text>
           </Pressable>
-        ))}
+        </Animated.View>
 
-        <Text style={styles.rodape}>Toque em uma curiosidade para colocá-la em destaque</Text>
+        {/* Categorias com a contagem, como os filtros da biblioteca */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipsLista}
+          contentContainerStyle={styles.chips}>
+          {(['Todas', ...CATEGORIAS_CURIOSIDADES] as Filtro[]).map((opcao) => {
+            const ativo = filtro === opcao;
+            const n = opcao === 'Todas' ? CURIOSIDADES.length : contagem[opcao];
+            const cor = opcao === 'Todas' ? Mint.mint400 : VISUAL[opcao].cor;
+            return (
+              <Pressable
+                key={opcao}
+                onPress={() => escolherFiltro(opcao)}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: ativo }}
+                accessibilityLabel={`${opcao}, ${plural(n)}`}
+                style={({ pressed }) => [
+                  styles.chip,
+                  ativo && { borderColor: cor, backgroundColor: withAlpha(cor, 0.12) },
+                  pressed && styles.pressionado,
+                ]}>
+                {opcao !== 'Todas' && (
+                  <SymbolView
+                    name={VISUAL[opcao].icone}
+                    size={14}
+                    tintColor={ativo ? cor : TextColor.secondary}
+                  />
+                )}
+                <Text style={[styles.chipTexto, ativo && { color: cor }]}>{opcao}</Text>
+                <Text style={styles.chipNumero}>{n}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.lista}>
+          {lista.slice(0, visiveis).map((item, index) => {
+            const v = VISUAL[item.categoria];
+            const atual = item.id === destaque.id;
+            return (
+              <Animated.View
+                key={item.id}
+                entering={
+                  reduzirMovimento
+                    ? undefined
+                    : FadeInDown.duration(220).delay((index % POR_VEZ) * 30)
+                }>
+                <Pressable
+                  onPress={() => colocarEmDestaque(item)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: atual }}
+                  accessibilityHint="Coloca esta curiosidade em destaque"
+                  style={({ pressed }) => [
+                    styles.cartao,
+                    atual && { borderColor: withAlpha(v.cor, 0.6) },
+                    pressed && styles.pressionado,
+                  ]}>
+                  <View style={[styles.iconeFundo, { backgroundColor: withAlpha(v.cor, 0.15) }]}>
+                    <SymbolView name={v.icone} size={18} tintColor={v.cor} />
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={[styles.categoria, { color: v.cor }]}>{item.categoria}</Text>
+                    <Text style={styles.cartaoTexto} numberOfLines={3}>
+                      {item.texto}
+                    </Text>
+                  </View>
+                </Pressable>
+              </Animated.View>
+            );
+          })}
+        </View>
+
+        {restantes > 0 ? (
+          <Pressable
+            onPress={() => setVisiveis((n) => n + POR_VEZ)}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.mais, pressed && styles.pressionado]}>
+            <Text style={styles.maisTexto}>
+              Mostrar mais {Math.min(POR_VEZ, restantes)} de {restantes}
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={styles.rodape}>
+            {lista.length > POR_VEZ ? 'Você viu todas desta lista. ' : ''}
+            Toque em uma curiosidade para colocá-la em destaque.
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -175,117 +256,115 @@ export default function CuriosidadesScreen() {
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.twelve },
-  flex: { flex: 1 },
-
-  // Botão de voltar
-  voltar: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.pill,
-    backgroundColor: Ink.ink700,
-    borderWidth: 1,
-    borderColor: Ink.ink500,
-    alignItems: 'center',
-    justifyContent: 'center',
+  conteudo: {
+    padding: ScreenInset,
+    paddingBottom: Space.twelve,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
   },
-  voltarPressionado: { backgroundColor: Ink.ink600 },
+  flex: { flex: 1 },
+  pressionado: { opacity: 0.75 },
 
-  // Cabeçalho
-  cabecalho: { alignItems: 'center', marginTop: Space.four },
+  cabecalho: { alignItems: 'center', marginTop: Space.four, gap: Space.two },
   cabecalhoIcone: {
-    width: 80,
-    height: 80,
+    width: 64,
+    height: 64,
     borderRadius: Radius.pill,
-    backgroundColor: withAlpha(Accent.amber, 0.15),
+    backgroundColor: withAlpha(Accent.amber, 0.14),
     alignItems: 'center',
     justifyContent: 'center',
   },
   titulo: {
-    marginTop: Space.four,
+    marginTop: Space.two,
     fontFamily: DSFonts.display,
-    fontSize: 28,
+    fontSize: 30,
+    lineHeight: 36,
     color: TextColor.primary,
   },
   subtitulo: {
-    marginTop: Space.two,
     fontFamily: DSFonts.ui,
     fontSize: 15,
+    lineHeight: 22,
     color: TextColor.secondary,
     textAlign: 'center',
   },
 
-  // Títulos das seções
-  secaoTitulo: {
-    marginTop: Space.eight,
-    marginBottom: Space.two,
-    fontFamily: DSFonts.ui,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    color: TextColor.secondary,
-  },
-
-  // Cartão de destaque
   destaque: {
+    marginTop: Space.six,
     padding: Space.six,
-    backgroundColor: Ink.ink700,
+    gap: Space.four,
     borderRadius: Radius.sheet,
     borderWidth: 1,
+    backgroundColor: Ink.ink700,
   },
   selo: {
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: Space.one,
+    gap: Space.two,
     paddingHorizontal: Space.three,
     paddingVertical: Space.one,
     borderRadius: Radius.pill,
   },
   seloTexto: { fontFamily: DSFonts.ui, fontSize: 12, fontWeight: '700' },
   destaqueTexto: {
-    marginTop: Space.four,
     fontFamily: DSFonts.display,
     fontSize: 20,
     lineHeight: 30,
     color: TextColor.primary,
   },
-  destaqueRodape: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: Space.six,
-  },
-  contador: { fontFamily: DSFonts.ui, fontSize: 13, color: TextColor.secondary },
   botao: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Space.two,
     paddingHorizontal: Space.four,
-    paddingVertical: Space.three,
     borderRadius: Radius.pill,
     backgroundColor: Mint.mint400,
   },
-  botaoPressionado: { backgroundColor: Mint.mint500 },
   botaoTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700', color: Ink.ink900 },
 
-  // Cartões da lista
-  cartao: {
+  chipsLista: { marginTop: Space.six, marginHorizontal: -ScreenInset, flexGrow: 0 },
+  chips: { paddingHorizontal: ScreenInset, gap: Space.two },
+  chip: {
+    minHeight: 44,
     flexDirection: 'row',
-    gap: Space.three,
-    marginBottom: Space.three,
-    padding: Space.four,
-    backgroundColor: Ink.ink700,
-    borderRadius: Radius.card,
+    alignItems: 'center',
+    gap: Space.two,
+    paddingHorizontal: Space.four,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     borderColor: Ink.ink500,
   },
-  cartaoPressionado: { backgroundColor: Ink.ink600 },
+  chipTexto: {
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    fontWeight: '700',
+    color: TextColor.secondary,
+  },
+  chipNumero: {
+    fontFamily: DSFonts.ui,
+    fontSize: 12,
+    fontWeight: '600',
+    color: TextColor.secondary,
+  },
+
+  lista: { marginTop: Space.four, gap: Space.three },
+  cartao: {
+    flexDirection: 'row',
+    gap: Space.three,
+    padding: Space.four,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: Ink.ink600,
+    backgroundColor: Ink.ink800,
+  },
   iconeFundo: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.cover,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -301,14 +380,25 @@ const styles = StyleSheet.create({
     fontFamily: DSFonts.ui,
     fontSize: 14,
     lineHeight: 21,
-    color: TextColor.secondary,
+    color: TextColor.primary,
   },
 
+  mais: {
+    marginTop: Space.four,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: withAlpha(Mint.mint400, 0.5),
+  },
+  maisTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700', color: Mint.mint400 },
   rodape: {
     marginTop: Space.six,
-    textAlign: 'center',
     fontFamily: DSFonts.ui,
     fontSize: 13,
+    lineHeight: 19,
     color: TextColor.secondary,
+    textAlign: 'center',
   },
 });

@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
+import { AvisoServidorAcordando } from '@/components/aviso-servidor-acordando';
 import { AuthShell } from '@/components/auth-shell';
 import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
@@ -108,6 +109,7 @@ export default function SignUpScreen() {
           </Text>
         )}
         <ActionButton label="Criar conta" onPress={handleSubmit} loading={loading} />
+        <AvisoServidorAcordando carregando={loading} />
         <Text style={styles.terms}>
           Ao criar a conta você concorda com os termos de uso e a política de privacidade.
         </Text>
@@ -118,7 +120,7 @@ export default function SignUpScreen() {
         <Pressable
           accessibilityRole="button"
           onPress={() => router.replace('/login')}
-          style={({ pressed }) => pressed && styles.pressed}>
+          style={({ pressed }) => [styles.footerLinkArea, pressed && styles.pressed]}>
           <Text style={styles.footerLink}>Entrar</Text>
         </Pressable>
       </View>
@@ -128,7 +130,7 @@ export default function SignUpScreen() {
         nome={nomeCadastrado ?? undefined}
         onConfirm={() => {
           setNomeCadastrado(null);
-          router.replace('/login');
+          router.replace({ pathname: '/login', params: { email: email.trim() } });
         }}
       />
     </AuthShell>
@@ -169,6 +171,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: TextColor.secondary,
   },
+  // Alvo de toque de 44px sem mudar o desenho do link
+  footerLinkArea: { minHeight: 44, justifyContent: 'center' },
   footerLink: {
     fontFamily: DSFonts.ui,
     fontSize: 15,

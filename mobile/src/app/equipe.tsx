@@ -1,9 +1,7 @@
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 
 import {
   Accent,
@@ -16,6 +14,8 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
+import { MaxContentWidth } from '@/constants/theme';
 
 const EQUIPE = [
   {
@@ -55,16 +55,15 @@ const EQUIPE = [
   },
 ];
 
-
 export default function EquipeScreen() {
-  const router = useRouter();
+  const voltar = useVoltar('/configuracoes');
 
   return (
     <SafeAreaView style={styles.tela}>
       <ScrollView contentContainerStyle={styles.conteudo}>
         {/* Botão de voltar (o mesmo das outras telas) */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={voltar}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
@@ -76,16 +75,17 @@ export default function EquipeScreen() {
           />
         </Pressable>
 
-
         {/* Um cartão para cada integrante */}
         <Text style={styles.secaoTitulo}>Equipe</Text>
         {EQUIPE.map((pessoa, index) => (
           <View key={index} style={styles.cartaoPessoa}>
-              <View style={styles.avatar}>
-                <View style={styles.avatar}>
-                  <Image source={pessoa.foto} style={styles.foto} contentFit="cover" />
-                </View>
-              <Image source={pessoa.foto} style={styles.foto} contentFit="cover" />
+            <View style={styles.avatar}>
+              <Image
+                source={pessoa.foto}
+                style={styles.foto}
+                contentFit="cover"
+                accessibilityLabel={`Foto de ${pessoa.nome}`}
+              />
             </View>
 
             <Text style={styles.nome}>{pessoa.nome}</Text>
@@ -113,12 +113,17 @@ export default function EquipeScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-
 }
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.twelve },
+  conteudo: {
+    padding: ScreenInset,
+    paddingBottom: Space.twelve,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   flex: { flex: 1 },
 
   // Botão de voltar

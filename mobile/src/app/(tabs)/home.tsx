@@ -26,19 +26,24 @@ import {
 } from '@/constants/design-system';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
+import { SinoNotificacoes } from '@/components/sino-notificacoes';
 import { SkeletonBookShelf } from '@/components/skeletons';
 import {
   CATEGORIAS,
   embaralhar,
   sortearDestaque,
   sortearEstantes,
-  termoDaCategoria,
   type Categoria,
 } from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { getProfile, getProfilePhoto } from '@/services/auth';
 import { searchBooks, type BookSearchItem } from '@/services/open-library';
+import { MaxContentWidth } from '@/constants/theme';
+
+// Muda a cada toque que abre o Explorar, para a mesma busca repetida ser refeita lá.
+let toques = 0;
+const proximoToque = () => ++toques;
 
 const COVER_WIDTH = 112;
 const COVER_HEIGHT = 168; // proporção 2:3, a de uma capa de verdade
@@ -54,6 +59,8 @@ function novoSorteio(id = 0) {
 
 function saudacao() {
   const hora = new Date().getHours();
+  // De madrugada ainda é "boa noite", como se fala no dia a dia.
+  if (hora < 5) return 'Boa noite';
   if (hora < 12) return 'Bom dia';
   if (hora < 18) return 'Boa tarde';
   return 'Boa noite';
@@ -103,17 +110,15 @@ export default function HomeScreen() {
     }, []),
   );
 
+  // Só a categoria vai para o Explorar: a caixa de busca chega vazia e o "t" força uma nova busca.
   const abrirCategoria = (categoria: Categoria) => {
-    const termo = termoDaCategoria(categoria);
-    router.push(
-      `/explore?q=${encodeURIComponent(termo)}&categoria=${encodeURIComponent(categoria)}` as Href,
-    );
+    router.push(`/explore?categoria=${encodeURIComponent(categoria)}&t=${proximoToque()}` as Href);
   };
 
   const handleSearch = () => {
     const normalized = searchTerm.trim();
     if (!normalized) return;
-    router.push(`/explore?q=${encodeURIComponent(normalized)}` as Href);
+    router.push(`/explore?q=${encodeURIComponent(normalized)}&t=${proximoToque()}` as Href);
   };
 
   return (
@@ -133,23 +138,27 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.date}>{dataDeHoje()}</Text>
-            <Text style={styles.greeting} numberOfLines={1}>
+            {/* Duas linhas no máximo: em telas estreitas o nome quebra em vez de virar "…" */}
+            <Text style={styles.greeting} numberOfLines={2}>
               {firstName ? `${saudacao()}, ${firstName}` : saudacao()}
             </Text>
           </View>
 
-          <Pressable
-            onPress={() => router.push('/perfil')}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir meu perfil"
-            hitSlop={Space.two}
-            style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}>
-            {photo ? (
-              <Image source={{ uri: photo }} style={styles.avatarImage} contentFit="cover" />
-            ) : (
-              <Text style={styles.avatarLabel}>{(firstName || '?').charAt(0).toUpperCase()}</Text>
-            )}
-          </Pressable>
+          <View style={styles.headerAcoes}>
+            <SinoNotificacoes />
+            <Pressable
+              onPress={() => router.push('/perfil')}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir meu perfil"
+              hitSlop={Space.two}
+              style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}>
+              {photo ? (
+                <Image source={{ uri: photo }} style={styles.avatarImage} contentFit="cover" />
+              ) : (
+                <Text style={styles.avatarLabel}>{(firstName || '?').charAt(0).toUpperCase()}</Text>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <View style={[styles.search, buscaFocada && styles.searchFocada]}>
@@ -161,6 +170,7 @@ export default function HomeScreen() {
           <TextInput
             {...propsDeFoco}
             style={styles.searchInput}
+            accessibilityLabel="Buscar livros ou autores"
             placeholder="Buscar livros ou autores"
             placeholderTextColor={TextColor.muted}
             value={searchTerm}
@@ -344,7 +354,9 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           <FeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={`Buscar livros em ${title}`}
-            onPress={() => router.push(`/explore?q=${encodeURIComponent(query)}` as Href)}
+            onPress={() =>
+              router.push(`/explore?q=${encodeURIComponent(query)}&t=${proximoToque()}` as Href)
+            }
             style={styles.shelfAction}>
             <Text style={styles.shelfActionText}>Buscar livros</Text>
           </FeedbackPressable>
@@ -392,6 +404,10 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: Space.four,
     paddingBottom: Space.twelve,
+    // Coluna central em telas largas (web no computador, tablet deitado).
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
   },
   pressed: {
     opacity: 0.7,
@@ -401,9 +417,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.four,
+    gap: Space.three,
     paddingHorizontal: ScreenInset,
   },
+  headerAcoes: { flexDirection: 'row', gap: Space.two },
   headerText: {
     flex: 1,
     gap: Space.one,
@@ -460,9 +477,14 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
+    // O campo ocupa a altura toda da pílula: tocar em qualquer ponto dela já abre o teclado.
+    alignSelf: 'stretch',
     fontFamily: DSFonts.ui,
     fontSize: 16,
     color: TextColor.primary,
+    // Sem o contorno do navegador: a borda de foco já é do próprio campo.
+    outlineWidth: 0,
+    outlineStyle: 'solid',
   },
 
   // Seções novas: destaque, categorias e cabeçalho das estantes

@@ -89,9 +89,11 @@ export function SkeletonGrid({ count = 4 }: { count?: number }) {
     <View style={styles.grid}>
       {Array.from({ length: count }, (_, index) => (
         <View key={index} style={styles.gridCard}>
-          <SkeletonBlock height={180} radius={Radius.cover} />
-          <SkeletonText width="78%" />
-          <SkeletonText width="52%" height={12} />
+          <SkeletonBlock width={76} height={114} radius={Radius.cover} />
+          <View style={styles.gridCardText}>
+            <SkeletonText width="78%" />
+            <SkeletonText width="52%" height={12} />
+          </View>
         </View>
       ))}
     </View>
@@ -201,7 +203,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
   flex: { flex: 1, gap: Space.two },
   grid: { gap: Space.three },
-  gridCard: { gap: Space.two, paddingBottom: Space.two },
+  gridCard: { flexDirection: 'row', gap: Space.three, paddingBottom: Space.two },
+  gridCardText: { flex: 1, gap: Space.two, paddingTop: Space.two },
   shelf: { flexDirection: 'row', gap: Space.four },
   shelfBook: { gap: Space.two },
   detail: { gap: Space.four },

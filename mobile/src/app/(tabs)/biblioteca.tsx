@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -20,6 +21,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
+import { PopupProgresso } from '@/components/popup-progresso';
+import { ProgressoDoLivro } from '@/components/progresso-do-livro';
 import { SkeletonGrid } from '@/components/skeletons';
 import { DisabledOpacity, TouchMin } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -66,8 +69,14 @@ export default function Biblioteca() {
   const [busca, setBusca] = useState('');
   const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
+  // Tracker: pop-up de páginas aberto para este item (depois de virar "Lendo" ou pelo botão).
+  const [progressoItemId, setProgressoItemId] = useState<number | null>(null);
+  const [salvandoProgresso, setSalvandoProgresso] = useState(false);
+  const [erroProgresso, setErroProgresso] = useState('');
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  // Livro com a confirmação de remoção aberta no próprio card (o mesmo padrão da tela do livro).
+  const [confirmandoRemocaoId, setConfirmandoRemocaoId] = useState<number | null>(null);
 
   const pendingStatus = useRef(new Set<number>());
   const [savingStatusIds, setSavingStatusIds] = useState<number[]>([]);
@@ -136,15 +145,17 @@ export default function Biblioteca() {
     router.push({ pathname: '/livro/[id]', params: { id: livroId } });
   };
 
+  // Quantos livros há em cada filtro; o número aparece no próprio chip, como no Skoob.
   const counters = useMemo(() => {
-    return items.reduce(
-      (acc, item) => {
-        acc.total += 1;
-        if (item.statusLeitura === 'LENDO') acc.lendo += 1;
-        return acc;
-      },
-      { total: 0, lendo: 0 },
-    );
+    const contagem: Record<FiltroStatus, number> = {
+      TODOS: items.length,
+      QUERO_LER: 0,
+      LENDO: 0,
+      LIDO: 0,
+      ABANDONADO: 0,
+    };
+    for (const item of items) contagem[item.statusLeitura] += 1;
+    return contagem;
   }, [items]);
 
   const avisar = (texto: string) => {
@@ -171,8 +182,12 @@ export default function Biblioteca() {
     setSavingStatusIds([...pendingStatus.current]);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
     try {
-      await atualizarItemBiblioteca(id, { status });
+      const salvo = await atualizarItemBiblioteca(id, { status });
+      // A resposta traz o progresso novo (páginas da Open Library, dia de leitura).
+      if (salvo?.id === id) setItems((prev) => prev.map((i) => (i.id === id ? salvo : i)));
       avisar(`Status alterado para ${STATUS_LEITURA[status]}`);
+      // Espera o seletor de status fechar: dois Modals ao mesmo tempo travam no iOS.
+      if (status === 'LENDO') setTimeout(() => abrirProgresso(id), 350);
     } catch (error) {
       setItems((prev) =>
         prev.map((item) =>
@@ -211,6 +226,30 @@ export default function Biblioteca() {
     }
   };
 
+  const abrirProgresso = (id: number) => {
+    setErroProgresso('');
+    setProgressoItemId(id);
+  };
+
+  const salvarProgresso = async (paginaAtual: number, paginasTotal?: number) => {
+    const id = progressoItemId;
+    if (id === null || salvandoProgresso) return;
+    setSalvandoProgresso(true);
+    setErroProgresso('');
+    try {
+      const salvo = await atualizarItemBiblioteca(id, { paginaAtual, paginasTotal });
+      setItems((prev) => prev.map((i) => (i.id === id ? salvo : i)));
+      setProgressoItemId(null);
+      avisar('Progresso salvo');
+    } catch (error) {
+      setErroProgresso(error instanceof ApiError ? error.message : 'Tente de novo em instantes.');
+    } finally {
+      setSalvandoProgresso(false);
+    }
+  };
+
+  const itemDoProgresso = items.find((item) => item.id === progressoItemId);
+
   const remover = async (id: number) => {
     if (removingId !== null) return;
     setRemovingId(id);
@@ -235,19 +274,7 @@ export default function Biblioteca() {
     }
   };
 
-  const handleRemove = (id: number, titulo: string) => {
-    const confirmar = () => {
-      void remover(id);
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Remover "${titulo}" da sua biblioteca?`)) confirmar();
-      return;
-    }
-    Alert.alert('Remover livro', `Remover "${titulo}" da sua biblioteca?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: confirmar },
-    ]);
-  };
+  const handleRemove = (id: number) => setConfirmandoRemocaoId(id);
 
   return (
     <ThemedView style={styles.root}>
@@ -266,22 +293,6 @@ export default function Biblioteca() {
             <ThemedText themeColor="textSecondary" style={styles.subtitle}>
               Organize livros salvos, acompanhe status e marque favoritos.
             </ThemedText>
-
-            {/* STATS */}
-            <View style={styles.statsRow}>
-              <ThemedView type="backgroundElement" style={styles.statCard}>
-                <ThemedText style={styles.statNumber}>{counters.total}</ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
-                  Total
-                </ThemedText>
-              </ThemedView>
-              <ThemedView type="backgroundElement" style={styles.statCard}>
-                <ThemedText style={styles.statNumber}>{counters.lendo}</ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.statLabel}>
-                  Lendo
-                </ThemedText>
-              </ThemedView>
-            </View>
 
             <View style={styles.searchContainer}>
               <TextInput
@@ -309,9 +320,11 @@ export default function Biblioteca() {
                   onPress={() => setBusca('')}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   style={styles.clearSearchButton}>
-                  <ThemedText themeColor="textSecondary" style={styles.clearSearchIcon}>
-                    ✕
-                  </ThemedText>
+                  <SymbolView
+                    name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                    size={18}
+                    tintColor={theme.textSecondary}
+                  />
                 </TouchableOpacity>
               )}
             </View>
@@ -331,17 +344,27 @@ export default function Biblioteca() {
                     <TouchableOpacity
                       key={option.value}
                       accessibilityRole="radio"
-                      accessibilityLabel={`Filtrar por ${option.label}`}
+                      accessibilityLabel={`Filtrar por ${option.label}, ${counters[option.value]} ${counters[option.value] === 1 ? 'livro' : 'livros'}`}
                       aria-checked={active}
                       onPress={() => setFilter(option.value)}
                       style={[
                         styles.filterChip,
                         { borderColor: active ? theme.accent : theme.border },
                       ]}>
+                      {active && (
+                        <SymbolView
+                          name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+                          size={14}
+                          tintColor={theme.accent}
+                        />
+                      )}
                       <ThemedText
                         themeColor={active ? 'accent' : 'textSecondary'}
                         style={styles.filterChipText}>
-                        {active ? `✓ ${option.label}` : option.label}
+                        {option.label}
+                        <ThemedText themeColor="textSecondary" style={styles.filterChipCount}>
+                          {`  ${counters[option.value]}`}
+                        </ThemedText>
                       </ThemedText>
                     </TouchableOpacity>
                   );
@@ -349,18 +372,24 @@ export default function Biblioteca() {
               </View>
               <TouchableOpacity
                 onPress={() => setSomenteFavoritos((atual) => !atual)}
-                accessibilityRole="togglebutton"
-                accessibilityState={{ checked: somenteFavoritos }}
+                // "togglebutton" sai na web como um papel ARIA que não existe; botão com aria-pressed é o padrão
+                accessibilityRole="button"
+                accessibilityState={{ selected: somenteFavoritos }}
                 aria-pressed={somenteFavoritos}
                 accessibilityLabel="Mostrar só favoritos"
                 style={[
                   styles.filterChip,
                   { borderColor: somenteFavoritos ? theme.accent : theme.border },
                 ]}>
+                <SymbolView
+                  name={{ ios: 'heart.fill', android: 'favorite', web: 'favorite' }}
+                  size={14}
+                  tintColor={somenteFavoritos ? theme.accent : theme.textSecondary}
+                />
                 <ThemedText
                   themeColor={somenteFavoritos ? 'accent' : 'textSecondary'}
                   style={styles.filterChipText}>
-                  {somenteFavoritos ? '✓ Favoritos' : 'Favoritos'}
+                  Favoritos
                 </ThemedText>
               </TouchableOpacity>
             </ScrollView>
@@ -443,7 +472,8 @@ export default function Biblioteca() {
                     <TouchableOpacity
                       onPress={() => abrirLivro(item.livro.id)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Abrir detalhes de ${item.livro.titulo}`}>
+                      accessibilityLabel={`Abrir detalhes de ${item.livro.titulo}`}
+                      style={styles.cardOpen}>
                       {item.livro.capa ? (
                         <Image
                           source={{ uri: item.livro.capa }}
@@ -459,15 +489,21 @@ export default function Biblioteca() {
                           ]}>
                           <ThemedText
                             themeColor="textSecondary"
-                            style={styles.coverPlaceholderText}>
+                            style={styles.coverPlaceholderText}
+                            numberOfLines={4}>
                             {item.livro.titulo}
                           </ThemedText>
                         </View>
                       )}
 
                       <View style={styles.cardHeading}>
-                        <ThemedText style={styles.cardTitle}>{item.livro.titulo}</ThemedText>
-                        <ThemedText themeColor="textSecondary" style={styles.cardAuthor}>
+                        <ThemedText style={styles.cardTitle} numberOfLines={3}>
+                          {item.livro.titulo}
+                        </ThemedText>
+                        <ThemedText
+                          themeColor="textSecondary"
+                          style={styles.cardAuthor}
+                          numberOfLines={2}>
                           {item.livro.autores.join(', ') || 'Autoria não informada'}
                         </ThemedText>
                       </View>
@@ -538,7 +574,7 @@ export default function Biblioteca() {
                               opacity: removingId !== null ? DisabledOpacity : 1,
                             },
                           ]}
-                          onPress={() => handleRemove(item.id, item.livro.titulo)}>
+                          onPress={() => handleRemove(item.id)}>
                           {removingId === item.id ? (
                             <ActivityIndicator
                               color={theme.danger}
@@ -551,6 +587,43 @@ export default function Biblioteca() {
                           )}
                         </TouchableOpacity>
                       </View>
+                      {item.statusLeitura === 'LENDO' && (
+                        <View style={styles.progressoLinha}>
+                          <ProgressoDoLivro
+                            progresso={item.progresso}
+                            onAtualizar={() => abrirProgresso(item.id)}
+                            compacto
+                          />
+                        </View>
+                      )}
+                      {confirmandoRemocaoId === item.id && (
+                        <View style={styles.confirmRow}>
+                          <ThemedText themeColor="textSecondary" style={styles.confirmText}>
+                            Remover da biblioteca?
+                          </ThemedText>
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={`Confirmar remoção de ${item.livro.titulo}`}
+                            style={[styles.confirmButton, { borderColor: theme.danger }]}
+                            onPress={() => {
+                              setConfirmandoRemocaoId(null);
+                              void remover(item.id);
+                            }}>
+                            <ThemedText themeColor="danger" style={styles.removeButtonText}>
+                              Confirmar
+                            </ThemedText>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Cancelar remoção"
+                            style={[styles.confirmButton, { borderColor: theme.border }]}
+                            onPress={() => setConfirmandoRemocaoId(null)}>
+                            <ThemedText themeColor="textSecondary" style={styles.removeButtonText}>
+                              Cancelar
+                            </ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   </ThemedView>
                 ))}
@@ -610,9 +683,18 @@ export default function Biblioteca() {
                   {savingStatus === value ? (
                     <ActivityIndicator color={theme.accent} accessibilityLabel="Salvando status" />
                   ) : (
-                    <ThemedText themeColor="textSecondary">
-                      {atual ? `✓ ${label}` : label}
-                    </ThemedText>
+                    <View style={styles.modalOptionRow}>
+                      <ThemedText themeColor={atual ? 'accent' : 'textSecondary'}>
+                        {label}
+                      </ThemedText>
+                      {atual && (
+                        <SymbolView
+                          name={{ ios: 'checkmark', android: 'check', web: 'check' }}
+                          size={14}
+                          tintColor={theme.accent}
+                        />
+                      )}
+                    </View>
                   )}
                 </TouchableOpacity>
               );
@@ -620,6 +702,16 @@ export default function Biblioteca() {
           </ThemedView>
         </View>
       </Modal>
+
+      <PopupProgresso
+        visible={progressoItemId !== null && !!itemDoProgresso}
+        titulo={itemDoProgresso?.livro.titulo}
+        progresso={itemDoProgresso?.progresso}
+        salvando={salvandoProgresso}
+        erro={erroProgresso}
+        onSalvar={(pagina, total) => void salvarProgresso(pagina, total)}
+        onFechar={() => setProgressoItemId(null)}
+      />
     </ThemedView>
   );
 }
@@ -643,10 +735,6 @@ const styles = StyleSheet.create({
   },
   title: { marginTop: Spacing.one, fontSize: 30, lineHeight: 34 },
   subtitle: { marginTop: Spacing.two, lineHeight: 22 },
-  statsRow: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.four },
-  statCard: { flex: 1, borderRadius: 16, padding: Spacing.three, gap: 4 },
-  statNumber: { fontSize: 22, fontWeight: '800' },
-  statLabel: { fontSize: 12 },
   searchContainer: { marginTop: Spacing.four, justifyContent: 'center' },
   searchInput: {
     borderWidth: 1,
@@ -654,6 +742,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+    // Sem o contorno do navegador: a borda de foco já é do próprio campo.
+    outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   clearSearchButton: {
     position: 'absolute',
@@ -664,10 +755,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  clearSearchIcon: { fontSize: 14 },
   filtersScroll: { marginTop: Spacing.three, marginBottom: Spacing.three },
   filterChip: {
     minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     justifyContent: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -677,6 +770,8 @@ const styles = StyleSheet.create({
   },
   filtersRow: { flexDirection: 'row' },
   filterChipText: { fontSize: 13, fontWeight: '700' },
+  filterChipCount: { fontSize: 12, fontWeight: '600' },
+  progressoLinha: { width: '100%' },
   aviso: { marginBottom: Spacing.two, fontSize: 14 },
   emptyCard: { borderRadius: 16, padding: Spacing.four, gap: 8 },
   emptyTitle: { fontSize: 18 },
@@ -692,22 +787,31 @@ const styles = StyleSheet.create({
   clearFiltersText: { fontSize: 13, fontWeight: '800' },
   grid: { gap: Spacing.three },
   card: { borderRadius: 16, overflow: 'hidden' },
-  cover: { width: '100%', height: 200 },
+  // Capa ao lado do título: cabem mais livros por tela no celular.
+  cardOpen: { flexDirection: 'row' },
+  cover: { width: 76, height: 114 },
   coverPlaceholder: {
-    height: 160,
+    width: 76,
+    height: 114,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.three,
+    padding: Spacing.one,
   },
-  coverPlaceholderText: { fontWeight: '800', textAlign: 'center' },
-  cardHeading: { paddingHorizontal: Spacing.three, paddingTop: Spacing.three, gap: 8 },
+  coverPlaceholderText: { fontSize: 11, lineHeight: 14, fontWeight: '800', textAlign: 'center' },
+  cardHeading: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.three,
+    gap: 6,
+  },
   cardActions: {
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.three,
     paddingTop: 8,
     gap: 8,
   },
-  cardTitle: { fontSize: 17, fontWeight: '700' },
+  cardTitle: { fontSize: 16, lineHeight: 21, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   statusButton: {
     minHeight: 44,
@@ -731,6 +835,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   removeButtonText: { fontSize: 13, fontWeight: '800' },
+  confirmRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  confirmText: { width: '100%', fontSize: 13 },
+  confirmButton: {
+    flex: 1,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: Spacing.three,
+  },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: {
     borderTopLeftRadius: 20,
@@ -740,4 +855,5 @@ const styles = StyleSheet.create({
   },
   modalTitle: { marginBottom: Spacing.two },
   modalOption: { minHeight: TouchMin, justifyContent: 'center' },
+  modalOptionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

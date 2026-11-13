@@ -143,4 +143,30 @@ async function getAuthorNames(work) {
   return names.filter(Boolean);
 }
 
-module.exports = { OpenLibraryError, searchWorks, getWork, getAuthorNames, getMergedWorkIds };
+/**
+ * Número de páginas da obra (mediana das edições, como a Open Library calcula).
+ * Nunca falha: sem resposta ou sem o dado, devolve null e o app pede o número à pessoa.
+ */
+async function getPageCount(id) {
+  try {
+    const parameters = new URLSearchParams({
+      q: `key:/works/${id}`,
+      fields: 'key,number_of_pages_median',
+      limit: '1',
+    });
+    const payload = await getJson(`/search.json?${parameters}`, AUTHOR_TIMEOUT_MS);
+    const paginas = payload?.docs?.[0]?.number_of_pages_median;
+    return Number.isSafeInteger(paginas) && paginas > 0 && paginas <= 100000 ? paginas : null;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = {
+  OpenLibraryError,
+  searchWorks,
+  getWork,
+  getAuthorNames,
+  getMergedWorkIds,
+  getPageCount,
+};

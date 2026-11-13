@@ -2,9 +2,12 @@ import Constants from 'expo-constants';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CartaoDestaque, DESTAQUES } from '@/components/destaques';
+import { PopupDestaque, type Destaque } from '@/components/popup-destaque';
 import {
   Accent,
   DSFonts,
@@ -17,32 +20,18 @@ import {
   withAlpha,
   Shadow,
 } from '@/constants/design-system';
-
+import { useVoltar } from '@/hooks/use-voltar';
+import { MaxContentWidth } from '@/constants/theme';
 
 const VERSAO = Constants.expoConfig?.version ?? '1.0.0';
 const ANO = new Date().getFullYear();
 
-const RECURSOS = [
-  {
-    titulo: 'Sua estante',
-    descricao: 'Organize o que já leu, o que está lendo e o que ficou para depois.',
-    cor: Accent.laurel,
-    icone: { ios: 'books.vertical.fill', android: 'library_books', web: 'library_books' },
-  },
-  {
-    titulo: 'Descobertas',
-    descricao: 'Encontre lançamentos e clássicos por gênero, autor ou título.',
-    cor: Accent.sapphire,
-    icone: { ios: 'sparkle.magnifyingglass', android: 'travel_explore', web: 'travel_explore' },
-  },
-  {
-    titulo: 'Comunidade',
-    descricao: 'Veja resenhas, listas e o que outros leitores andam lendo.',
-    cor: Accent.lilac,
-    icone: { ios: 'person.2.fill', android: 'groups', web: 'groups' },
-  },
-] as const;
-
+// Quem já está logado vai direto ao recurso pelo botão do pop-up.
+const ACAO_DO_RECURSO: Record<string, { rotulo: string; rota: '/biblioteca' | '/explore' }> = {
+  'Sua estante': { rotulo: 'Abrir minha biblioteca', rota: '/biblioteca' },
+  Comunidade: { rotulo: 'Explorar livros e avaliações', rota: '/explore' },
+  Descobertas: { rotulo: 'Explorar livros', rota: '/explore' },
+};
 
 const INFORMACOES = [
   {
@@ -79,16 +68,17 @@ const ATALHOS = [
   },
 ] as const;
 
-
 export default function SobreScreen() {
   const router = useRouter();
+  const voltar = useVoltar('/configuracoes');
+  const [aberto, setAberto] = useState<Destaque | null>(null);
 
   return (
     <SafeAreaView style={styles.tela} edges={['top']}>
       <ScrollView contentContainerStyle={styles.conteudo} showsVerticalScrollIndicator={false}>
         {/* Botão de voltar (o mesmo da tela de Ajuda) */}
         <Pressable
-          onPress={() => router.back()}
+          onPress={voltar}
           hitSlop={Space.two}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
@@ -113,6 +103,7 @@ export default function SobreScreen() {
               source={require('@/assets/images/logo_app.png')}
               style={styles.logo}
               contentFit="contain"
+              accessibilityLabel="Logo do Alexandria"
             />
           </View>
           <View style={styles.marcaTextos}>
@@ -137,22 +128,14 @@ export default function SobreScreen() {
           </Text>
         </View>
 
-               {/* Recursos: um cartão abaixo do outro */}
+        {/* Recursos: um cartão abaixo do outro */}
         <Text style={styles.secaoTitulo}>O que você encontra aqui</Text>
+        {/* Os mesmos cartões da tela inicial: toque (ou passe o mouse) para saber mais */}
         <View style={styles.recursos}>
-          {RECURSOS.map((recurso) => (
-            <View key={recurso.titulo} style={styles.recurso}>
-              <View style={[styles.iconeFundo, { backgroundColor: withAlpha(recurso.cor, 0.15) }]}>
-                <SymbolView name={recurso.icone} size={22} tintColor={recurso.cor} />
-              </View>
-              <View style={styles.recursoTextos}>
-                <Text style={styles.recursoTitulo}>{recurso.titulo}</Text>
-                <Text style={styles.recursoDescricao}>{recurso.descricao}</Text>
-              </View>
-            </View>
+          {DESTAQUES.map((item) => (
+            <CartaoDestaque key={item.title} item={item} onPress={() => setAberto(item)} />
           ))}
         </View>
-
 
         {/* Informações técnicas */}
         <Text style={styles.secaoTitulo}>Informações</Text>
@@ -197,13 +180,28 @@ export default function SobreScreen() {
 
         <Text style={styles.rodape}>Feito com carinho pela equipe Alexandria · {ANO}</Text>
       </ScrollView>
+
+      <PopupDestaque
+        destaque={aberto}
+        onFechado={() => setAberto(null)}
+        acao={(destaque) => {
+          const acao = ACAO_DO_RECURSO[destaque.title] ?? ACAO_DO_RECURSO.Descobertas;
+          return { rotulo: acao.rotulo, onPress: () => router.push(acao.rota) };
+        }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { paddingTop: Space.four, paddingBottom: Space.twelve },
+  conteudo: {
+    paddingTop: Space.four,
+    paddingBottom: Space.twelve,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   pressionado: { opacity: 0.7 },
 
   // Botão de voltar
@@ -289,30 +287,6 @@ const styles = StyleSheet.create({
 
   // Recursos (um cartão abaixo do outro)
   recursos: { marginHorizontal: ScreenInset, gap: Space.three },
-  recurso: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Space.four,
-    padding: Space.four,
-    borderRadius: Radius.card,
-    backgroundColor: Ink.ink700,
-  },
-  iconeFundo: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.cover,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recursoTextos: { flex: 1, gap: Space.one },
-  recursoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
-  recursoDescricao: {
-    fontFamily: DSFonts.ui,
-    fontSize: 14,
-    lineHeight: 20,
-    color: TextColor.secondary,
-  },
-
 
   // Cartões com linhas (Informações e Saiba mais)
   cartao: {
@@ -339,7 +313,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   atalhoTextos: { flex: 1, gap: 2 },
-  atalhoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
+  atalhoTitulo: {
+    fontFamily: DSFonts.ui,
+    fontSize: 16,
+    fontWeight: '600',
+    color: TextColor.primary,
+  },
   atalhoDescricao: {
     fontFamily: DSFonts.ui,
     fontSize: 13,

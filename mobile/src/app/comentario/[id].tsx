@@ -4,8 +4,11 @@ import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { BotaoVoltar } from '@/components/botao-voltar';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
+import { tempoRelativo } from '@/constants/tempo';
+import { MaxContentWidth } from '@/constants/theme';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
@@ -108,6 +111,12 @@ export default function ComentarioContextoScreen() {
     }
   };
 
+  // Nome de quem escreveu o comentário respondido, em vez do número interno dele.
+  const nomeDoPai = (paiId: number) => {
+    const todos = data ? [data.alvo, ...data.ancestrais, ...data.comentarios] : [];
+    return todos.find((item) => item.id === paiId)?.autor.nome || 'outro leitor';
+  };
+
   const card = (item: Comentario, selected = false) => (
     <View
       key={item.id}
@@ -120,10 +129,12 @@ export default function ComentarioContextoScreen() {
       }}>
       <Text style={{ color: theme.text, fontWeight: 'bold' }}>
         {item.autor.nome || 'Leitor'}
-        {selected ? ' · Comentário selecionado' : ''}
+        <Text style={{ color: theme.textSecondary, fontWeight: 'normal', fontSize: 12 }}>
+          {`  ·  ${tempoRelativo(item.criadoEm)}`}
+        </Text>
       </Text>
       {item.paiId !== null && (
-        <Text style={{ color: theme.textSecondary }}>Resposta ao comentário #{item.paiId}</Text>
+        <Text style={{ color: theme.textSecondary }}>Resposta a {nomeDoPai(item.paiId)}</Text>
       )}
       <Text style={{ color: theme.text }}>
         {item.removido ? 'Comentário removido' : item.texto}
@@ -133,12 +144,15 @@ export default function ComentarioContextoScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
-        <ActionButton
-          label="Voltar"
-          variant="ghost"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
-        />
+      <ScrollView
+        contentContainerStyle={{
+          padding: 20,
+          gap: 16,
+          width: '100%',
+          maxWidth: MaxContentWidth,
+          alignSelf: 'center',
+        }}>
+        <BotaoVoltar fallback="/notificacoes" />
         <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 22 }}>
           Comentário na conversa
         </Text>
@@ -152,8 +166,19 @@ export default function ComentarioContextoScreen() {
         {data && (
           <>
             {card(data.alvo, true)}
+            {/* Daqui não dá para escrever: a resposta acontece na conversa completa. */}
             <ActionButton
-              label="Voltar ao livro"
+              label="Responder na conversa"
+              onPress={() =>
+                router.push({
+                  pathname: '/avaliacao/[id]',
+                  // A conversa já abre respondendo a este comentário.
+                  params: { id: String(data.avaliacaoId), responder: String(data.alvo.id) },
+                })
+              }
+            />
+            <ActionButton
+              label="Ver o livro"
               variant="ghost"
               onPress={() =>
                 router.replace({ pathname: '/livro/[id]', params: { id: data.livroId } })

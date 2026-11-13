@@ -69,7 +69,8 @@ export function FeedbackPressable({
       }}
       style={[style, animatedStyle]}>
       <View
-        style={styles.content}
+        // O rótulo some (sem sair do layout) para o indicador não ficar por cima do texto.
+        style={[styles.content, loading && styles.contentLoading]}
         accessibilityElementsHidden={loading}
         importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}>
         {children}
@@ -85,5 +86,6 @@ export function FeedbackPressable({
 
 const styles = StyleSheet.create({
   content: { opacity: 1 },
+  contentLoading: { opacity: 0 },
   indicator: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
 });

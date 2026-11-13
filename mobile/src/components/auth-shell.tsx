@@ -86,6 +86,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Ink.ink900,
+    // O halo tem 360px; em telas de 320px ele fazia a página rolar para o lado.
+    overflow: 'hidden',
   },
   flex: {
     flex: 1,
@@ -104,6 +106,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: ScreenInset,
     paddingTop: Space.four,
     paddingBottom: Space.twelve,
+    // Coluna central em telas largas (web no computador, tablet deitado).
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   backButton: {
     width: TouchMin,

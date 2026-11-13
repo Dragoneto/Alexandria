@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { BotaoVoltar } from '@/components/botao-voltar';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
@@ -16,6 +17,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
+import { tempoRelativo } from '@/constants/tempo';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { ApiError } from '@/services/api';
 import {
@@ -24,12 +26,13 @@ import {
   listarNotificacoes,
   marcarNotificacaoLida,
   marcarTodasNotificacoesLidas,
+  textoDaNotificacao,
   type Notificacao,
 } from '@/services/notificacoes';
+import { MaxContentWidth } from '@/constants/theme';
 
 function dataCurta(value: string) {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString('pt-BR') : 'Data indisponível';
+  return tempoRelativo(value) || 'Data indisponível';
 }
 type EstadoNotificacoes = 'loading' | 'success' | 'empty' | 'error';
 
@@ -182,10 +185,13 @@ export default function NotificacoesScreen() {
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.content}>
+        <BotaoVoltar />
         <Text accessibilityRole="header" style={styles.title}>
           Notificações
         </Text>
-        <Text style={styles.subtitle}>{unread} não lidas</Text>
+        <Text style={styles.subtitle}>
+          {unread} {unread === 1 ? 'não lida' : 'não lidas'}
+        </Text>
         <View style={styles.actions}>
           <ActionButton
             label="Atualizar"
@@ -234,8 +240,7 @@ export default function NotificacoesScreen() {
               !item.alvoDisponivel && styles.disabled,
             ]}>
             <Text style={styles.author}>
-              {item.autor.nome || 'Leitor'} ·{' '}
-              {item.tipo === 'resposta' ? 'respondeu a uma conversa' : 'comentou em uma avaliação'}
+              {item.autor.nome || 'Leitor'} · {textoDaNotificacao(item)}
             </Text>
             <Text style={styles.meta}>
               {dataCurta(item.criadoEm)} · {item.lidaEm ? 'Lida' : 'Não lida'}
@@ -265,7 +270,14 @@ export default function NotificacoesScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Ink.ink900 },
-  content: { padding: ScreenInset, paddingBottom: Space.eight, gap: Space.four },
+  content: {
+    padding: ScreenInset,
+    paddingBottom: Space.eight,
+    gap: Space.four,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   title: { color: TextColor.primary, fontSize: 28, fontWeight: '800' },
   subtitle: { color: TextColor.secondary, fontSize: 15 },
   actions: { gap: Space.two },

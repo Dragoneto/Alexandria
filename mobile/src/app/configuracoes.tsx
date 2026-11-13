@@ -17,7 +17,16 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
+import { MaxContentWidth } from '@/constants/theme';
 const OPCOES = [
+  {
+    titulo: 'Alterar senha',
+    descricao: 'Troque a senha da sua conta',
+    rota: '/alterar-senha',
+    cor: Accent.coral,
+    icone: { ios: 'lock.fill', android: 'lock', web: 'lock' },
+  },
   {
     titulo: 'Sobre o app',
     descricao: 'O que é o Alexandria',
@@ -50,6 +59,7 @@ const OPCOES = [
 
 export default function ConfiguracoesScreen() {
   const router = useRouter();
+  const voltar = useVoltar('/perfil');
   const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState('');
 
@@ -70,7 +80,7 @@ export default function ConfiguracoesScreen() {
     <SafeAreaView style={styles.tela}>
       <ScrollView contentContainerStyle={styles.conteudo}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={voltar}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
@@ -83,13 +93,15 @@ export default function ConfiguracoesScreen() {
         </Pressable>
 
         <Text style={styles.titulo}>Configurações</Text>
-        <Text style={styles.subtitulo}>Informações e ajuda sobre o app.</Text>
+        <Text style={styles.subtitulo}>Conta, informações e ajuda sobre o app.</Text>
 
         {/* Cartão com todas as opções */}
         <View style={styles.cartao}>
           {OPCOES.map((opcao, index) => (
             <Pressable
               key={opcao.titulo}
+              accessibilityRole="button"
+              accessibilityLabel={`${opcao.titulo}. ${opcao.descricao}`}
               onPress={() => router.push(opcao.rota)}
               style={({ pressed }) => [
                 styles.linha,
@@ -114,12 +126,10 @@ export default function ConfiguracoesScreen() {
                 tintColor={TextColor.muted}
               />
             </Pressable>
-            
           ))}
-          
         </View>
 
-         <View style={styles.sair}>
+        <View style={styles.sair}>
           <ActionButton
             label="Sair da conta"
             variant="ghost"
@@ -135,10 +145,15 @@ export default function ConfiguracoesScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.eight },
+  conteudo: {
+    padding: ScreenInset,
+    paddingBottom: Space.eight,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
 
   voltar: {
     width: 44,
@@ -191,11 +206,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   textos: { flex: 1 },
-  opcaoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
-  opcaoDescricao: { marginTop: 2, fontFamily: DSFonts.ui, fontSize: 13, color: TextColor.secondary },
+  opcaoTitulo: {
+    fontFamily: DSFonts.ui,
+    fontSize: 16,
+    fontWeight: '600',
+    color: TextColor.primary,
+  },
+  opcaoDescricao: {
+    marginTop: 2,
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    color: TextColor.secondary,
+  },
 
   sair: {
-  marginTop: Space.eight,
+    marginTop: Space.eight,
   },
 
   erro: {

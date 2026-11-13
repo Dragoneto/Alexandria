@@ -6,15 +6,17 @@ const pool = require('../config/database');
 const localFile = process.env.LOCAL_LIBRARY_FILE
   ? path.resolve(process.env.LOCAL_LIBRARY_FILE)
   : path.resolve(__dirname, '../../.data/biblioteca.json');
+// Dias em que a pessoa abriu o app com algum livro em "Lendo" (um registro por dia).
+const localDaysFile = path.join(path.dirname(localFile), 'dias-de-leitura.json');
 let pendingWrite = Promise.resolve();
 
 function usePostgres() {
   return pool !== null;
 }
 
-async function readLocalItems() {
+async function readLocalItems(arquivo = localFile) {
   try {
-    const parsed = JSON.parse(await fs.readFile(localFile, 'utf8'));
+    const parsed = JSON.parse(await fs.readFile(arquivo, 'utf8'));
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     if (error.code === 'ENOENT') return [];
@@ -22,11 +24,11 @@ async function readLocalItems() {
   }
 }
 
-async function writeLocalItems(itens) {
-  await fs.mkdir(path.dirname(localFile), { recursive: true });
-  const temporaryFile = `${localFile}.tmp`;
+async function writeLocalItems(itens, arquivo = localFile) {
+  await fs.mkdir(path.dirname(arquivo), { recursive: true });
+  const temporaryFile = `${arquivo}.tmp`;
   await fs.writeFile(temporaryFile, JSON.stringify(itens, null, 2), 'utf8');
-  await fs.rename(temporaryFile, localFile);
+  await fs.rename(temporaryFile, arquivo);
 }
 
 function serializeWrite(operation) {
@@ -58,10 +60,52 @@ async function initialize() {
         UNIQUE (user_id, livro_id)
       )
     `);
+    // Tracker de leitura: páginas e dias em que a pessoa abriu o app lendo o livro.
+    await pool.query(`
+      ALTER TABLE biblioteca
+        ADD COLUMN IF NOT EXISTS paginas_total INTEGER,
+        ADD COLUMN IF NOT EXISTS pagina_atual INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS dias_leitura INTEGER NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS ultimo_dia_leitura DATE,
+        ADD COLUMN IF NOT EXISTS concluido_em TIMESTAMPTZ
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS dias_de_leitura (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        dia DATE NOT NULL,
+        PRIMARY KEY (user_id, dia)
+      )
+    `);
     return;
   }
 
   await fs.mkdir(path.dirname(localFile), { recursive: true });
+}
+
+// Campos que o update aceita, com o nome da coluna correspondente.
+const COLUNAS = {
+  status: 'status',
+  favorito: 'favorito',
+  paginasTotal: 'paginas_total',
+  paginaAtual: 'pagina_atual',
+  diasLeitura: 'dias_leitura',
+  ultimoDiaLeitura: 'ultimo_dia_leitura',
+  concluidoEm: 'concluido_em',
+};
+
+async function findById(id, userId) {
+  if (usePostgres()) {
+    const result = await pool.query('SELECT * FROM biblioteca WHERE id = $1 AND user_id = $2', [
+      id,
+      userId,
+    ]);
+    return result.rows[0] ?? null;
+  }
+  return (
+    (await readLocalItems()).find(
+      (item) => item.id === Number(id) && item.user_id === Number(userId),
+    ) ?? null
+  );
 }
 
 async function findByUser(userId, status) {
@@ -104,13 +148,33 @@ async function countByStatus(userId) {
   return contagens;
 }
 
-async function create({ userId, livro, status }) {
+async function create({ userId, livro, status, progresso = {} }) {
+  const extra = {
+    paginas_total: progresso.paginasTotal ?? null,
+    pagina_atual: progresso.paginaAtual ?? 0,
+    dias_leitura: progresso.diasLeitura ?? 0,
+    ultimo_dia_leitura: progresso.ultimoDiaLeitura ?? null,
+    concluido_em: progresso.concluidoEm ?? null,
+  };
   if (usePostgres()) {
     try {
       const result = await pool.query(
-        `INSERT INTO biblioteca (user_id, livro_id, livro_titulo, livro_autores, livro_capa, status)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [userId, livro.id, livro.titulo, livro.autores, livro.capa, status],
+        `INSERT INTO biblioteca (user_id, livro_id, livro_titulo, livro_autores, livro_capa, status,
+           paginas_total, pagina_atual, dias_leitura, ultimo_dia_leitura, concluido_em)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [
+          userId,
+          livro.id,
+          livro.titulo,
+          livro.autores,
+          livro.capa,
+          status,
+          extra.paginas_total,
+          extra.pagina_atual,
+          extra.dias_leitura,
+          extra.ultimo_dia_leitura,
+          extra.concluido_em,
+        ],
       );
       return result.rows[0];
     } catch (error) {
@@ -134,20 +198,22 @@ async function create({ userId, livro, status }) {
       status,
       favorito: false,
       adicionado_em: new Date().toISOString(),
+      ...extra,
     };
     await writeLocalItems([...itens, item]);
     return item;
   });
 }
 
-async function update(id, userId, { status, favorito }) {
+async function update(id, userId, campos) {
+  // Só entra no UPDATE o que veio definido; null é um valor válido (ex.: concluidoEm).
+  const definidos = Object.entries(COLUNAS).filter(([campo]) => campos[campo] !== undefined);
   if (usePostgres()) {
+    if (!definidos.length) return findById(id, userId);
+    const sets = definidos.map(([, coluna], index) => `${coluna} = $${index + 3}`);
     const result = await pool.query(
-      `UPDATE biblioteca
-       SET status = COALESCE($3, status), favorito = COALESCE($4, favorito)
-       WHERE id = $1 AND user_id = $2
-       RETURNING *`,
-      [id, userId, status ?? null, favorito ?? null],
+      `UPDATE biblioteca SET ${sets.join(', ')} WHERE id = $1 AND user_id = $2 RETURNING *`,
+      [id, userId, ...definidos.map(([campo]) => campos[campo])],
     );
     return result.rows[0] ?? null;
   }
@@ -160,8 +226,7 @@ async function update(id, userId, { status, favorito }) {
     if (index < 0) return null;
 
     const atualizado = { ...itens[index] };
-    if (status !== undefined) atualizado.status = status;
-    if (favorito !== undefined) atualizado.favorito = favorito;
+    for (const [campo, coluna] of definidos) atualizado[coluna] = campos[campo];
     itens[index] = atualizado;
     await writeLocalItems(itens);
     return atualizado;
@@ -186,4 +251,77 @@ async function remove(id, userId) {
   });
 }
 
-module.exports = { initialize, findByUser, create, update, remove, countByStatus };
+/**
+ * Soma um dia de leitura aos livros em "Lendo" que ainda não contaram o dia de hoje.
+ * Com itemId, vale só para aquele livro (quando ele acabou de virar "Lendo").
+ */
+async function registrarDiaDeLeitura(userId, hoje, itemId) {
+  if (usePostgres()) {
+    const filtroItem = itemId ? ' AND id = $3' : '';
+    const result = await pool.query(
+      `UPDATE biblioteca
+       SET dias_leitura = dias_leitura + 1, ultimo_dia_leitura = $2
+       WHERE user_id = $1 AND status = 'LENDO'
+         AND ultimo_dia_leitura IS DISTINCT FROM $2::date${filtroItem}`,
+      itemId ? [userId, hoje, itemId] : [userId, hoje],
+    );
+    return result.rowCount;
+  }
+
+  return serializeWrite(async () => {
+    const itens = await readLocalItems();
+    let contados = 0;
+    for (const item of itens) {
+      if (item.user_id !== Number(userId) || item.status !== 'LENDO') continue;
+      if (itemId && item.id !== Number(itemId)) continue;
+      if (item.ultimo_dia_leitura === hoje) continue;
+      item.dias_leitura = (item.dias_leitura ?? 0) + 1;
+      item.ultimo_dia_leitura = hoje;
+      contados += 1;
+    }
+    if (contados) await writeLocalItems(itens);
+    return contados;
+  });
+}
+
+/** Marca o dia como dia de leitura da pessoa; o mesmo dia não conta duas vezes. */
+async function registrarDiaDoUsuario(userId, dia) {
+  if (usePostgres()) {
+    await pool.query(
+      'INSERT INTO dias_de_leitura (user_id, dia) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [userId, dia],
+    );
+    return;
+  }
+  await serializeWrite(async () => {
+    const dias = await readLocalItems(localDaysFile);
+    if (dias.some((registro) => registro.user_id === Number(userId) && registro.dia === dia)) return;
+    dias.push({ user_id: Number(userId), dia });
+    await writeLocalItems(dias, localDaysFile);
+  });
+}
+
+async function contarDiasDoUsuario(userId) {
+  if (usePostgres()) {
+    const result = await pool.query(
+      'SELECT COUNT(*)::int AS total FROM dias_de_leitura WHERE user_id = $1',
+      [userId],
+    );
+    return result.rows[0]?.total ?? 0;
+  }
+  const dias = await readLocalItems(localDaysFile);
+  return dias.filter((registro) => registro.user_id === Number(userId)).length;
+}
+
+module.exports = {
+  initialize,
+  findById,
+  findByUser,
+  create,
+  update,
+  remove,
+  countByStatus,
+  registrarDiaDeLeitura,
+  registrarDiaDoUsuario,
+  contarDiasDoUsuario,
+};

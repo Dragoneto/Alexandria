@@ -76,7 +76,6 @@ export function TextField({
             accessibilityRole="button"
             accessibilityLabel={revealed ? 'Ocultar senha' : 'Mostrar senha'}
             accessibilityState={{ selected: revealed }}
-            hitSlop={Space.one}
             onPress={() => setRevealed((current) => !current)}
             style={({ pressed }) => [
               styles.revealButton,
@@ -144,15 +143,22 @@ const styles = StyleSheet.create({
   // Corpo em 16 pt: mantém o placeholder em "sussurro" dentro da regra de >= 16px
   input: {
     flex: 1,
+    // No web o <input> tem largura mínima própria e empurra o botão de senha para fora em 320px
+    minWidth: 0,
     minHeight: TouchMin,
     fontFamily: DSFonts.ui,
     fontSize: 16,
     lineHeight: 22,
     color: TextColor.primary,
+    // No web o navegador desenhava um contorno branco dentro da borda de foco do próprio campo.
+    outlineWidth: 0,
+    outlineStyle: 'solid',
   },
+  // 44 px de toque também na web, onde o hitSlop não vale; a margem negativa mantém o alinhamento.
   revealButton: {
-    width: 36,
-    height: 36,
+    width: TouchMin,
+    height: TouchMin,
+    marginRight: -Space.one,
     borderRadius: Radius.pill,
     alignItems: 'center',
     justifyContent: 'center',

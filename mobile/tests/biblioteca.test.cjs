@@ -166,12 +166,81 @@ test('marcar como lido não chama a API de novo se o livro já está como lido',
   assert.equal(chamadas, 1);
 });
 
-test('livroEstaLido só responde true para o livro com status LIDO', async () => {
+test('livroEstaNaBiblioteca responde true para o livro com qualquer status', async () => {
   const harness = await logado();
-  harness.fetch = async () => json({ itens: [itemDoLivro('LIDO')] });
-  assert.equal(await harness.biblioteca.livroEstaLido('OL1W'), true);
-  assert.equal(await harness.biblioteca.livroEstaLido('OL2W'), false);
+  for (const status of ['QUERO_LER', 'LENDO', 'LIDO', 'ABANDONADO']) {
+    harness.fetch = async () => json({ itens: [itemDoLivro(status)] });
+    assert.equal(await harness.biblioteca.livroEstaNaBiblioteca('OL1W'), true);
+    assert.equal(await harness.biblioteca.livroEstaNaBiblioteca('OL2W'), false);
+  }
 
-  harness.fetch = async () => json({ itens: [itemDoLivro('QUERO_LER')] });
-  assert.equal(await harness.biblioteca.livroEstaLido('OL1W'), false);
+  harness.fetch = async () => json({ itens: [] });
+  assert.equal(await harness.biblioteca.livroEstaNaBiblioteca('OL1W'), false);
+});
+
+test('resumoDeLeitura soma livros lidos inteiros e o resto até a página atual; dias não se somam', () => {
+  const { biblioteca } = createServices();
+  const progresso = (paginaAtual, paginasTotal, diasLeitura) => ({
+    paginaAtual,
+    paginasTotal,
+    diasLeitura,
+    concluidoEm: null,
+  });
+  const itens = [
+    { id: 1, statusLeitura: 'LIDO', progresso: progresso(0, 300, 4) },
+    { id: 2, statusLeitura: 'LENDO', progresso: progresso(120, 400, 3) },
+    { id: 3, statusLeitura: 'LIDO', progresso: progresso(150, null, 0) },
+    { id: 4, statusLeitura: 'QUERO_LER' },
+  ];
+
+  assert.deepEqual(biblioteca.resumoDeLeitura(itens), {
+    lidos: 2,
+    lendo: 1,
+    paginasLidas: 300 + 120 + 150,
+    diasLeitura: 4,
+  });
+  assert.deepEqual(biblioteca.resumoDeLeitura([]), {
+    lidos: 0,
+    lendo: 0,
+    paginasLidas: 0,
+    diasLeitura: 0,
+  });
+});
+
+test('buscarDiasDeLeitura lê o total do servidor e aceita servidor antigo', async () => {
+  const harness = createServices();
+  await harness.session.saveAuth(session);
+  harness.fetch = async (url) => {
+    assert.match(String(url), /\/api\/biblioteca\/dias-de-leitura$/);
+    return json({ diasLeitura: 12 });
+  };
+  assert.equal(await harness.biblioteca.buscarDiasDeLeitura(), 12);
+
+  harness.fetch = async () => json({});
+  assert.equal(await harness.biblioteca.buscarDiasDeLeitura(), null);
+});
+
+test('porcentagemLida só existe quando o livro tem número de páginas', () => {
+  const { biblioteca } = createServices();
+  assert.equal(biblioteca.porcentagemLida({ paginaAtual: 50, paginasTotal: 200 }), 25);
+  assert.equal(biblioteca.porcentagemLida({ paginaAtual: 250, paginasTotal: 200 }), 100);
+  assert.equal(biblioteca.porcentagemLida({ paginaAtual: 50, paginasTotal: null }), null);
+  assert.equal(biblioteca.porcentagemLida(undefined), null);
+});
+
+test('registra o dia de leitura e envia o progresso pelo PATCH', async () => {
+  const harness = await logado();
+  const chamadas = [];
+  harness.fetch = async (url, options) => {
+    chamadas.push([url, options.method, options.body ? JSON.parse(options.body) : null]);
+    return json(url.endsWith('dia-de-leitura') ? { livrosAtualizados: 1 } : { item: { id: 5 } });
+  };
+
+  await harness.biblioteca.registrarDiaDeLeitura();
+  await harness.biblioteca.atualizarItemBiblioteca(5, { paginaAtual: 42, paginasTotal: 180 });
+
+  assert.deepEqual(chamadas, [
+    ['http://localhost:3000/api/biblioteca/dia-de-leitura', 'POST', null],
+    ['http://localhost:3000/api/biblioteca/5', 'PATCH', { paginaAtual: 42, paginasTotal: 180 }],
+  ]);
 });

@@ -2,13 +2,22 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  Linking,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonBookDetail } from '@/components/skeletons';
+import { PopupProgresso } from '@/components/popup-progresso';
+import { ProgressoDoLivro } from '@/components/progresso-do-livro';
 import { StatusNaBiblioteca } from '@/components/status-na-biblioteca';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -51,6 +60,9 @@ function firstParam(value: string | string[] | undefined): string {
 
 export default function DetalheDoLivro() {
   const theme = useTheme();
+  // Com o celular deitado a capa de 320px ocupava a tela toda e escondia título e status.
+  const { height: alturaTela } = useWindowDimensions();
+  const alturaCapa = Math.round(Math.min(320, Math.max(180, alturaTela * 0.5)));
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[]; avaliado?: string | string[] }>();
   const id = firstParam(params.id);
@@ -118,7 +130,8 @@ export default function DetalheDoLivro() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.content}>
             <FeedbackPressable
-              onPress={() => router.back()}
+              // Aberto por link compartilhado não há tela anterior: volta para o início.
+              onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Voltar"
@@ -138,19 +151,25 @@ export default function DetalheDoLivro() {
                 <SkeletonBookDetail />
               ) : null
             ) : detailStatus === 'error' || failure || !book ? (
-              <ErrorState
-                title={failure?.title ?? 'Não foi possível abrir o livro'}
-                message={failure?.message ?? 'Tente de novo em instantes.'}
-                onRetry={
-                  (failure?.canRetry ?? true) ? () => setRefresh((value) => value + 1) : undefined
-                }
-              />
+              <View style={styles.erro}>
+                <ErrorState
+                  title={failure?.title ?? 'Não foi possível abrir o livro'}
+                  message={failure?.message ?? 'Tente de novo em instantes.'}
+                  onRetry={
+                    (failure?.canRetry ?? true) ? () => setRefresh((value) => value + 1) : undefined
+                  }
+                  secondaryAction={{
+                    label: 'Explorar livros',
+                    onPress: () => router.replace('/explore'),
+                  }}
+                />
+              </View>
             ) : (
               <>
                 {showCover ? (
                   <Image
                     source={{ uri: book.coverUrl ?? undefined }}
-                    style={styles.cover}
+                    style={[styles.cover, { height: alturaCapa }]}
                     contentFit="contain"
                     accessibilityLabel={`Capa de ${book.title}`}
                     onError={() => setCoverFailed(true)}
@@ -171,7 +190,10 @@ export default function DetalheDoLivro() {
                   {book.categories.length ? (
                     book.categories.map((category) => (
                       <View key={category} style={styles.categoryBadge}>
-                        <ThemedText themeColor="accent" style={styles.categoryText}>
+                        <ThemedText
+                          themeColor="accent"
+                          style={styles.categoryText}
+                          numberOfLines={1}>
                           {category}
                         </ThemedText>
                       </View>
@@ -205,11 +227,13 @@ export default function DetalheDoLivro() {
                 </ThemedText>
                 {book.description ? (
                   <>
-                    <ThemedText themeColor="textSecondary" style={styles.translationNote}>
-                      {book.descriptionTranslated
-                        ? 'Sinopse traduzida automaticamente para português.'
-                        : 'Sinopse exibida no idioma original da Open Library.'}
-                    </ThemedText>
+                    {/* Sinopse que já veio em português também chega com descriptionTranslated
+                        false, então o aviso só aparece quando houve tradução de fato. */}
+                    {book.descriptionTranslated && (
+                      <ThemedText themeColor="textSecondary" style={styles.translationNote}>
+                        Sinopse traduzida automaticamente para português.
+                      </ThemedText>
+                    )}
                     <ThemedText
                       themeColor="textSecondary"
                       style={styles.description}
@@ -242,6 +266,21 @@ export default function DetalheDoLivro() {
                   onAdicionar={() => void biblioteca.adicionar()}
                   onTrocarStatus={(status) => void biblioteca.trocarStatus(status)}
                   onRemover={() => void biblioteca.remover()}
+                />
+                {biblioteca.item?.statusLeitura === 'LENDO' && (
+                  <ProgressoDoLivro
+                    progresso={biblioteca.item.progresso}
+                    onAtualizar={biblioteca.abrirProgresso}
+                  />
+                )}
+                <PopupProgresso
+                  visible={biblioteca.pedirProgresso}
+                  titulo={book.title}
+                  progresso={biblioteca.item?.progresso}
+                  salvando={biblioteca.salvando === 'progresso'}
+                  erro={biblioteca.erroProgresso}
+                  onSalvar={(pagina, total) => void biblioteca.salvarProgresso(pagina, total)}
+                  onFechar={biblioteca.fecharProgresso}
                 />
 
                 <TouchableOpacity
@@ -329,6 +368,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  erro: { marginTop: Spacing.four },
   cover: {
     marginTop: Spacing.four,
     width: '100%',
@@ -353,6 +393,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   categoryBadge: {
+    // Categorias longas da Open Library não podem passar da largura da tela.
+    maxWidth: '100%',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,

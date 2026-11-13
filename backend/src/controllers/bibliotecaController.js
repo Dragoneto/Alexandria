@@ -6,6 +6,16 @@ const ID_OBRA = /^OL\d+W$/;
 const ID_ITEM = /^\d{1,9}$/;
 const STATUS_VALIDOS = ['QUERO_LER', 'LENDO', 'LIDO', 'ABANDONADO'];
 const STATUS_POR_FALHA = { timeout: 504, unavailable: 502, invalid: 502, not_found: 404 };
+const MAX_PAGINAS = 100000;
+
+/** Data de hoje no fuso do Brasil (AAAA-MM-DD): é o "dia" do tracker de leitura. */
+function hojeNoBrasil(agora = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(agora);
+}
+
+function paginasValidas(valor, minimo) {
+  return Number.isSafeInteger(valor) && valor >= minimo && valor <= MAX_PAGINAS;
+}
 
 function paraResposta(item) {
   return {
@@ -19,7 +29,41 @@ function paraResposta(item) {
       capa: item.livro_capa ?? null,
     },
     adicionadoEm: new Date(item.adicionado_em).toISOString(),
+    progresso: {
+      paginaAtual: item.pagina_atual ?? 0,
+      paginasTotal: item.paginas_total ?? null,
+      diasLeitura: item.dias_leitura ?? 0,
+      concluidoEm: item.concluido_em ? new Date(item.concluido_em).toISOString() : null,
+    },
   };
+}
+
+const MAX_COMPLETAR_POR_VEZ = 10;
+// Livro que a Open Library não informou: só tenta de novo depois desse intervalo.
+const ESPERA_SEM_PAGINAS_MS = 6 * 60 * 60 * 1000;
+const semPaginas = new Map();
+
+/**
+ * Livros guardados antes do tracker não têm o número de páginas. Ao listar, busca o número dos
+ * que estão em "Lendo" ou "Lido" (até 10 por vez) e grava; "Lido" passa a contar as páginas todas.
+ * Roda depois da resposta, então a lista não espera a Open Library.
+ */
+async function completarPaginas(userId, itens) {
+  const pendentes = itens
+    .filter((item) => !item.paginas_total && (item.status === 'LENDO' || item.status === 'LIDO'))
+    .filter((item) => !(semPaginas.get(item.livro_id) > Date.now()))
+    .slice(0, MAX_COMPLETAR_POR_VEZ);
+  for (const item of pendentes) {
+    const total = await openLibrary.getPageCount(item.livro_id);
+    if (!total) {
+      if (semPaginas.size > 5000) semPaginas.clear();
+      semPaginas.set(item.livro_id, Date.now() + ESPERA_SEM_PAGINAS_MS);
+      continue;
+    }
+    const campos = { paginasTotal: total };
+    if (item.status === 'LIDO') campos.paginaAtual = total;
+    await biblioteca.update(item.id, userId, campos);
+  }
 }
 
 const list = async (req, res) => {
@@ -30,7 +74,11 @@ const list = async (req, res) => {
     }
 
     const itens = await biblioteca.findByUser(req.user.id, status || undefined);
-    return res.json({ itens: itens.map(paraResposta) });
+    res.json({ itens: itens.map(paraResposta) });
+    completarPaginas(req.user.id, itens).catch((error) =>
+      console.error('Erro ao completar páginas:', error.message),
+    );
+    return res;
   } catch (error) {
     console.error('Erro ao listar biblioteca:', error.message);
     return res.status(500).json({ error: 'Erro interno do servidor' });
@@ -50,17 +98,33 @@ const add = async (req, res) => {
     }
 
     // Busca os dados na Open Library em vez de confiar no que o app mandou
-    const work = await openLibrary.getWork(livroId);
+    const [work, paginasTotal] = await Promise.all([
+      openLibrary.getWork(livroId),
+      openLibrary.getPageCount(livroId),
+    ]);
     const livro = mapWorkDetail(work, await openLibrary.getAuthorNames(work));
     if (!livro) {
       return res.status(404).json({ error: 'Livro não encontrado na Open Library.' });
+    }
+
+    const progresso = { paginasTotal };
+    if (status === 'LENDO') {
+      Object.assign(progresso, { diasLeitura: 1, ultimoDiaLeitura: hojeNoBrasil() });
+    }
+    if (status === 'LIDO') {
+      Object.assign(progresso, {
+        paginaAtual: paginasTotal ?? 0,
+        concluidoEm: new Date().toISOString(),
+      });
     }
 
     const criado = await biblioteca.create({
       userId: req.user.id,
       livro: { id: livro.id, titulo: livro.title, autores: livro.authors, capa: livro.coverUrl },
       status,
+      progresso,
     });
+    if (status === 'LENDO') await biblioteca.registrarDiaDoUsuario(req.user.id, hojeNoBrasil());
     return res.status(201).json({ item: paraResposta(criado) });
   } catch (error) {
     if (error.code === 'DUPLICATE_LIBRARY_ITEM') {
@@ -80,9 +144,9 @@ const update = async (req, res) => {
       return res.status(400).json({ error: 'Identificador inválido' });
     }
 
-    const { status, favorito } = req.body ?? {};
-    if (status === undefined && favorito === undefined) {
-      return res.status(400).json({ error: 'Informe status ou favorito' });
+    const { status, favorito, paginaAtual, paginasTotal } = req.body ?? {};
+    if ([status, favorito, paginaAtual, paginasTotal].every((campo) => campo === undefined)) {
+      return res.status(400).json({ error: 'Informe status, favorito ou progresso' });
     }
     if (status !== undefined && !STATUS_VALIDOS.includes(status)) {
       return res.status(400).json({ error: 'Status de leitura inválido' });
@@ -90,10 +154,53 @@ const update = async (req, res) => {
     if (favorito !== undefined && typeof favorito !== 'boolean') {
       return res.status(400).json({ error: 'Favorito deve ser verdadeiro ou falso' });
     }
+    if (paginaAtual !== undefined && !paginasValidas(paginaAtual, 0)) {
+      return res.status(400).json({ error: 'Página atual inválida' });
+    }
+    if (paginasTotal !== undefined && !paginasValidas(paginasTotal, 1)) {
+      return res.status(400).json({ error: 'Número de páginas inválido' });
+    }
 
-    const item = await biblioteca.update(Number(req.params.id), req.user.id, { status, favorito });
+    const id = Number(req.params.id);
+    const atual = await biblioteca.findById(id, req.user.id);
+    if (!atual) {
+      return res.status(404).json({ error: 'Livro não encontrado na sua biblioteca.' });
+    }
+
+    const campos = { status, favorito, paginasTotal };
+    let total = paginasTotal ?? atual.paginas_total ?? null;
+    // Ao começar ou terminar a leitura, completa o número de páginas pela Open Library.
+    if ((status === 'LENDO' || status === 'LIDO') && !total) {
+      total = await openLibrary.getPageCount(atual.livro_id);
+      if (total) campos.paginasTotal = total;
+    }
+    if (paginaAtual !== undefined) {
+      if (total && paginaAtual > total) {
+        return res.status(400).json({ error: `O livro tem ${total} páginas.` });
+      }
+      campos.paginaAtual = paginaAtual;
+    } else if (paginasTotal !== undefined) {
+      // Total novo menor que a página salva, ou livro já lido: a página acompanha o total.
+      const lido = (status ?? atual.status) === 'LIDO';
+      if (lido || (atual.pagina_atual ?? 0) > paginasTotal) campos.paginaAtual = paginasTotal;
+    }
+    const mudouStatus = status !== undefined && status !== atual.status;
+    if (mudouStatus && status === 'LIDO') {
+      campos.concluidoEm = new Date().toISOString();
+      if (total) campos.paginaAtual = total;
+    } else if (mudouStatus && atual.status === 'LIDO') {
+      campos.concluidoEm = null;
+    }
+
+    let item = await biblioteca.update(id, req.user.id, campos);
     if (!item) {
       return res.status(404).json({ error: 'Livro não encontrado na sua biblioteca.' });
+    }
+    // Começou a ler hoje: hoje já conta como um dia de leitura.
+    if (mudouStatus && status === 'LENDO') {
+      await biblioteca.registrarDiaDeLeitura(req.user.id, hojeNoBrasil(), id);
+      await biblioteca.registrarDiaDoUsuario(req.user.id, hojeNoBrasil());
+      item = (await biblioteca.findById(id, req.user.id)) ?? item;
     }
     return res.json({ item: paraResposta(item) });
   } catch (error) {
@@ -120,5 +227,40 @@ const remove = async (req, res) => {
   }
 };
 
+/**
+ * O app chama ao abrir: cada dia com o app aberto soma 1 dia aos livros em "Lendo" e, se houver
+ * algum, 1 dia de leitura no perfil (dois livros no mesmo dia continuam sendo um dia só).
+ */
+const registrarDia = async (req, res) => {
+  try {
+    const hoje = hojeNoBrasil();
+    const contados = await biblioteca.registrarDiaDeLeitura(req.user.id, hoje);
+    const lendo = (await biblioteca.findByUser(req.user.id, 'LENDO')).length;
+    if (lendo) await biblioteca.registrarDiaDoUsuario(req.user.id, hoje);
+    const diasLeitura = await biblioteca.contarDiasDoUsuario(req.user.id);
+    return res.json({ livrosAtualizados: contados, diasLeitura });
+  } catch (error) {
+    console.error('Erro ao registrar dia de leitura:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
 
-module.exports = { list, add, update, remove };
+const diasDeLeitura = async (req, res) => {
+  try {
+    return res.json({ diasLeitura: await biblioteca.contarDiasDoUsuario(req.user.id) });
+  } catch (error) {
+    console.error('Erro ao contar dias de leitura:', error.message);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+};
+
+module.exports = {
+  list,
+  add,
+  update,
+  remove,
+  registrarDia,
+  diasDeLeitura,
+  hojeNoBrasil,
+  completarPaginas,
+};

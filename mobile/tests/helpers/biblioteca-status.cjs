@@ -10,7 +10,7 @@ if (start < 0 || end <= start) throw new Error('Handler de status nao encontrado
 const code = ts.transpile(source.slice(start, end), { target: ts.ScriptTarget.ES2020 });
 const create = new Function('items', 'setItems', 'setStatusModalItemId',
   'atualizarItemBiblioteca', 'avisarErro', 'ApiError', 'pendingStatus', 'setSavingStatusIds',
-  'avisar', 'STATUS_LEITURA',
+  'avisar', 'STATUS_LEITURA', 'abrirProgresso',
   code + '\nreturn handleStatusChange;');
 
 module.exports = function harness() {
@@ -19,6 +19,7 @@ module.exports = function harness() {
   const api = (id, body) => new Promise((resolve, reject) => h.requests.push({ id, body, resolve, reject }));
   h.render = () => create(h.items, (update) => { h.items = update(h.items); }, () => {}, api,
     (...args) => h.alerts.push(args), Error, pending, (ids) => { h.saving = ids; },
-    (texto) => h.avisos.push(texto), { LENDO: 'Lendo', LIDO: 'Lido', ABANDONADO: 'Abandonado' });
+    (texto) => h.avisos.push(texto), { LENDO: 'Lendo', LIDO: 'Lido', ABANDONADO: 'Abandonado' },
+    (id) => (h.progresso = id));
   return h;
 };

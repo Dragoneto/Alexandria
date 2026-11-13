@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -22,6 +22,7 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
 import { useTheme } from '@/hooks/use-theme';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
+import { useVoltar } from '@/hooks/use-voltar';
 import { ApiError } from '@/services/api';
 import {
   atualizarAvaliacao,
@@ -33,7 +34,8 @@ import {
   validarAvaliacao,
   type ErrosAvaliacao,
 } from '@/services/avaliacoes';
-import { livroEstaLido, marcarComoLido } from '@/services/biblioteca';
+import { livroEstaNaBiblioteca, marcarComoLido } from '@/services/biblioteca';
+import { getBookDetail } from '@/services/open-library';
 
 const NOTAS = [1, 2, 3, 4, 5];
 
@@ -50,7 +52,12 @@ export default function AvaliarLivro() {
     avaliacaoId?: string | string[];
   }>();
   const livroId = firstParam(params.id);
-  const titulo = firstParam(params.titulo);
+  const voltarPara = (livroId ? `/livro/${livroId}` : '/home') as Href;
+  const voltar = useVoltar(voltarPara);
+  const tituloParam = firstParam(params.titulo);
+  // Aberta por link direto (sem ?titulo=), a tela busca o nome do livro em vez de "Este livro".
+  const [tituloBuscado, setTituloBuscado] = useState('');
+  const titulo = tituloParam || tituloBuscado;
   const avaliacaoParam = firstParam(params.avaliacaoId);
   const avaliacaoId = /^[1-9]\d*$/.test(avaliacaoParam) ? Number(avaliacaoParam) : null;
   const editando = avaliacaoId !== null;
@@ -68,6 +75,15 @@ export default function AvaliarLivro() {
   const [sugerirLido, setSugerirLido] = useState(false);
   const [marcandoLido, setMarcandoLido] = useState(false);
   const [erroLido, setErroLido] = useState('');
+
+  useEffect(() => {
+    if (tituloParam || !livroId) return;
+    const controller = new AbortController();
+    getBookDetail(livroId, controller.signal)
+      .then((livro) => setTituloBuscado(livro.title))
+      .catch(() => {});
+    return () => controller.abort();
+  }, [livroId, tituloParam]);
   const submitting = useRef(false);
   const tamanho = contarCaracteres(resenha);
   const mostrarSkeleton = useLoadingGate(carregando);
@@ -135,11 +151,11 @@ export default function AvaliarLivro() {
     try {
       if (avaliacaoId !== null) await atualizarAvaliacao(avaliacaoId, { nota, resenha });
       else await criarAvaliacao({ livroId, nota, resenha });
-      // Avaliação nova: a coruja sugere marcar como lido, a menos que o livro já esteja assim.
+      // Avaliação nova: a coruja só sugere marcar como lido se o livro ainda não está na biblioteca.
       if (!editando) {
-        const jaLido = await livroEstaLido(livroId).catch(() => false);
+        const naBiblioteca = await livroEstaNaBiblioteca(livroId).catch(() => true);
         setSaving(false);
-        if (jaLido) voltarAvaliado();
+        if (naBiblioteca) voltarAvaliado();
         else setSugerirLido(true);
         return;
       }
@@ -182,7 +198,7 @@ export default function AvaliarLivro() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.content}>
             <FeedbackPressable
-              onPress={() => router.back()}
+              onPress={voltar}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="Voltar"
@@ -221,7 +237,7 @@ export default function AvaliarLivro() {
                 </ThemedText>
                 <TouchableOpacity
                   accessibilityRole="button"
-                  onPress={() => router.back()}
+                  onPress={voltar}
                   style={[styles.outlineButton, { borderColor: theme.accent }]}>
                   <ThemedText themeColor="accent" style={styles.buttonText}>
                     Voltar
@@ -440,6 +456,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     textAlignVertical: 'top',
+    // Sem o contorno do navegador: a borda de foco já é do próprio campo.
+    outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   error: { marginTop: Spacing.three, fontSize: 13, lineHeight: 20 },
   fieldError: { marginTop: Spacing.one, fontSize: 13, lineHeight: 20 },

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Estrelas } from '@/components/estrelas';
 import { ThemedText } from '@/components/themed-text';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
@@ -21,6 +22,7 @@ import { DisabledOpacity } from '@/constants/design-system';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
+import { tempoRelativo } from '@/constants/tempo';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAuth } from '@/contexts/auth-context';
 import { useConversa } from '@/hooks/use-conversa';
@@ -51,10 +53,6 @@ type Modo =
 
 const RECUO = 16;
 
-function estrelas(nota: number): string {
-  return '★'.repeat(nota) + '☆'.repeat(Math.max(0, 5 - nota));
-}
-
 function primeiroParam(valor: string | string[] | undefined): string {
   return Array.isArray(valor) ? (valor[0] ?? '') : (valor ?? '');
 }
@@ -62,8 +60,14 @@ function primeiroParam(valor: string | string[] | undefined): string {
 export default function ConversaDaAvaliacao() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    id?: string | string[];
+    responder?: string | string[];
+  }>();
   const textoId = primeiroParam(params.id);
+  // Vindo de "Responder na conversa": abre já respondendo àquele comentário.
+  const textoResponder = primeiroParam(params.responder);
+  const responderId = /^[1-9]d*$/.test(textoResponder) ? Number(textoResponder) : 0;
   const avaliacaoId = /^[1-9]\d*$/.test(textoId) ? Number(textoId) : 0;
   const conversa = useConversa(avaliacaoId);
   const itens = useMemo(() => montarConversa(conversa.comentarios ?? []), [conversa.comentarios]);
@@ -111,6 +115,18 @@ export default function ConversaDaAvaliacao() {
     setModo({ tipo: 'comentar' });
     setErroEnvio('Esse comentário foi removido. Seu texto continua aqui.');
   }, [alvoId, tipoModo, conversa.comentarios]);
+
+  const respostaPedidaAberta = useRef(false);
+  useEffect(() => {
+    if (!responderId || respostaPedidaAberta.current || !conversa.comentarios) return;
+    respostaPedidaAberta.current = true;
+    const alvo = conversa.comentarios.find((c) => c.id === responderId && !c.removido);
+    if (!alvo) return;
+    void Promise.resolve().then(() => {
+      setModo({ tipo: 'responder', alvo });
+      campo.current?.focus();
+    });
+  }, [responderId, conversa.comentarios]);
 
   // Só a edição que deu conflito salva sobre a versão recarregada: a pessoa já viu que mudou
   const conflitoEm = useRef<Comentario | null>(null);
@@ -328,13 +344,13 @@ export default function ConversaDaAvaliacao() {
                     <ThemedText style={styles.author}>
                       {avaliacao.usuarioNome || 'Leitor'}
                       {avaliacao.minha ? ' (você)' : ''}
+                      <ThemedText themeColor="textSecondary" style={styles.quando}>
+                        {`  ·  ${tempoRelativo(avaliacao.criadoEm)}`}
+                      </ThemedText>
                     </ThemedText>
-                    <ThemedText
-                      themeColor="accent"
-                      style={styles.stars}
-                      accessibilityLabel={`Nota ${avaliacao.nota} de 5`}>
-                      {estrelas(avaliacao.nota)}
-                    </ThemedText>
+                    <View style={styles.stars}>
+                      <Estrelas nota={avaliacao.nota} tamanho={18} />
+                    </View>
                     {!!avaliacao.resenha && (
                       <ThemedText style={styles.resenha}>{avaliacao.resenha}</ThemedText>
                     )}
@@ -459,7 +475,12 @@ export default function ConversaDaAvaliacao() {
                             </ThemedText>
                           ) : (
                             <>
-                              <ThemedText style={styles.comentarioAutor}>{nome}</ThemedText>
+                              <ThemedText style={styles.comentarioAutor}>
+                                {nome}
+                                <ThemedText themeColor="textSecondary" style={styles.quando}>
+                                  {`  ·  ${tempoRelativo(comentario.criadoEm)}`}
+                                </ThemedText>
+                              </ThemedText>
                               <ThemedText style={styles.comentarioTexto}>
                                 {comentario.texto}
                               </ThemedText>
@@ -755,7 +776,7 @@ const styles = StyleSheet.create({
   reviewCard: { borderRadius: 16, padding: Spacing.four, gap: 6 },
   bookTitle: { fontSize: 13, fontWeight: '700' },
   author: { fontSize: 17, fontWeight: '800' },
-  stars: { fontSize: 18, letterSpacing: 2 },
+  stars: { marginVertical: 2 },
   resenha: { fontSize: 15, lineHeight: 23 },
   conversaHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   conversaTitle: { fontSize: 18, lineHeight: 26 },
@@ -765,6 +786,7 @@ const styles = StyleSheet.create({
   comentarioAutor: { fontSize: 14, fontWeight: '800' },
   comentarioTexto: { fontSize: 14, lineHeight: 21 },
   editado: { fontSize: 12 },
+  quando: { fontSize: 12, fontWeight: '500' },
   acoes: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -815,6 +837,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    // Sem o contorno do navegador: a borda de foco já é do próprio campo.
+    outlineWidth: 0,
+    outlineStyle: 'solid',
   },
   sendButton: {
     minHeight: 44,

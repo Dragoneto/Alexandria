@@ -21,6 +21,7 @@ async function publicItem(row, names) {
   return {
     id: row.id, tipo: row.tipo, autor: { id: row.ator_id, nome: names.get(row.ator_id) ?? 'Leitor' },
     avaliacaoId: row.avaliacao_id, comentarioId: row.comentario_id, eventoId: row.evento_id,
+    livroTitulo: review?.livro_titulo ?? null,
     criadoEm: new Date(row.criado_em).toISOString(),
     lidaEm: row.lida_em ? new Date(row.lida_em).toISOString() : null, alvoDisponivel: available,
   };

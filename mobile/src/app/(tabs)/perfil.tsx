@@ -3,12 +3,13 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
+import { ResumoLeitura } from '@/components/resumo-leitura';
 import { SkeletonProfileFields } from '@/components/skeletons';
 import {
   Accent,
@@ -23,6 +24,7 @@ import {
 } from '@/constants/design-system';
 import { getProfile, getProfilePhoto, removeProfilePhoto, saveProfilePhoto } from '@/services/auth';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
+import { MaxContentWidth } from '@/constants/theme';
 
 type ProfileData = {
   name: string;
@@ -148,7 +150,7 @@ export default function PerfilScreen() {
   return (
     <View style={styles.root}>
       <SafeAreaView style={styles.flex}>
-        <View style={styles.content}>
+        <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={photo ? 'Alterar foto de perfil' : 'Adicionar foto de perfil'}
@@ -208,6 +210,10 @@ export default function PerfilScreen() {
           <Text style={styles.title}>Meu perfil</Text>
           <Text style={styles.subtitle}>Confira os dados da sua conta.</Text>
 
+          <View style={styles.resumo}>
+            <ResumoLeitura />
+          </View>
+
           {!!error && (
             <ErrorState
               message={error}
@@ -246,13 +252,6 @@ export default function PerfilScreen() {
                   <Text style={styles.fieldLabel}>Email de acesso</Text>
                   <Text style={styles.fieldValue}>{profile.email || 'Não informado'}</Text>
                 </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Status da conta</Text>
-                  <Text style={styles.fieldValue}>Conta ativa</Text>
-                </View>
               </View>
             )
           )}
@@ -275,7 +274,7 @@ export default function PerfilScreen() {
               onPress={() => router.push('/configuracoes')}
             />
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -290,9 +289,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: ScreenInset,
     paddingTop: Space.eight,
+    paddingBottom: Space.eight,
+    // Coluna central em telas largas (web no computador, tablet deitado).
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
   },
   avatar: {
     alignSelf: 'center',
@@ -356,6 +360,7 @@ const styles = StyleSheet.create({
     color: TextColor.primary,
     textAlign: 'center',
   },
+  resumo: { alignSelf: 'stretch', marginTop: Space.six },
   subtitle: {
     marginTop: Space.two,
     fontFamily: DSFonts.ui,

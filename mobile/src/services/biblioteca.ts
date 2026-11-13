@@ -2,12 +2,56 @@ import { apiRequest } from '@/services/api';
 
 export type StatusLeitura = 'QUERO_LER' | 'LENDO' | 'LIDO' | 'ABANDONADO';
 
+/** Tracker de leitura: páginas e dias em que a pessoa abriu o app com o livro em "Lendo". */
+export type Progresso = {
+  paginaAtual: number;
+  paginasTotal: number | null;
+  diasLeitura: number;
+  concluidoEm: string | null;
+};
+
 export type BibliotecaItem = {
   id: number;
   statusLeitura: StatusLeitura;
   favorito: boolean;
   livro: { id: string; titulo: string; autores: string[]; capa: string | null };
+  /** Ausente em respostas de versões antigas do backend. */
+  progresso?: Progresso;
 };
+
+export type ResumoDeLeitura = {
+  lidos: number;
+  lendo: number;
+  paginasLidas: number;
+  diasLeitura: number;
+};
+
+/** Totais do perfil: livro lido conta inteiro; os outros, até a página em que a pessoa parou. */
+export function resumoDeLeitura(itens: BibliotecaItem[]): ResumoDeLeitura {
+  return itens.reduce<ResumoDeLeitura>(
+    (resumo, item) => {
+      const progresso = item.progresso;
+      const paginas =
+        item.statusLeitura === 'LIDO'
+          ? (progresso?.paginasTotal ?? progresso?.paginaAtual ?? 0)
+          : (progresso?.paginaAtual ?? 0);
+      return {
+        lidos: resumo.lidos + (item.statusLeitura === 'LIDO' ? 1 : 0),
+        lendo: resumo.lendo + (item.statusLeitura === 'LENDO' ? 1 : 0),
+        paginasLidas: resumo.paginasLidas + paginas,
+        // Dois livros lidos no mesmo dia são um dia só: sem o total do servidor, vale o maior.
+        diasLeitura: Math.max(resumo.diasLeitura, progresso?.diasLeitura ?? 0),
+      };
+    },
+    { lidos: 0, lendo: 0, paginasLidas: 0, diasLeitura: 0 },
+  );
+}
+
+/** Porcentagem lida (0 a 100), ou null quando o livro não tem o número de páginas. */
+export function porcentagemLida(progresso: Progresso | undefined): number | null {
+  if (!progresso?.paginasTotal) return null;
+  return Math.min(100, Math.round((progresso.paginaAtual / progresso.paginasTotal) * 100));
+}
 
 export type FiltroBiblioteca = {
   status?: StatusLeitura | null;
@@ -64,13 +108,31 @@ export async function adicionarNaBiblioteca(
 
 export async function atualizarItemBiblioteca(
   id: number,
-  atualizacao: { status?: StatusLeitura; favorito?: boolean },
+  atualizacao: {
+    status?: StatusLeitura;
+    favorito?: boolean;
+    paginaAtual?: number;
+    paginasTotal?: number;
+  },
 ): Promise<BibliotecaItem> {
   const result = await apiRequest<{ item: BibliotecaItem }>(`/api/biblioteca/${id}`, {
     method: 'PATCH',
     body: atualizacao,
   });
   return result.item;
+}
+
+/** Conta o dia de hoje para os livros em "Lendo" (o backend ignora se o dia já contou). */
+export async function registrarDiaDeLeitura(): Promise<void> {
+  await apiRequest('/api/biblioteca/dia-de-leitura', { method: 'POST' });
+}
+
+/** Dias distintos com algum livro em "Lendo"; null quando o servidor não informa. */
+export async function buscarDiasDeLeitura(signal?: AbortSignal): Promise<number | null> {
+  const result = await apiRequest<{ diasLeitura?: number }>('/api/biblioteca/dias-de-leitura', {
+    signal,
+  });
+  return typeof result?.diasLeitura === 'number' ? result.diasLeitura : null;
 }
 
 export async function removerDaBiblioteca(id: number): Promise<void> {
@@ -128,8 +190,11 @@ export async function marcarComoLido(
   return atualizarItemBiblioteca(existente.id, { status: 'LIDO' });
 }
 
-// Diz se o livro já está como LIDO na biblioteca (usado para não repetir a sugestão).
-export async function livroEstaLido(livroId: string, signal?: AbortSignal): Promise<boolean> {
-  const item = encontrarItemDoLivro(await listarBiblioteca(signal), livroId);
-  return item?.statusLeitura === 'LIDO';
+// Diz se o livro já está na biblioteca, com qualquer status (a sugestão de marcar como lido só
+// aparece para livros que ainda não estão lá).
+export async function livroEstaNaBiblioteca(
+  livroId: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  return encontrarItemDoLivro(await listarBiblioteca(signal), livroId) !== null;
 }

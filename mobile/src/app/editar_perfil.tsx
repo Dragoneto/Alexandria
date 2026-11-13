@@ -1,16 +1,18 @@
-import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { BotaoVoltar } from '@/components/botao-voltar';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, ScreenInset, Space, TextColor } from '@/constants/design-system';
+import { useVoltar } from '@/hooks/use-voltar';
 import { useAuth } from '@/contexts/auth-context';
 import { updateProfile } from '@/services/auth';
+import { MaxContentWidth } from '@/constants/theme';
 
 export default function EditarPerfilScreen() {
-  const router = useRouter();
+  const voltar = useVoltar('/perfil');
   const { user } = useAuth();
 
   // Os campos começam preenchidos com os dados atuais do usuário
@@ -27,7 +29,7 @@ export default function EditarPerfilScreen() {
     setError('');
     try {
       await updateProfile({ name, email });
-      router.back(); // volta para a tela de perfil
+      voltar(); // volta para a tela de perfil
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Não foi possível salvar.');
     } finally {
@@ -43,6 +45,7 @@ export default function EditarPerfilScreen() {
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            <BotaoVoltar style={styles.voltar} />
             <Text style={styles.title}>Editar perfil</Text>
             <Text style={styles.subtitle}>Atualize os dados da sua conta.</Text>
 
@@ -82,7 +85,7 @@ export default function EditarPerfilScreen() {
                 </Text>
               )}
               <ActionButton label="Salvar alterações" onPress={handleSave} loading={saving} />
-              <ActionButton label="Cancelar" variant="ghost" onPress={() => router.back()} />
+              <ActionButton label="Cancelar" variant="ghost" onPress={voltar} />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -94,7 +97,15 @@ export default function EditarPerfilScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Ink.ink900 },
   flex: { flex: 1 },
-  content: { paddingHorizontal: ScreenInset, paddingTop: Space.eight, paddingBottom: Space.eight },
+  content: {
+    paddingHorizontal: ScreenInset,
+    paddingTop: Space.eight,
+    paddingBottom: Space.eight,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
+  voltar: { marginBottom: Space.six },
   title: {
     fontFamily: DSFonts.display,
     fontSize: 28,
