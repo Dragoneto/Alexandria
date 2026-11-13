@@ -151,6 +151,14 @@ test('catálogo tem nomes únicos e todo filtro usa subject ou place', () => {
   assert.equal(new Set(nomes).size, nomes.length);
   assert.equal(FILTRO_POR_CATEGORIA.size, nomes.length);
   for (const filtro of FILTRO_POR_CATEGORIA.values()) assert.match(filtro, /^(subject|place):/);
+  // "Tudo em <grupo>" não pode ser só uma das subcategorias dele (Lugares era igual a Brasil)
+  for (const grupo of GRUPOS) {
+    for (const sub of grupo.subcategorias) assert.notEqual(sub.filtro, grupo.filtro, sub.nome);
+  }
+  assert.equal(
+    FILTRO_POR_CATEGORIA.get('Lugares'),
+    'place:(brazil OR india OR indonesia OR "united states")',
+  );
   // As seis categorias antigas continuam valendo (links e URLs já salvos)
   for (const antiga of ['Fantasia', 'Romance', 'História', 'Tecnologia', 'Biografia', 'Mistério']) {
     assert.ok(FILTRO_POR_CATEGORIA.has(antiga), antiga);

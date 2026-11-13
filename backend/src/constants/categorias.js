@@ -140,7 +140,8 @@ const GRUPOS = [
   },
   {
     nome: 'Lugares',
-    filtro: 'place:brazil',
+    // "Tudo em Lugares" junta os quatro lugares, e não só o primeiro.
+    filtro: 'place:(brazil OR india OR indonesia OR "united states")',
     subcategorias: [
       { nome: 'Brasil', filtro: 'place:brazil' },
       { nome: 'Índia', filtro: 'place:india' },
