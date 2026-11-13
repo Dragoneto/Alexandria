@@ -1,6 +1,8 @@
 import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
+import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
-import { View } from 'react-native';
+import { useEffect } from 'react';
+import { Platform, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
@@ -63,8 +65,20 @@ function SessionRoutes() {
 }
 
 export default function RootLayout() {
+  // Na web o HTML gerado vem com lang="en"; o app é todo em português.
+  useEffect(() => {
+    if (Platform.OS === 'web') document.documentElement.lang = 'pt-BR';
+  }, []);
+
   return (
     <ThemeProvider value={DarkTheme}>
+      <Head>
+        <title>Alexandria</title>
+        <meta
+          name="description"
+          content="Sua biblioteca virtual e comunidade literária: organize leituras, avalie livros e converse com outros leitores."
+        />
+      </Head>
       <AnimatedSplashOverlay />
       <AuthProvider>
         <SessionRoutes />
