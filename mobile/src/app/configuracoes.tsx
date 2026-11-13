@@ -97,6 +97,8 @@ export default function ConfiguracoesScreen() {
           {OPCOES.map((opcao, index) => (
             <Pressable
               key={opcao.titulo}
+              accessibilityRole="button"
+              accessibilityLabel={`${opcao.titulo}. ${opcao.descricao}`}
               onPress={() => router.push(opcao.rota)}
               style={({ pressed }) => [
                 styles.linha,
