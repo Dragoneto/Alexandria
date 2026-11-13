@@ -57,6 +57,8 @@ function novoSorteio(id = 0) {
 
 function saudacao() {
   const hora = new Date().getHours();
+  // De madrugada ainda é "boa noite", como se fala no dia a dia.
+  if (hora < 5) return 'Boa noite';
   if (hora < 12) return 'Bom dia';
   if (hora < 18) return 'Boa tarde';
   return 'Boa noite';
