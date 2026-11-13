@@ -259,6 +259,8 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: Ink.ink900,
+    // O halo é mais largo que telas de 320px; sem isso a página rola para o lado.
+    overflow: 'hidden',
   },
   halo: {
     position: 'absolute',
