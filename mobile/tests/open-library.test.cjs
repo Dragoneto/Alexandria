@@ -60,7 +60,7 @@ test('envia categoria, ordenação e paginação para o backend', async () => {
   assert.equal(result.hasMore, false);
 });
 
-test('modo com capa remove resultados sem capa ou sem autoria', async () => {
+test('modo com capa remove resultados sem capa de verdade ou sem autoria', async () => {
   const h = await loggedServices();
   h.fetch = async () =>
     json({
@@ -68,8 +68,15 @@ test('modo com capa remove resultados sem capa ou sem autoria', async () => {
         { ...book, id: 'OL1W', category: 'Romance' },
         { ...book, id: 'OL2W', coverUrl: null },
         { ...book, id: 'OL3W', authors: [] },
+        // Capa montada pelo ISBN quase sempre não existe na Open Library
+        {
+          ...book,
+          id: 'OL4W',
+          coverUrl: 'https://covers.openlibrary.org/b/isbn/9788535914849-M.jpg?default=false',
+        },
+        { ...book, id: 'OL5W', coverUrl: 'https://exemplo.com/placeholder.png' },
       ],
-      total: 3,
+      total: 5,
       page: 1,
       limit: 10,
       hasMore: false,
