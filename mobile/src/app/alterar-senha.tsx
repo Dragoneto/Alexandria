@@ -16,6 +16,7 @@ import {
 } from '@/constants/design-system';
 import { useVoltar } from '@/hooks/use-voltar';
 import { ApiError, changePassword, PASSWORD_HINT } from '@/services/auth';
+import { MaxContentWidth } from '@/constants/theme';
 
 export default function AlterarSenhaScreen() {
   const voltar = useVoltar('/configuracoes');
@@ -133,7 +134,14 @@ export default function AlterarSenhaScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Ink.ink900 },
   flex: { flex: 1 },
-  content: { paddingHorizontal: ScreenInset, paddingTop: Space.eight, paddingBottom: Space.eight },
+  content: {
+    paddingHorizontal: ScreenInset,
+    paddingTop: Space.eight,
+    paddingBottom: Space.eight,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   voltar: { marginBottom: Space.six },
   title: {
     fontFamily: DSFonts.display,

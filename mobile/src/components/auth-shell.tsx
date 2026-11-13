@@ -106,6 +106,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: ScreenInset,
     paddingTop: Space.four,
     paddingBottom: Space.twelve,
+    // Coluna central em telas largas (web no computador, tablet deitado).
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   backButton: {
     width: TouchMin,

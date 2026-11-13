@@ -18,6 +18,7 @@ import {
   withAlpha,
 } from '@/constants/design-system';
 import { useVoltar } from '@/hooks/use-voltar';
+import { MaxContentWidth } from '@/constants/theme';
 const OPCOES = [
   {
     titulo: 'Alterar senha',
@@ -125,12 +126,10 @@ export default function ConfiguracoesScreen() {
                 tintColor={TextColor.muted}
               />
             </Pressable>
-            
           ))}
-          
         </View>
 
-         <View style={styles.sair}>
+        <View style={styles.sair}>
           <ActionButton
             label="Sair da conta"
             variant="ghost"
@@ -146,10 +145,15 @@ export default function ConfiguracoesScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.eight },
+  conteudo: {
+    padding: ScreenInset,
+    paddingBottom: Space.eight,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
 
   voltar: {
     width: 44,
@@ -202,11 +206,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   textos: { flex: 1 },
-  opcaoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
-  opcaoDescricao: { marginTop: 2, fontFamily: DSFonts.ui, fontSize: 13, color: TextColor.secondary },
+  opcaoTitulo: {
+    fontFamily: DSFonts.ui,
+    fontSize: 16,
+    fontWeight: '600',
+    color: TextColor.primary,
+  },
+  opcaoDescricao: {
+    marginTop: 2,
+    fontFamily: DSFonts.ui,
+    fontSize: 13,
+    color: TextColor.secondary,
+  },
 
   sair: {
-  marginTop: Space.eight,
+    marginTop: Space.eight,
   },
 
   erro: {

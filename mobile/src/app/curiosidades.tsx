@@ -30,6 +30,7 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { MaxContentWidth } from '@/constants/theme';
 
 // A lista cresce de 6 em 6 por botão, em vez de rolar sem fim.
 const POR_VEZ = 6;
@@ -255,7 +256,13 @@ export default function CuriosidadesScreen() {
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.twelve },
+  conteudo: {
+    padding: ScreenInset,
+    paddingBottom: Space.twelve,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   flex: { flex: 1 },
   pressionado: { opacity: 0.75 },
 

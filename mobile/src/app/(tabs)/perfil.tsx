@@ -24,6 +24,7 @@ import {
 } from '@/constants/design-system';
 import { getProfile, getProfilePhoto, removeProfilePhoto, saveProfilePhoto } from '@/services/auth';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
+import { MaxContentWidth } from '@/constants/theme';
 
 type ProfileData = {
   name: string;
@@ -292,6 +293,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: ScreenInset,
     paddingTop: Space.eight,
     paddingBottom: Space.eight,
+    // Coluna central em telas largas (web no computador, tablet deitado).
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
   },
   avatar: {
     alignSelf: 'center',

@@ -39,6 +39,7 @@ import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { getProfile, getProfilePhoto } from '@/services/auth';
 import { searchBooks, type BookSearchItem } from '@/services/open-library';
+import { MaxContentWidth } from '@/constants/theme';
 
 // Muda a cada toque que abre o Explorar, para a mesma busca repetida ser refeita lá.
 let toques = 0;
@@ -403,6 +404,10 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: Space.four,
     paddingBottom: Space.twelve,
+    // Coluna central em telas largas (web no computador, tablet deitado).
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
   },
   pressed: {
     opacity: 0.7,

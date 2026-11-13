@@ -29,6 +29,7 @@ import {
   textoDaNotificacao,
   type Notificacao,
 } from '@/services/notificacoes';
+import { MaxContentWidth } from '@/constants/theme';
 
 function dataCurta(value: string) {
   return tempoRelativo(value) || 'Data indisponível';
@@ -269,7 +270,14 @@ export default function NotificacoesScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Ink.ink900 },
-  content: { padding: ScreenInset, paddingBottom: Space.eight, gap: Space.four },
+  content: {
+    padding: ScreenInset,
+    paddingBottom: Space.eight,
+    gap: Space.four,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   title: { color: TextColor.primary, fontSize: 28, fontWeight: '800' },
   subtitle: { color: TextColor.secondary, fontSize: 15 },
   actions: { gap: Space.two },

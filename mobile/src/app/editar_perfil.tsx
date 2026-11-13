@@ -9,6 +9,7 @@ import { Accent, DSFonts, Ink, ScreenInset, Space, TextColor } from '@/constants
 import { useVoltar } from '@/hooks/use-voltar';
 import { useAuth } from '@/contexts/auth-context';
 import { updateProfile } from '@/services/auth';
+import { MaxContentWidth } from '@/constants/theme';
 
 export default function EditarPerfilScreen() {
   const voltar = useVoltar('/perfil');
@@ -96,7 +97,14 @@ export default function EditarPerfilScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Ink.ink900 },
   flex: { flex: 1 },
-  content: { paddingHorizontal: ScreenInset, paddingTop: Space.eight, paddingBottom: Space.eight },
+  content: {
+    paddingHorizontal: ScreenInset,
+    paddingTop: Space.eight,
+    paddingBottom: Space.eight,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   voltar: { marginBottom: Space.six },
   title: {
     fontFamily: DSFonts.display,

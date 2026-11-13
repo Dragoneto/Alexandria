@@ -21,7 +21,7 @@ import {
   Shadow,
 } from '@/constants/design-system';
 import { useVoltar } from '@/hooks/use-voltar';
-
+import { MaxContentWidth } from '@/constants/theme';
 
 const VERSAO = Constants.expoConfig?.version ?? '1.0.0';
 const ANO = new Date().getFullYear();
@@ -32,7 +32,6 @@ const ACAO_DO_RECURSO: Record<string, { rotulo: string; rota: '/biblioteca' | '/
   Comunidade: { rotulo: 'Explorar livros e avaliações', rota: '/explore' },
   Descobertas: { rotulo: 'Explorar livros', rota: '/explore' },
 };
-
 
 const INFORMACOES = [
   {
@@ -68,7 +67,6 @@ const ATALHOS = [
     icone: { ios: 'questionmark.circle.fill', android: 'help', web: 'help' },
   },
 ] as const;
-
 
 export default function SobreScreen() {
   const router = useRouter();
@@ -130,7 +128,7 @@ export default function SobreScreen() {
           </Text>
         </View>
 
-               {/* Recursos: um cartão abaixo do outro */}
+        {/* Recursos: um cartão abaixo do outro */}
         <Text style={styles.secaoTitulo}>O que você encontra aqui</Text>
         {/* Os mesmos cartões da tela inicial: toque (ou passe o mouse) para saber mais */}
         <View style={styles.recursos}>
@@ -138,7 +136,6 @@ export default function SobreScreen() {
             <CartaoDestaque key={item.title} item={item} onPress={() => setAberto(item)} />
           ))}
         </View>
-
 
         {/* Informações técnicas */}
         <Text style={styles.secaoTitulo}>Informações</Text>
@@ -198,7 +195,13 @@ export default function SobreScreen() {
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { paddingTop: Space.four, paddingBottom: Space.twelve },
+  conteudo: {
+    paddingTop: Space.four,
+    paddingBottom: Space.twelve,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   pressionado: { opacity: 0.7 },
 
   // Botão de voltar
@@ -285,7 +288,6 @@ const styles = StyleSheet.create({
   // Recursos (um cartão abaixo do outro)
   recursos: { marginHorizontal: ScreenInset, gap: Space.three },
 
-
   // Cartões com linhas (Informações e Saiba mais)
   cartao: {
     marginHorizontal: ScreenInset,
@@ -311,7 +313,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   atalhoTextos: { flex: 1, gap: 2 },
-  atalhoTitulo: { fontFamily: DSFonts.ui, fontSize: 16, fontWeight: '600', color: TextColor.primary },
+  atalhoTitulo: {
+    fontFamily: DSFonts.ui,
+    fontSize: 16,
+    fontWeight: '600',
+    color: TextColor.primary,
+  },
   atalhoDescricao: {
     fontFamily: DSFonts.ui,
     fontSize: 13,

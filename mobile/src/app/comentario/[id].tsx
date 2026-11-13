@@ -8,6 +8,7 @@ import { BotaoVoltar } from '@/components/botao-voltar';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
 import { tempoRelativo } from '@/constants/tempo';
+import { MaxContentWidth } from '@/constants/theme';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError } from '@/services/api';
@@ -143,7 +144,14 @@ export default function ComentarioContextoScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: 20,
+          gap: 16,
+          width: '100%',
+          maxWidth: MaxContentWidth,
+          alignSelf: 'center',
+        }}>
         <BotaoVoltar fallback="/notificacoes" />
         <Text accessibilityRole="header" style={{ color: theme.text, fontSize: 22 }}>
           Comentário na conversa

@@ -40,6 +40,7 @@ import {
   type Pergunta,
 } from '@/constants/faq';
 import { useFoco } from '@/hooks/use-foco';
+import { MaxContentWidth } from '@/constants/theme';
 
 const VISUAL: Record<Assunto, { cor: string; icone: SymbolViewProps['name'] }> = {
   Conta: {
@@ -405,7 +406,13 @@ function ItemPergunta({
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { paddingTop: Space.four, paddingBottom: Space.twelve },
+  conteudo: {
+    paddingTop: Space.four,
+    paddingBottom: Space.twelve,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   pressionado: { opacity: 0.7 },
 
   voltar: { paddingHorizontal: ScreenInset },

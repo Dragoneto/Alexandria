@@ -3,7 +3,6 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-
 import {
   Accent,
   DSFonts,
@@ -16,6 +15,7 @@ import {
   withAlpha,
 } from '@/constants/design-system';
 import { useVoltar } from '@/hooks/use-voltar';
+import { MaxContentWidth } from '@/constants/theme';
 
 const EQUIPE = [
   {
@@ -55,7 +55,6 @@ const EQUIPE = [
   },
 ];
 
-
 export default function EquipeScreen() {
   const voltar = useVoltar('/configuracoes');
 
@@ -75,7 +74,6 @@ export default function EquipeScreen() {
             tintColor={Mint.mint400}
           />
         </Pressable>
-
 
         {/* Um cartão para cada integrante */}
         <Text style={styles.secaoTitulo}>Equipe</Text>
@@ -115,12 +113,17 @@ export default function EquipeScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-
 }
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
-  conteudo: { padding: ScreenInset, paddingBottom: Space.twelve },
+  conteudo: {
+    padding: ScreenInset,
+    paddingBottom: Space.twelve,
+    width: '100%',
+    maxWidth: MaxContentWidth,
+    alignSelf: 'center',
+  },
   flex: { flex: 1 },
 
   // Botão de voltar
