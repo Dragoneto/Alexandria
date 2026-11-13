@@ -150,152 +150,150 @@ export default function AjudaScreen() {
     setAssunto(null);
   }
 
-
   return (
-   <SafeAreaView style={styles.tela} edges={['top']}>
-  <ScrollView
-    contentContainerStyle={styles.conteudo}
-    showsVerticalScrollIndicator={false}
-    keyboardShouldPersistTaps="handled">
-    <Pressable
-      onPress={voltar}
-      hitSlop={Space.two}
-      accessibilityRole="button"
-      accessibilityLabel="Voltar"
-      style={({ pressed }) => [styles.voltar, pressed && styles.pressionado]}>
-      <SymbolView
-        name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-        size={20}
-        tintColor={TextColor.primary}
-      />
-    </Pressable>
-
-    {/* Cabeçalho no mesmo formato da Home: rótulo pequeno + título serifado */}
-    <View style={styles.cabecalho}>
-      <Text style={styles.rotulo}>Central de ajuda</Text>
-      <Text style={styles.titulo}>Como podemos ajudar?</Text>
-      <Text style={styles.subtitulo}>Respostas rápidas para as dúvidas mais comuns.</Text>
-    </View>
-
-
-    <View style={[styles.busca, buscaFocada && styles.buscaFocada]}>
-      <SymbolView
-        name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
-        size={18}
-        tintColor={TextColor.secondary}
-      />
-      <TextInput
-        {...propsDeFoco}
-        style={styles.buscaInput}
-        accessibilityLabel="Buscar uma dúvida"
-        placeholder="Buscar uma dúvida"
-        placeholderTextColor={TextColor.muted}
-        value={busca}
-        onChangeText={setBusca}
-        returnKeyType="search"
-        selectionColor={Mint.mint400}
-      />
-      {busca.length > 0 && (
+    <SafeAreaView style={styles.tela} edges={['top']}>
+      <ScrollView
+        contentContainerStyle={styles.conteudo}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         <Pressable
-          onPress={() => setBusca('')}
+          onPress={voltar}
           hitSlop={Space.two}
           accessibilityRole="button"
-          accessibilityLabel="Limpar busca">
+          accessibilityLabel="Voltar"
+          style={({ pressed }) => [styles.voltar, pressed && styles.pressionado]}>
           <SymbolView
-            name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+            name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
+            size={20}
+            tintColor={TextColor.primary}
+          />
+        </Pressable>
+
+        {/* Cabeçalho no mesmo formato da Home: rótulo pequeno + título serifado */}
+        <View style={styles.cabecalho}>
+          <Text style={styles.rotulo}>Central de ajuda</Text>
+          <Text style={styles.titulo}>Como podemos ajudar?</Text>
+          <Text style={styles.subtitulo}>Respostas rápidas para as dúvidas mais comuns.</Text>
+        </View>
+
+        <View style={[styles.busca, buscaFocada && styles.buscaFocada]}>
+          <SymbolView
+            name={{ ios: 'magnifyingglass', android: 'search', web: 'search' }}
             size={18}
-            tintColor={TextColor.muted}
+            tintColor={TextColor.secondary}
           />
-        </Pressable>
-      )}
-    </View>
+          <TextInput
+            {...propsDeFoco}
+            style={styles.buscaInput}
+            accessibilityLabel="Buscar uma dúvida"
+            placeholder="Buscar uma dúvida"
+            placeholderTextColor={TextColor.muted}
+            value={busca}
+            onChangeText={setBusca}
+            returnKeyType="search"
+            selectionColor={Mint.mint400}
+          />
+          {busca.length > 0 && (
+            <Pressable
+              onPress={() => setBusca('')}
+              hitSlop={Space.two}
+              accessibilityRole="button"
+              accessibilityLabel="Limpar busca">
+              <SymbolView
+                name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
+                size={18}
+                tintColor={TextColor.muted}
+              />
+            </Pressable>
+          )}
+        </View>
 
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={styles.chipsLista}
-      contentContainerStyle={styles.chips}>
-      <Chip titulo="Todas" ativo={assunto === null} onPress={() => escolherAssunto(null)} />
-      {FAQ.map((secao) => (
-        <Chip
-          key={secao.assunto}
-          titulo={secao.assunto}
-          icone={secao.icone}
-          cor={secao.cor}
-          ativo={assunto === secao.assunto}
-          onPress={() => escolherAssunto(secao.assunto)}
-        />
-      ))}
-    </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipsLista}
+          contentContainerStyle={styles.chips}>
+          <Chip titulo="Todas" ativo={assunto === null} onPress={() => escolherAssunto(null)} />
+          {FAQ.map((secao) => (
+            <Chip
+              key={secao.assunto}
+              titulo={secao.assunto}
+              icone={secao.icone}
+              cor={secao.cor}
+              ativo={assunto === secao.assunto}
+              onPress={() => escolherAssunto(secao.assunto)}
+            />
+          ))}
+        </ScrollView>
 
-    {secoes.map((secao) => (
-      <View key={secao.assunto} style={styles.secao}>
-        <View style={styles.secaoCabecalho}>
-          <View style={[styles.secaoIcone, { backgroundColor: withAlpha(secao.cor, 0.15) }]}>
-            <SymbolView name={secao.icone} size={16} tintColor={secao.cor} />
+        {secoes.map((secao) => (
+          <View key={secao.assunto} style={styles.secao}>
+            <View style={styles.secaoCabecalho}>
+              <View style={[styles.secaoIcone, { backgroundColor: withAlpha(secao.cor, 0.15) }]}>
+                <SymbolView name={secao.icone} size={16} tintColor={secao.cor} />
+              </View>
+              <Text style={styles.secaoTitulo}>{secao.assunto}</Text>
+              <Text style={styles.secaoContagem}>
+                {secao.perguntas.length} {secao.perguntas.length === 1 ? 'pergunta' : 'perguntas'}
+              </Text>
+            </View>
+
+            {secao.perguntas.map((item) => (
+              <ItemPergunta
+                key={item.pergunta}
+                pergunta={item.pergunta}
+                resposta={item.resposta}
+                cor={secao.cor}
+                aberta={aberta === item.pergunta}
+                onPress={() => alternarPergunta(item.pergunta)}
+              />
+            ))}
           </View>
-          <Text style={styles.secaoTitulo}>{secao.assunto}</Text>
-          <Text style={styles.secaoContagem}>
-            {secao.perguntas.length} {secao.perguntas.length === 1 ? 'pergunta' : 'perguntas'}
-          </Text>
-        </View>
-
-        {secao.perguntas.map((item) => (
-          <ItemPergunta
-            key={item.pergunta}
-            pergunta={item.pergunta}
-            resposta={item.resposta}
-            cor={secao.cor}
-            aberta={aberta === item.pergunta}
-            onPress={() => alternarPergunta(item.pergunta)}
-          />
         ))}
-      </View>
-    ))}
 
-    {secoes.length === 0 && (
-      <View style={styles.vazio}>
-        <SymbolView
-          name={{ ios: 'magnifyingglass', android: 'search_off', web: 'search_off' }}
-          size={28}
-          tintColor={TextColor.secondary}
-        />
-        <Text style={styles.vazioTitulo}>Nenhuma dúvida encontrada</Text>
-        <Text style={styles.vazioTexto}>Tente outras palavras ou veja todas as perguntas.</Text>
-        <Pressable
-          onPress={limparFiltros}
-          accessibilityRole="button"
-          style={({ pressed }) => [styles.botaoSecundario, pressed && styles.pressionado]}>
-          <Text style={styles.botaoSecundarioTexto}>Ver todas</Text>
-        </Pressable>
-      </View>
-    )}
+        {secoes.length === 0 && (
+          <View style={styles.vazio}>
+            <SymbolView
+              name={{ ios: 'magnifyingglass', android: 'search_off', web: 'search_off' }}
+              size={28}
+              tintColor={TextColor.secondary}
+            />
+            <Text style={styles.vazioTitulo}>Nenhuma dúvida encontrada</Text>
+            <Text style={styles.vazioTexto}>Tente outras palavras ou veja todas as perguntas.</Text>
+            <Pressable
+              onPress={limparFiltros}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.botaoSecundario, pressed && styles.pressionado]}>
+              <Text style={styles.botaoSecundarioTexto}>Ver todas</Text>
+            </Pressable>
+          </View>
+        )}
 
-    {/* Cartão final: ainda com dúvidas */}
-    <View style={styles.contato}>
-      <View style={styles.contatoTopo}>
-        <View style={styles.contatoIcone}>
-          <SymbolView
-            name={{ ios: 'bubble.left.and.bubble.right.fill', android: 'forum', web: 'forum' }}
-            size={22}
-            tintColor={Mint.mint400}
-          />
+        {/* Cartão final: ainda com dúvidas */}
+        <View style={styles.contato}>
+          <View style={styles.contatoTopo}>
+            <View style={styles.contatoIcone}>
+              <SymbolView
+                name={{ ios: 'bubble.left.and.bubble.right.fill', android: 'forum', web: 'forum' }}
+                size={22}
+                tintColor={Mint.mint400}
+              />
+            </View>
+            <View style={styles.contatoTextos}>
+              <Text style={styles.contatoTitulo}>Ainda tem dúvidas?</Text>
+              <Text style={styles.contatoTexto}>Fale com a equipe que criou o Alexandria.</Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={() => router.push('/equipe')}
+            accessibilityRole="button"
+            style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}>
+            <Text style={styles.botaoTexto}>Conhecer a equipe</Text>
+          </Pressable>
         </View>
-        <View style={styles.contatoTextos}>
-          <Text style={styles.contatoTitulo}>Ainda tem dúvidas?</Text>
-          <Text style={styles.contatoTexto}>Fale com a equipe que criou o Alexandria.</Text>
-        </View>
-      </View>
-
-      <Pressable
-        onPress={() => router.push('/equipe')}
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}>
-        <Text style={styles.botaoTexto}>Conhecer a equipe</Text>
-      </Pressable>
-    </View>
-  </ScrollView>
-</SafeAreaView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -313,7 +311,11 @@ function Chip({ titulo, ativo, onPress, icone, cor = Mint.mint400 }: ChipProps) 
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected: ativo }}
-      style={({ pressed }) => [styles.chip, ativo && styles.chipAtivo, pressed && styles.pressionado]}>
+      style={({ pressed }) => [
+        styles.chip,
+        ativo && styles.chipAtivo,
+        pressed && styles.pressionado,
+      ]}>
       {icone && <SymbolView name={icone} size={14} tintColor={ativo ? Mint.mint400 : cor} />}
       <Text style={[styles.chipTexto, ativo && styles.chipTextoAtivo]}>{titulo}</Text>
     </Pressable>
@@ -364,7 +366,6 @@ function ItemPergunta({ pergunta, resposta, cor, aberta, onPress }: ItemPergunta
     </Pressable>
   );
 }
-
 
 const styles = StyleSheet.create({
   tela: { flex: 1, backgroundColor: Ink.ink900 },
@@ -441,7 +442,12 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   chipAtivo: { backgroundColor: Mint.mint900, borderColor: withAlpha(Mint.mint400, 0.4) },
-  chipTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '600', color: TextColor.secondary },
+  chipTexto: {
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    fontWeight: '600',
+    color: TextColor.secondary,
+  },
   chipTextoAtivo: { color: Mint.mint400 },
 
   // Seções
@@ -461,7 +467,12 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     color: TextColor.primary,
   },
-  secaoContagem: { fontFamily: DSFonts.ui, fontSize: 12, fontWeight: '600', color: TextColor.secondary },
+  secaoContagem: {
+    fontFamily: DSFonts.ui,
+    fontSize: 12,
+    fontWeight: '600',
+    color: TextColor.secondary,
+  },
 
   // Pergunta
   item: {
@@ -521,7 +532,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: withAlpha(Mint.mint400, 0.4),
   },
-  botaoSecundarioTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700', color: Mint.mint400 },
+  botaoSecundarioTexto: {
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Mint.mint400,
+  },
 
   // Cartão final
   contato: {
@@ -543,8 +559,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   contatoTextos: { flex: 1, gap: Space.one },
-  contatoTitulo: { fontFamily: DSFonts.display, fontSize: 20, lineHeight: 26, color: TextColor.primary },
-  contatoTexto: { fontFamily: DSFonts.ui, fontSize: 14, lineHeight: 20, color: TextColor.secondary },
+  contatoTitulo: {
+    fontFamily: DSFonts.display,
+    fontSize: 20,
+    lineHeight: 26,
+    color: TextColor.primary,
+  },
+  contatoTexto: {
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    lineHeight: 20,
+    color: TextColor.secondary,
+  },
   botao: {
     minHeight: 48,
     alignItems: 'center',
