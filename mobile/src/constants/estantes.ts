@@ -1,37 +1,10 @@
 // Sorteio das estantes da home. Cada abertura da home monta uma combinação
-// diferente de categorias, autores, termos de busca e páginas da Open Library.
+// diferente de categorias, autores e páginas da Open Library.
 
-/** Categorias aceitas pelo backend (CATEGORY_SUBJECTS no bookController). */
-export const CATEGORIAS = [
-  'Fantasia',
-  'Romance',
-  'História',
-  'Tecnologia',
-  'Biografia',
-  'Mistério',
-] as const;
+import { GRUPOS_DE_CATEGORIAS, TODAS_AS_CATEGORIAS } from '@/constants/categorias';
 
-export type Categoria = (typeof CATEGORIAS)[number];
-
-/** Termos em inglês, o idioma em que a Open Library indexa a maior parte do acervo. */
-const TERMOS_POR_CATEGORIA: Record<Categoria, readonly string[]> = {
-  Fantasia: ['magic', 'dragons', 'wizards', 'fairy tales', 'kingdom', 'quest'],
-  Romance: ['love', 'love story', 'wedding', 'heart', 'summer'],
-  História: ['war', 'empire', 'revolution', 'ancient', 'kings'],
-  Tecnologia: ['computers', 'internet', 'programming', 'robots', 'engineering'],
-  Biografia: ['life', 'memoir', 'autobiography', 'letters', 'diary'],
-  Mistério: ['detective', 'murder', 'crime', 'secret', 'mystery'],
-};
-
-/** Títulos alternativos para a mesma categoria não aparecer sempre igual. */
-const TITULOS_POR_CATEGORIA: Record<Categoria, readonly string[]> = {
-  Fantasia: ['Fantasia', 'Mundos mágicos', 'Para sair da realidade'],
-  Romance: ['Romance', 'Histórias de amor', 'Para se apaixonar'],
-  História: ['História', 'Viagem no tempo', 'Grandes acontecimentos'],
-  Tecnologia: ['Tecnologia', 'Ciência e inovação', 'O futuro em páginas'],
-  Biografia: ['Biografias', 'Vidas reais', 'Memórias'],
-  Mistério: ['Mistério', 'Suspense e investigação', 'Quem foi?'],
-};
+/** Grupos da Open Library (Artes, Animais, Ficção…): os atalhos de categoria da home. */
+export const CATEGORIAS: readonly string[] = GRUPOS_DE_CATEGORIAS.map((grupo) => grupo.nome);
 
 export type Autor = {
   /** Como o nome aparece na estante. */
@@ -83,8 +56,9 @@ export type Estante = {
   /** Chave estável dentro de um sorteio, usada pelo React. */
   key: string;
   title: string;
+  /** Vazio nas estantes de categoria: a busca é só pela categoria. */
   query: string;
-  category?: Categoria;
+  category?: string;
   page: number;
 };
 
@@ -108,11 +82,6 @@ export function embaralhar<T>(lista: readonly T[], aleatorio: Aleatorio = Math.r
   return copia;
 }
 
-/** Termo de busca sorteado para uma categoria. */
-export function termoDaCategoria(categoria: Categoria, aleatorio: Aleatorio = Math.random): string {
-  return sortear(TERMOS_POR_CATEGORIA[categoria], aleatorio);
-}
-
 const estanteDeAutor = (escolhido: Autor, aleatorio: Aleatorio): Estante => ({
   key: `autor:${escolhido.busca}`,
   title: escolhido.nome,
@@ -121,19 +90,19 @@ const estanteDeAutor = (escolhido: Autor, aleatorio: Aleatorio): Estante => ({
 });
 
 /**
- * Monta as estantes da home: primeiro as categorias (diferentes entre si), depois
- * os autores, um brasileiro e um estrangeiro. Termos e páginas são sorteados.
+ * Monta as estantes da home: primeiro as categorias (diferentes entre si, entre todos os grupos e
+ * subcategorias), depois os autores, um brasileiro e um estrangeiro. As páginas são sorteadas.
  */
 export function sortearEstantes(
   { categorias = 3 }: { categorias?: number } = {},
   aleatorio: Aleatorio = Math.random,
 ): Estante[] {
-  const deCategorias = embaralhar(CATEGORIAS, aleatorio)
+  const deCategorias = embaralhar(TODAS_AS_CATEGORIAS, aleatorio)
     .slice(0, categorias)
     .map<Estante>((categoria) => ({
       key: `categoria:${categoria}`,
-      title: sortear(TITULOS_POR_CATEGORIA[categoria], aleatorio),
-      query: termoDaCategoria(categoria, aleatorio),
+      title: categoria,
+      query: '',
       category: categoria,
       page: 1 + inteiro(PAGINA_MAXIMA, aleatorio),
     }));
@@ -153,10 +122,9 @@ export function sortearDestaque(
   if (aleatorio() < 0.5) {
     return { query: sortear(AUTORES, aleatorio).busca, page: 1 };
   }
-  const categoria = sortear(CATEGORIAS, aleatorio);
   return {
-    query: termoDaCategoria(categoria, aleatorio),
-    category: categoria,
+    query: '',
+    category: sortear(TODAS_AS_CATEGORIAS, aleatorio),
     page: 1 + inteiro(PAGINA_MAXIMA, aleatorio),
   };
 }
