@@ -2,7 +2,14 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  Linking,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
@@ -51,6 +58,9 @@ function firstParam(value: string | string[] | undefined): string {
 
 export default function DetalheDoLivro() {
   const theme = useTheme();
+  // Com o celular deitado a capa de 320px ocupava a tela toda e escondia título e status.
+  const { height: alturaTela } = useWindowDimensions();
+  const alturaCapa = Math.round(Math.min(320, Math.max(180, alturaTela * 0.5)));
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string | string[]; avaliado?: string | string[] }>();
   const id = firstParam(params.id);
@@ -157,7 +167,7 @@ export default function DetalheDoLivro() {
                 {showCover ? (
                   <Image
                     source={{ uri: book.coverUrl ?? undefined }}
-                    style={styles.cover}
+                    style={[styles.cover, { height: alturaCapa }]}
                     contentFit="contain"
                     accessibilityLabel={`Capa de ${book.title}`}
                     onError={() => setCoverFailed(true)}
