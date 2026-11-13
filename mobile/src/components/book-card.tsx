@@ -63,7 +63,7 @@ export function BookCard({ book, onPress }: BookCardProps) {
             ? `Primeira publicação: ${book.firstPublishYear}`
             : 'Ano não informado'}
           {' · '}
-          {book.editionCount} edição(ões)
+          {book.editionCount} {book.editionCount === 1 ? 'edição' : 'edições'}
         </ThemedText>
       </View>
     </Pressable>

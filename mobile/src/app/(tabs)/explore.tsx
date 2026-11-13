@@ -595,7 +595,8 @@ export default function Explorar() {
                     {qualityCaption}
                   </ThemedText>
                   <ThemedText themeColor="textSecondary" style={styles.resultsCount}>
-                    {total.toLocaleString('pt-BR')} obra(s) encontrada(s)
+                    {total.toLocaleString('pt-BR')}{' '}
+                    {total === 1 ? 'obra encontrada' : 'obras encontradas'}
                   </ThemedText>
                 </View>
 
