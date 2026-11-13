@@ -1,13 +1,16 @@
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -124,6 +127,67 @@ function CartaoDestaque({ item, onPress }: CartaoDestaqueProps) {
   );
 }
 
+/**
+ * Atalho fixo para quem já tem conta. Fica no canto e só "acena" duas vezes
+ * ao abrir a tela, para ser notado sem disputar com o botão principal.
+ */
+function AtalhoEntrar({ onPress }: { onPress: () => void }) {
+  const reduzirMovimento = useReducedMotion();
+  const aceno = useSharedValue(0);
+  const [realcado, setRealcado] = useState(false);
+
+  useEffect(() => {
+    if (reduzirMovimento) return;
+    aceno.set(
+      withDelay(
+        1400,
+        withRepeat(
+          withSequence(withTiming(1, { duration: 650 }), withTiming(0, { duration: 850 })),
+          2,
+        ),
+      ),
+    );
+  }, [aceno, reduzirMovimento]);
+
+  const anel = useAnimatedStyle(() => ({
+    opacity: aceno.value * 0.7,
+    transform: [{ scale: 1 + aceno.value * 0.12 }],
+  }));
+  const seta = useAnimatedStyle(() => ({ transform: [{ translateX: aceno.value * 3 }] }));
+
+  return (
+    <SafeAreaView edges={['top']} pointerEvents="box-none" style={styles.topo}>
+      <View pointerEvents="box-none" style={styles.topoLinha}>
+        <View>
+          <Animated.View pointerEvents="none" style={[styles.entrarAnel, anel]} />
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Já tenho conta. Entrar"
+            onPress={onPress}
+            onHoverIn={() => setRealcado(true)}
+            onHoverOut={() => setRealcado(false)}
+            onFocus={() => setRealcado(true)}
+            onBlur={() => setRealcado(false)}
+            hitSlop={6}
+            style={({ pressed }) => [
+              styles.entrar,
+              (realcado || pressed) && styles.entrarRealcado,
+            ]}>
+            <Text style={styles.entrarTexto}>Entrar</Text>
+            <Animated.View style={seta}>
+              <SymbolView
+                name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
+                size={16}
+                tintColor={Mint.mint400}
+              />
+            </Animated.View>
+          </Pressable>
+        </View>
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export default function WelcomeScreen() {
   const router = useRouter();
   const [aberto, setAberto] = useState<Destaque | null>(null);
@@ -179,6 +243,8 @@ export default function WelcomeScreen() {
           </View>
         </SafeAreaView>
       </ScrollView>
+
+      <AtalhoEntrar onPress={() => router.push('/login')} />
 
       <PopupDestaque
         destaque={aberto}
@@ -316,6 +382,42 @@ const styles = StyleSheet.create({
   },
 
   cardPressed: { opacity: 0.8 },
+
+  // Atalho "Entrar" no canto superior
+  topo: { position: 'absolute', top: 0, left: 0, right: 0 },
+  topoLinha: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: ScreenInset,
+    paddingTop: Space.three,
+  },
+  entrar: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Space.two,
+    paddingHorizontal: Space.four,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: withAlpha(Mint.mint400, 0.35),
+    backgroundColor: withAlpha(Ink.ink800, 0.9),
+  },
+  entrarRealcado: {
+    borderColor: withAlpha(Mint.mint400, 0.75),
+    backgroundColor: withAlpha(Mint.mint400, 0.12),
+  },
+  entrarAnel: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    borderColor: Mint.mint400,
+  },
+  entrarTexto: {
+    fontFamily: DSFonts.ui,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Mint.mint400,
+  },
 
   // Ação
   actions: {
