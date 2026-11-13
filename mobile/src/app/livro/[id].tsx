@@ -16,6 +16,8 @@ import { AvaliacoesDoLivro } from '@/components/avaliacoes-do-livro';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonBookDetail } from '@/components/skeletons';
+import { PopupProgresso } from '@/components/popup-progresso';
+import { ProgressoDoLivro } from '@/components/progresso-do-livro';
 import { StatusNaBiblioteca } from '@/components/status-na-biblioteca';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -264,6 +266,21 @@ export default function DetalheDoLivro() {
                   onAdicionar={() => void biblioteca.adicionar()}
                   onTrocarStatus={(status) => void biblioteca.trocarStatus(status)}
                   onRemover={() => void biblioteca.remover()}
+                />
+                {biblioteca.item?.statusLeitura === 'LENDO' && (
+                  <ProgressoDoLivro
+                    progresso={biblioteca.item.progresso}
+                    onAtualizar={biblioteca.abrirProgresso}
+                  />
+                )}
+                <PopupProgresso
+                  visible={biblioteca.pedirProgresso}
+                  titulo={book.title}
+                  progresso={biblioteca.item?.progresso}
+                  salvando={biblioteca.salvando === 'progresso'}
+                  erro={biblioteca.erroProgresso}
+                  onSalvar={(pagina, total) => void biblioteca.salvarProgresso(pagina, total)}
+                  onFechar={biblioteca.fecharProgresso}
                 />
 
                 <TouchableOpacity

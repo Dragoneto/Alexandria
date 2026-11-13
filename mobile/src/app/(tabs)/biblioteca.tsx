@@ -20,6 +20,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
+import { PopupProgresso } from '@/components/popup-progresso';
+import { ProgressoDoLivro } from '@/components/progresso-do-livro';
 import { SkeletonGrid } from '@/components/skeletons';
 import { DisabledOpacity, TouchMin } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -66,6 +68,10 @@ export default function Biblioteca() {
   const [busca, setBusca] = useState('');
   const { focado: buscaFocada, propsDeFoco } = useFoco();
   const [statusModalItemId, setStatusModalItemId] = useState<number | null>(null);
+  // Tracker: pop-up de páginas aberto para este item (depois de virar "Lendo" ou pelo botão).
+  const [progressoItemId, setProgressoItemId] = useState<number | null>(null);
+  const [salvandoProgresso, setSalvandoProgresso] = useState(false);
+  const [erroProgresso, setErroProgresso] = useState('');
   const [savingFavoriteId, setSavingFavoriteId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
   // Livro com a confirmação de remoção aberta no próprio card (o mesmo padrão da tela do livro).
@@ -175,8 +181,12 @@ export default function Biblioteca() {
     setSavingStatusIds([...pendingStatus.current]);
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, statusLeitura: status } : i)));
     try {
-      await atualizarItemBiblioteca(id, { status });
+      const salvo = await atualizarItemBiblioteca(id, { status });
+      // A resposta traz o progresso novo (páginas da Open Library, dia de leitura).
+      if (salvo?.id === id) setItems((prev) => prev.map((i) => (i.id === id ? salvo : i)));
       avisar(`Status alterado para ${STATUS_LEITURA[status]}`);
+      // Espera o seletor de status fechar: dois Modals ao mesmo tempo travam no iOS.
+      if (status === 'LENDO') setTimeout(() => abrirProgresso(id), 350);
     } catch (error) {
       setItems((prev) =>
         prev.map((item) =>
@@ -214,6 +224,30 @@ export default function Biblioteca() {
       setSavingFavoriteId(null);
     }
   };
+
+  const abrirProgresso = (id: number) => {
+    setErroProgresso('');
+    setProgressoItemId(id);
+  };
+
+  const salvarProgresso = async (paginaAtual: number, paginasTotal?: number) => {
+    const id = progressoItemId;
+    if (id === null || salvandoProgresso) return;
+    setSalvandoProgresso(true);
+    setErroProgresso('');
+    try {
+      const salvo = await atualizarItemBiblioteca(id, { paginaAtual, paginasTotal });
+      setItems((prev) => prev.map((i) => (i.id === id ? salvo : i)));
+      setProgressoItemId(null);
+      avisar('Progresso salvo');
+    } catch (error) {
+      setErroProgresso(error instanceof ApiError ? error.message : 'Tente de novo em instantes.');
+    } finally {
+      setSalvandoProgresso(false);
+    }
+  };
+
+  const itemDoProgresso = items.find((item) => item.id === progressoItemId);
 
   const remover = async (id: number) => {
     if (removingId !== null) return;
@@ -537,6 +571,15 @@ export default function Biblioteca() {
                           )}
                         </TouchableOpacity>
                       </View>
+                      {item.statusLeitura === 'LENDO' && (
+                        <View style={styles.progressoLinha}>
+                          <ProgressoDoLivro
+                            progresso={item.progresso}
+                            onAtualizar={() => abrirProgresso(item.id)}
+                            compacto
+                          />
+                        </View>
+                      )}
                       {confirmandoRemocaoId === item.id && (
                         <View style={styles.confirmRow}>
                           <ThemedText themeColor="textSecondary" style={styles.confirmText}>
@@ -634,6 +677,16 @@ export default function Biblioteca() {
           </ThemedView>
         </View>
       </Modal>
+
+      <PopupProgresso
+        visible={progressoItemId !== null && !!itemDoProgresso}
+        titulo={itemDoProgresso?.livro.titulo}
+        progresso={itemDoProgresso?.progresso}
+        salvando={salvandoProgresso}
+        erro={erroProgresso}
+        onSalvar={(pagina, total) => void salvarProgresso(pagina, total)}
+        onFechar={() => setProgressoItemId(null)}
+      />
     </ThemedView>
   );
 }
@@ -688,6 +741,7 @@ const styles = StyleSheet.create({
   filtersRow: { flexDirection: 'row' },
   filterChipText: { fontSize: 13, fontWeight: '700' },
   filterChipCount: { fontSize: 12, fontWeight: '600' },
+  progressoLinha: { width: '100%' },
   aviso: { marginBottom: Spacing.two, fontSize: 14 },
   emptyCard: { borderRadius: 16, padding: Spacing.four, gap: 8 },
   emptyTitle: { fontSize: 18 },

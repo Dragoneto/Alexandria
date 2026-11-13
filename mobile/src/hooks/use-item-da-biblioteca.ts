@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ApiError } from '@/services/api';
 import {
   adicionarNaBiblioteca,
+  atualizarItemBiblioteca,
   comTrava,
   encontrarItemDoLivro,
   listarBiblioteca,
@@ -13,7 +14,7 @@ import {
   type StatusLeitura,
 } from '@/services/biblioteca';
 
-export type AcaoNaBiblioteca = 'adicionar' | 'status' | 'remover';
+export type AcaoNaBiblioteca = 'adicionar' | 'status' | 'remover' | 'progresso';
 
 function mensagem(error: unknown, padrao: string): string {
   return error instanceof ApiError ? error.message : padrao;
@@ -26,6 +27,9 @@ export function useItemDaBiblioteca(livroId: string) {
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState<AcaoNaBiblioteca | null>(null);
   const [erroAcao, setErroAcao] = useState('');
+  // Abre o pop-up de páginas quando o livro acabou de virar "Lendo" (e só nesse caso).
+  const [pedirProgresso, setPedirProgresso] = useState(false);
+  const [erroProgresso, setErroProgresso] = useState('');
   const pendentes = useRef(new Set<string>());
   const controllerConsulta = useRef<AbortController | null>(null);
   // Muda a cada ação; uma consulta que viu outra versão traz dados de antes da ação e é descartada.
@@ -108,6 +112,10 @@ export function useItemDaBiblioteca(livroId: string) {
     return executar('status', async () => {
       try {
         await trocarStatusOtimista(atual, status, setItem);
+        if (status === 'LENDO') {
+          setErroProgresso('');
+          setPedirProgresso(true);
+        }
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) {
           setItem(null);
@@ -137,8 +145,33 @@ export function useItemDaBiblioteca(livroId: string) {
     });
   };
 
+  const abrirProgresso = () => {
+    setErroProgresso('');
+    setPedirProgresso(true);
+  };
+
+  const fecharProgresso = () => setPedirProgresso(false);
+
+  const salvarProgresso = (paginaAtual: number, paginasTotal?: number) => {
+    const atual = item;
+    if (!atual) return Promise.resolve(false);
+    return executar('progresso', async () => {
+      try {
+        setItem(await atualizarItemBiblioteca(atual.id, { paginaAtual, paginasTotal }));
+        setPedirProgresso(false);
+      } catch (error) {
+        setErroProgresso(mensagem(error, 'Não foi possível salvar o progresso.'));
+      }
+    });
+  };
+
   return {
     item,
+    pedirProgresso,
+    erroProgresso,
+    abrirProgresso,
+    fecharProgresso,
+    salvarProgresso,
     carregando,
     erro,
     salvando,
