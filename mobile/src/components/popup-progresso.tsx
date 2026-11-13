@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
@@ -56,6 +57,8 @@ export function PopupProgresso({
   const [pagina, setPagina] = useState('');
   const [total, setTotal] = useState('');
   const [erroLocal, setErroLocal] = useState('');
+  // Celular deitado: campos e botões lado a lado para tudo caber sem rolar.
+  const telaBaixa = useWindowDimensions().height < 500;
 
   // Reabre sempre com os números salvos do livro.
   useEffect(() => {
@@ -95,7 +98,11 @@ export function PopupProgresso({
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Animated.View entering={ZoomIn.duration(250)} style={styles.card} accessibilityViewIsModal>
-          <ScrollView contentContainerStyle={styles.conteudo} keyboardShouldPersistTaps="handled">
+          {/* Os campos rolam em telas baixas; o erro e os botões ficam sempre à vista embaixo. */}
+          <ScrollView
+            style={styles.rolagem}
+            contentContainerStyle={styles.conteudo}
+            keyboardShouldPersistTaps="handled">
             <Text style={styles.eyebrow}>Tracker de leitura</Text>
             <Text accessibilityRole="header" style={styles.titulo}>
               Em que página você está?
@@ -106,43 +113,49 @@ export function PopupProgresso({
               </Text>
             )}
 
-            <View style={styles.campos}>
-              <TextField
-                label="Página atual"
-                icon={{ ios: 'bookmark.fill', android: 'bookmark', web: 'bookmark' }}
-                placeholder="0"
-                value={pagina}
-                onChangeText={setPagina}
-                keyboardType="number-pad"
-                inputMode="numeric"
-                maxLength={6}
-                editable={!salvando}
-                returnKeyType="done"
-                onSubmitEditing={salvar}
-              />
-              <TextField
-                label="Total de páginas"
-                icon={{ ios: 'book.closed.fill', android: 'menu_book', web: 'menu_book' }}
-                placeholder="Ex.: 320"
-                hint={
-                  progresso?.paginasTotal
-                    ? 'Número da Open Library. Mude se a sua edição for diferente.'
-                    : 'A Open Library não informou; preencha se souber.'
-                }
-                value={total}
-                onChangeText={setTotal}
-                keyboardType="number-pad"
-                inputMode="numeric"
-                maxLength={6}
-                editable={!salvando}
-              />
+            <View style={[styles.campos, telaBaixa && styles.ladoALado]}>
+              <View style={telaBaixa && styles.metade}>
+                <TextField
+                  label="Página atual"
+                  icon={{ ios: 'bookmark.fill', android: 'bookmark', web: 'bookmark' }}
+                  placeholder="0"
+                  value={pagina}
+                  onChangeText={setPagina}
+                  keyboardType="number-pad"
+                  inputMode="numeric"
+                  maxLength={6}
+                  editable={!salvando}
+                  returnKeyType="done"
+                  onSubmitEditing={salvar}
+                />
+              </View>
+              <View style={telaBaixa && styles.metade}>
+                <TextField
+                  label="Total de páginas"
+                  icon={{ ios: 'book.closed.fill', android: 'menu_book', web: 'menu_book' }}
+                  placeholder="Ex.: 320"
+                  hint={
+                    progresso?.paginasTotal
+                      ? 'Número da Open Library. Mude se a sua edição for diferente.'
+                      : 'A Open Library não informou; preencha se souber.'
+                  }
+                  value={total}
+                  onChangeText={setTotal}
+                  keyboardType="number-pad"
+                  inputMode="numeric"
+                  maxLength={6}
+                  editable={!salvando}
+                />
+              </View>
             </View>
 
             <Text style={styles.dica}>
               Cada dia em que você abrir o app com este livro em &quot;Lendo&quot; conta como um dia
               de leitura no seu perfil.
             </Text>
+          </ScrollView>
 
+          <View style={styles.rodape}>
             {!!mensagem && (
               <Animated.View entering={FadeIn.duration(200)}>
                 <Text accessibilityRole="alert" style={styles.erro}>
@@ -150,17 +163,20 @@ export function PopupProgresso({
                 </Text>
               </Animated.View>
             )}
-
-            <View style={styles.acoes}>
-              <ActionButton label="Salvar progresso" onPress={salvar} loading={salvando} />
-              <ActionButton
-                label="Agora não"
-                variant="ghost"
-                onPress={onFechar}
-                disabled={salvando}
-              />
+            <View style={[styles.acoes, telaBaixa && styles.ladoALado]}>
+              <View style={telaBaixa && styles.metade}>
+                <ActionButton label="Salvar progresso" onPress={salvar} loading={salvando} />
+              </View>
+              <View style={telaBaixa && styles.metade}>
+                <ActionButton
+                  label="Agora não"
+                  variant="ghost"
+                  onPress={onFechar}
+                  disabled={salvando}
+                />
+              </View>
             </View>
-          </ScrollView>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -186,7 +202,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadow.e2,
   },
-  conteudo: { padding: Space.six },
+  rolagem: { flexGrow: 0, flexShrink: 1 },
+  conteudo: { padding: Space.six, paddingBottom: Space.four },
+  rodape: { paddingHorizontal: Space.six, paddingBottom: Space.six },
+  ladoALado: { flexDirection: 'row' },
+  metade: { flex: 1 },
   eyebrow: {
     fontFamily: DSFonts.ui,
     fontSize: 11,
@@ -218,11 +238,11 @@ const styles = StyleSheet.create({
     color: TextColor.secondary,
   },
   erro: {
-    marginTop: Space.three,
+    marginBottom: Space.three,
     fontFamily: DSFonts.ui,
     fontSize: 13,
     lineHeight: 20,
     color: Accent.coral,
   },
-  acoes: { marginTop: Space.six, gap: Space.three },
+  acoes: { gap: Space.three },
 });

@@ -1,6 +1,14 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useEffect, useRef } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -46,6 +54,8 @@ const SAIDA = 200;
 /** Explica um dos recursos do app, com entrada e saída suaves. */
 export function PopupDestaque({ destaque, onFechado, acao }: PopupDestaqueProps) {
   const reduzirMovimento = useReducedMotion();
+  // Celular deitado: botões lado a lado para sobrar altura para o texto.
+  const telaBaixa = useWindowDimensions().height < 500;
   const progresso = useSharedValue(0);
   const fechando = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -104,8 +114,11 @@ export function PopupDestaque({ destaque, onFechado, acao }: PopupDestaqueProps)
 
         {destaque && (
           <Animated.View style={[styles.cartao, cartao]} accessibilityViewIsModal>
-            {/* Rola por dentro quando a tela é baixa (celular deitado). */}
-            <ScrollView contentContainerStyle={styles.conteudo} bounces={false}>
+            {/* O texto rola por dentro em telas baixas; os botões ficam sempre à vista embaixo. */}
+            <ScrollView
+              style={styles.rolagem}
+              contentContainerStyle={styles.conteudo}
+              bounces={false}>
               <View
                 style={[
                   styles.selo,
@@ -135,15 +148,18 @@ export function PopupDestaque({ destaque, onFechado, acao }: PopupDestaqueProps)
                   </View>
                 ))}
               </View>
-
-              <View style={styles.acoes}>
+            </ScrollView>
+            <View style={[styles.acoes, telaBaixa && styles.acoesLadoALado]}>
+              <View style={telaBaixa && styles.acaoLadoALado}>
                 <ActionButton
                   label={acao(destaque).rotulo}
                   onPress={() => fechar(acao(destaque).onPress)}
                 />
+              </View>
+              <View style={telaBaixa && styles.acaoLadoALado}>
                 <ActionButton label="Fechar" variant="ghost" onPress={() => fechar()} />
               </View>
-            </ScrollView>
+            </View>
           </Animated.View>
         )}
       </View>
@@ -170,7 +186,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadow.e2,
   },
-  conteudo: { padding: Space.six },
+  rolagem: { flexGrow: 0, flexShrink: 1 },
+  conteudo: { padding: Space.six, paddingBottom: Space.four },
   selo: {
     width: 64,
     height: 64,
@@ -203,5 +220,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: TextColor.primary,
   },
-  acoes: { marginTop: Space.six, gap: Space.three },
+  acoes: { paddingHorizontal: Space.six, paddingBottom: Space.six, gap: Space.three },
+  acoesLadoALado: { flexDirection: 'row' },
+  acaoLadoALado: { flex: 1 },
 });
