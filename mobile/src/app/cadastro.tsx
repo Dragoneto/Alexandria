@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
+import { AvisoServidorAcordando } from '@/components/aviso-servidor-acordando';
 import { AuthShell } from '@/components/auth-shell';
 import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
@@ -108,6 +109,7 @@ export default function SignUpScreen() {
           </Text>
         )}
         <ActionButton label="Criar conta" onPress={handleSubmit} loading={loading} />
+        <AvisoServidorAcordando carregando={loading} />
         <Text style={styles.terms}>
           Ao criar a conta você concorda com os termos de uso e a política de privacidade.
         </Text>

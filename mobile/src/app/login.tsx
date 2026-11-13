@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
+import { AvisoServidorAcordando } from '@/components/aviso-servidor-acordando';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
@@ -85,6 +86,7 @@ export default function LoginScreen() {
           </Text>
         )}
         <ActionButton label="Entrar" onPress={handleSubmit} loading={loading} />
+        <AvisoServidorAcordando carregando={loading} />
       </View>
 
       <View style={styles.footer}>

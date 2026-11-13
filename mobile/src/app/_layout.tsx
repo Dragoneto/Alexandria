@@ -6,6 +6,7 @@ import { Platform, View } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { AppErrorBoundary } from '@/components/app-error-boundary';
+import { AvisoServidorAcordando } from '@/components/aviso-servidor-acordando';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonSessionShell } from '@/components/skeletons';
 import { AuthProvider, useAuth } from '@/contexts/auth-context';
@@ -22,6 +23,9 @@ function SessionRoutes() {
     return (
       <View style={{ flex: 1 }}>
         <SkeletonSessionShell />
+        <View style={{ position: 'absolute', left: 24, right: 24, bottom: 120 }}>
+          <AvisoServidorAcordando carregando={loading} />
+        </View>
       </View>
     );
   }
