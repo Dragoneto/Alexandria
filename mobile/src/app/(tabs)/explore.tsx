@@ -21,6 +21,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { CATEGORIAS, termoDaCategoria, type Categoria } from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,15 +35,11 @@ import {
   type SearchErrorView,
 } from '@/services/open-library';
 
-const CATEGORY_OPTIONS = [
-  'Todos',
-  'Fantasia',
-  'Romance',
-  'História',
-  'Tecnologia',
-  'Biografia',
-  'Mistério',
-];
+const CATEGORY_OPTIONS: string[] = ['Todos', ...CATEGORIAS];
+
+function ehCategoria(valor: string): valor is Categoria {
+  return (CATEGORIAS as readonly string[]).includes(valor);
+}
 const ORDER_OPTIONS: { label: string; value: BookSearchOrder }[] = [
   { label: 'Mais relevantes', value: 'relevance' },
   { label: 'Mais recentes', value: 'newest' },
@@ -62,14 +59,26 @@ function firstParam(value: string | string[] | undefined): string {
 export default function Explorar() {
   const theme = useTheme();
   const router = useRouter();
-  const params = useLocalSearchParams<{ q?: string | string[]; categoria?: string | string[] }>();
-  const initialQuery = firstParam(params.q).trim();
+  const params = useLocalSearchParams<{
+    q?: string | string[];
+    categoria?: string | string[];
+    t?: string | string[];
+  }>();
   const paramCategory = firstParam(params.categoria).trim();
-  const initialCategory = CATEGORY_OPTIONS.includes(paramCategory) ? paramCategory : '';
+  const initialCategory = ehCategoria(paramCategory) ? paramCategory : '';
+  // Vindo de uma categoria da home, o termo da busca fica por trás e a caixa fica livre.
+  const initialQuery = initialCategory ? '' : firstParam(params.q).trim();
+  const paramCategoryKey = initialCategory ? `${initialCategory}|${firstParam(params.t)}` : '';
+  // O "t" muda a cada toque na home, então repetir a mesma busca de lá também atualiza aqui.
+  const paramQueryKey = initialQuery ? `${initialQuery}|${firstParam(params.t)}` : '';
   const [query, setQuery] = useState(initialQuery);
   const { focado: buscaFocada, propsDeFoco } = useFoco();
-  const [submittedQuery, setSubmittedQuery] = useState(initialQuery);
+  const [submittedQuery, setSubmittedQuery] = useState(() =>
+    initialCategory ? termoDaCategoria(initialCategory) : initialQuery,
+  );
   const [category, setCategory] = useState(initialCategory || 'Todos');
+  // true quando os resultados vêm só da categoria, sem nada digitado na caixa.
+  const [buscaDaCategoria, setBuscaDaCategoria] = useState(!!initialCategory);
   const [order, setOrder] = useState<BookSearchOrder>('relevance');
   const [quality, setQuality] = useState<BookSearchQuality>('precise');
   // Ordenação e qualidade ficam recolhidas para os resultados aparecerem logo no celular.
@@ -91,8 +100,8 @@ export default function Explorar() {
   const scrollMetricsRef = useRef({ offset: 0, viewport: 0, content: 0 });
   const activeSearchKey = `${submittedQuery}\u0000${category}\u0000${order}\u0000${quality}`;
   const activeSearchKeyRef = useRef(activeSearchKey);
-  const lastParamQueryRef = useRef(initialQuery);
-  const lastParamCategoryRef = useRef(initialCategory);
+  const lastParamQueryRef = useRef(paramQueryKey);
+  const lastParamCategoryRef = useRef(paramCategoryKey);
 
   const hasActiveFilters = category !== 'Todos' || order !== 'relevance' || quality !== 'precise';
   const qualityCaption = useMemo(() => {
@@ -114,19 +123,28 @@ export default function Explorar() {
 
   // As categorias da home abrem a busca já filtrada (?categoria=Fantasia)
   useEffect(() => {
-    if (!initialCategory || initialCategory === lastParamCategoryRef.current) return;
-    lastParamCategoryRef.current = initialCategory;
-    void Promise.resolve().then(() => setCategory(initialCategory));
-  }, [initialCategory]);
+    if (!initialCategory || paramCategoryKey === lastParamCategoryRef.current) return;
+    lastParamCategoryRef.current = paramCategoryKey;
+    void Promise.resolve().then(() => {
+      setCategory(initialCategory);
+      setQuery('');
+      setError('');
+      setSubmittedQuery(termoDaCategoria(initialCategory));
+      setBuscaDaCategoria(true);
+    });
+  }, [initialCategory, paramCategoryKey]);
 
   useEffect(() => {
-    if (!initialQuery || initialQuery === lastParamQueryRef.current) return;
-    lastParamQueryRef.current = initialQuery;
+    if (!initialQuery || paramQueryKey === lastParamQueryRef.current) return;
+    lastParamQueryRef.current = paramQueryKey;
     void Promise.resolve().then(() => {
       setQuery(initialQuery);
+      setError('');
       setSubmittedQuery(initialQuery);
+      setBuscaDaCategoria(false);
+      setCategory('Todos');
     });
-  }, [initialQuery]);
+  }, [initialQuery, paramQueryKey]);
 
   useEffect(() => {
     if (!submittedQuery) return;
@@ -175,8 +193,14 @@ export default function Explorar() {
   const handleQueryChange = (value: string) => {
     setQuery(value);
     setError('');
-    if (value.trim()) return;
+    // Apagar o que foi digitado não derruba os livros da categoria que já estão na tela.
+    if (value.trim() || buscaDaCategoria) return;
+    limparResultados();
+  };
+
+  const limparResultados = () => {
     loadMoreControllerRef.current?.abort();
+    setBuscaDaCategoria(false);
     setSubmittedQuery('');
     setBooks([]);
     setTotal(0);
@@ -199,8 +223,25 @@ export default function Explorar() {
       return;
     }
     setError('');
+    // Uma busca digitada substitui a da categoria que veio da home.
+    if (buscaDaCategoria) {
+      setBuscaDaCategoria(false);
+      setCategory('Todos');
+    }
     if (normalized === submittedQuery) setRefresh((value) => value + 1);
     else setSubmittedQuery(normalized);
+  };
+
+  const escolherCategoria = (opcao: string) => {
+    setCategory(opcao);
+    // Sem nada digitado, a categoria sozinha já mostra livros.
+    if (!buscaDaCategoria && submittedQuery) return;
+    if (ehCategoria(opcao)) {
+      setSubmittedQuery(termoDaCategoria(opcao));
+      setBuscaDaCategoria(true);
+    } else if (buscaDaCategoria) {
+      limparResultados();
+    }
   };
 
   const loadMore = async () => {
@@ -252,6 +293,7 @@ export default function Explorar() {
   };
 
   const clearFilters = () => {
+    if (buscaDaCategoria) limparResultados();
     setCategory('Todos');
     setOrder('relevance');
     setQuality('precise');
@@ -318,7 +360,9 @@ export default function Explorar() {
                         paddingRight: query ? 40 : 14,
                       },
                     ]}
-                    placeholder="Ex.: Machado de Assis"
+                    placeholder={
+                      buscaDaCategoria ? 'Buscar outro título ou autor' : 'Ex.: Machado de Assis'
+                    }
                     placeholderTextColor={theme.textMuted}
                     value={query}
                     onChangeText={handleQueryChange}
@@ -403,7 +447,7 @@ export default function Explorar() {
                     accessibilityState={{ checked: active, disabled: loading }}
                     key={option}
                     disabled={loading}
-                    onPress={() => setCategory(option)}
+                    onPress={() => escolherCategoria(option)}
                     style={[
                       styles.chip,
                       { borderColor: active ? theme.accent : theme.border },
@@ -522,11 +566,16 @@ export default function Explorar() {
             ) : !loading && !error && books.length === 0 ? (
               <EmptyState
                 title="Nenhum livro encontrado"
-                message={`Não encontramos “${submittedQuery}”; tente outro título, autor ou assunto.`}
+                message={
+                  buscaDaCategoria
+                    ? `Não encontramos livros de ${category} agora; tente outra categoria ou uma busca.`
+                    : `Não encontramos “${submittedQuery}”; tente outro título, autor ou assunto.`
+                }
                 primaryAction={{
                   label: 'Fazer nova busca',
                   onPress: () => {
-                    handleQueryChange('');
+                    setQuery('');
+                    limparResultados();
                     inputRef.current?.getNativeRef()?.focus();
                   },
                 }}
@@ -538,7 +587,9 @@ export default function Explorar() {
               <>
                 <View style={styles.resultsHeader}>
                   <ThemedText style={styles.resultsTitle}>
-                    Resultados para “{submittedQuery}”
+                    {buscaDaCategoria
+                      ? `Livros de ${category}`
+                      : `Resultados para “${submittedQuery}”`}
                   </ThemedText>
                   <ThemedText themeColor="textSecondary" style={styles.resultsCaption}>
                     {qualityCaption}

@@ -32,13 +32,16 @@ import {
   embaralhar,
   sortearDestaque,
   sortearEstantes,
-  termoDaCategoria,
   type Categoria,
 } from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { getProfile, getProfilePhoto } from '@/services/auth';
 import { searchBooks, type BookSearchItem } from '@/services/open-library';
+
+// Muda a cada toque que abre o Explorar, para a mesma busca repetida ser refeita lá.
+let toques = 0;
+const proximoToque = () => ++toques;
 
 const COVER_WIDTH = 112;
 const COVER_HEIGHT = 168; // proporção 2:3, a de uma capa de verdade
@@ -103,17 +106,15 @@ export default function HomeScreen() {
     }, []),
   );
 
+  // Só a categoria vai para o Explorar: a caixa de busca chega vazia e o "t" força uma nova busca.
   const abrirCategoria = (categoria: Categoria) => {
-    const termo = termoDaCategoria(categoria);
-    router.push(
-      `/explore?q=${encodeURIComponent(termo)}&categoria=${encodeURIComponent(categoria)}` as Href,
-    );
+    router.push(`/explore?categoria=${encodeURIComponent(categoria)}&t=${proximoToque()}` as Href);
   };
 
   const handleSearch = () => {
     const normalized = searchTerm.trim();
     if (!normalized) return;
-    router.push(`/explore?q=${encodeURIComponent(normalized)}` as Href);
+    router.push(`/explore?q=${encodeURIComponent(normalized)}&t=${proximoToque()}` as Href);
   };
 
   return (
@@ -344,7 +345,9 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           <FeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={`Buscar livros em ${title}`}
-            onPress={() => router.push(`/explore?q=${encodeURIComponent(query)}` as Href)}
+            onPress={() =>
+              router.push(`/explore?q=${encodeURIComponent(query)}&t=${proximoToque()}` as Href)
+            }
             style={styles.shelfAction}>
             <Text style={styles.shelfActionText}>Buscar livros</Text>
           </FeedbackPressable>
