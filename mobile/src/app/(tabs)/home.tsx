@@ -26,6 +26,7 @@ import {
 } from '@/constants/design-system';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
+import { SinoNotificacoes } from '@/components/sino-notificacoes';
 import { SkeletonBookShelf } from '@/components/skeletons';
 import {
   CATEGORIAS,
@@ -136,23 +137,27 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.date}>{dataDeHoje()}</Text>
-            <Text style={styles.greeting} numberOfLines={1}>
+            {/* Duas linhas no máximo: em telas estreitas o nome quebra em vez de virar "…" */}
+            <Text style={styles.greeting} numberOfLines={2}>
               {firstName ? `${saudacao()}, ${firstName}` : saudacao()}
             </Text>
           </View>
 
-          <Pressable
-            onPress={() => router.push('/perfil')}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir meu perfil"
-            hitSlop={Space.two}
-            style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}>
-            {photo ? (
-              <Image source={{ uri: photo }} style={styles.avatarImage} contentFit="cover" />
-            ) : (
-              <Text style={styles.avatarLabel}>{(firstName || '?').charAt(0).toUpperCase()}</Text>
-            )}
-          </Pressable>
+          <View style={styles.headerAcoes}>
+            <SinoNotificacoes />
+            <Pressable
+              onPress={() => router.push('/perfil')}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir meu perfil"
+              hitSlop={Space.two}
+              style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}>
+              {photo ? (
+                <Image source={{ uri: photo }} style={styles.avatarImage} contentFit="cover" />
+              ) : (
+                <Text style={styles.avatarLabel}>{(firstName || '?').charAt(0).toUpperCase()}</Text>
+              )}
+            </Pressable>
+          </View>
         </View>
 
         <View style={[styles.search, buscaFocada && styles.searchFocada]}>
@@ -407,9 +412,10 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Space.four,
+    gap: Space.three,
     paddingHorizontal: ScreenInset,
   },
+  headerAcoes: { flexDirection: 'row', gap: Space.two },
   headerText: {
     flex: 1,
     gap: Space.one,
