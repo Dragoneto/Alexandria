@@ -151,6 +151,9 @@ export default function CuriosidadesScreen() {
         {CURIOSIDADES.map((item, index) => (
           <Pressable
             key={index}
+            accessibilityRole="button"
+            accessibilityState={{ selected: index === indice }}
+            accessibilityHint="Coloca esta curiosidade em destaque"
             onPress={() => setIndice(index)}
             style={({ pressed }) => [
               styles.cartao,

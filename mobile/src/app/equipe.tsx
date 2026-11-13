@@ -81,11 +81,13 @@ export default function EquipeScreen() {
         <Text style={styles.secaoTitulo}>Equipe</Text>
         {EQUIPE.map((pessoa, index) => (
           <View key={index} style={styles.cartaoPessoa}>
-              <View style={styles.avatar}>
-                <View style={styles.avatar}>
-                  <Image source={pessoa.foto} style={styles.foto} contentFit="cover" />
-                </View>
-              <Image source={pessoa.foto} style={styles.foto} contentFit="cover" />
+            <View style={styles.avatar}>
+              <Image
+                source={pessoa.foto}
+                style={styles.foto}
+                contentFit="cover"
+                accessibilityLabel={`Foto de ${pessoa.nome}`}
+              />
             </View>
 
             <Text style={styles.nome}>{pessoa.nome}</Text>
