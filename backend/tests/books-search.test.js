@@ -113,6 +113,19 @@ test('busca devolve os livros convertidos e o total', async () => {
   assert.ok(options.headers['User-Agent']);
 });
 
+test('ano de publicação no futuro distante vira desconhecido; o ano que vem continua', async () => {
+  const ano = new Date().getFullYear();
+  const obra = (n, first_publish_year) => ({ key: `/works/OL${n}W`, title: `Obra ${n}`, first_publish_year });
+  simularOpenLibrary(() =>
+    respostaJson({ numFound: 3, docs: [obra(1, 2207), obra(2, ano + 1), obra(3, ano + 2)] }),
+  );
+  const res = await buscar({ q: 'poesia' });
+  assert.deepEqual(
+    res.body.books.map((book) => book.firstPublishYear),
+    [null, ano + 1, null],
+  );
+});
+
 test('categoria e ordenação viram assunto e sort da Open Library', async () => {
   simularOpenLibrary(() => respostaJson({ numFound: 0, docs: [] }));
 

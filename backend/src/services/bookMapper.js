@@ -35,6 +35,12 @@ function positiveInteger(value, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
 }
 
+// A Open Library tem obras com ano errado (ex.: 2207). Até o ano que vem vale: há livros anunciados.
+function publishYear(value, agora = new Date()) {
+  const ano = positiveInteger(value, 0);
+  return ano && ano <= agora.getFullYear() + 1 ? ano : null;
+}
+
 function normalizeKey(value) {
   if (typeof value !== 'string' || !/^\/?works\/OL\d+W$/.test(value)) return null;
   return value.startsWith('/') ? value : `/${value}`;
@@ -64,7 +70,7 @@ function mapSearchDocument(document, selectedCategory) {
       isbn: document.isbn,
       olid: document.cover_edition_key,
     }),
-    firstPublishYear: positiveInteger(document.first_publish_year, 0) || null,
+    firstPublishYear: publishYear(document.first_publish_year),
     editionCount: positiveInteger(document.edition_count, 1),
     languages: stringArray(document.language, MAX_LANGUAGES),
     openLibraryUrl: `${OPEN_LIBRARY_URL}${key}`,
