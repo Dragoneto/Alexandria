@@ -124,6 +124,14 @@ function stringArray(value: unknown): string[] {
 }
 
 // As telas leem estes campos sem conferir; item fora do formato fica de fora
+/**
+ * Só a capa pelo ID da Open Library é garantida: numa amostra de 714 livros das estantes da home,
+ * todas as 618 capas por ID abriram, e 49 das 50 montadas pelo ISBN deram 404 (quadro vazio).
+ */
+export function temCapa(book: Pick<BookSearchItem, 'coverUrl'>): boolean {
+  return /^https:\/\/covers\.openlibrary\.org\/b\/id\/\d+-/.test(book.coverUrl ?? '');
+}
+
 function isBookItem(value: unknown): value is BookSearchItem {
   if (!value || typeof value !== 'object') return false;
   const book = value as Partial<BookSearchItem>;
@@ -172,7 +180,7 @@ export async function searchBooks(options: BookSearchOptions): Promise<BookSearc
   const valid = result.books.filter(isBookItem);
   const books =
     options.quality === 'curated'
-      ? valid.filter((book) => book.coverUrl && book.authors.length > 0)
+      ? valid.filter((book) => temCapa(book) && book.authors.length > 0)
       : valid;
   return {
     books,

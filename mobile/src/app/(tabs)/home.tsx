@@ -219,6 +219,9 @@ type EstanteProps = {
 
 /** Abaixo disso a estante parece vazia; completa com a primeira página. */
 const MINIMO_POR_ESTANTE = 6;
+/** Busca o máximo que o backend aceita: alguns livros saem por não ter capa. */
+const BUSCA_POR_ESTANTE = 20;
+const LIVROS_POR_ESTANTE = 12;
 
 /**
  * Busca uma página sorteada e embaralha o resultado. Se a página sorteada vier
@@ -230,28 +233,44 @@ async function buscarSorteado(
   signal: AbortSignal,
 ): Promise<BookSearchItem[]> {
   const buscar = async (pagina: number) =>
-    (await searchBooks({ query, category, quality: 'curated', page: pagina, limit: 12, signal }))
-      .books;
+    // "curated" deixa só livros com capa de verdade (ID da Open Library) e autor
+    (
+      await searchBooks({
+        query,
+        category,
+        quality: 'curated',
+        page: pagina,
+        limit: BUSCA_POR_ESTANTE,
+        signal,
+      })
+    ).books;
   let books = await buscar(page);
   if (books.length < MINIMO_POR_ESTANTE && page > 1) {
     const vistos = new Set(books.map((book) => book.id));
     books = [...books, ...(await buscar(1)).filter((book) => !vistos.has(book.id))];
   }
-  return embaralhar(books);
+  return embaralhar(books).slice(0, LIVROS_POR_ESTANTE);
 }
 
 /** Um livro sorteado em destaque no topo da home. */
 function Destaque({ query, category, page }: Omit<EstanteProps, 'title'>) {
   const router = useRouter();
-  const [book, setBook] = useState<BookSearchItem | null>(null);
+  const [opcoes, setOpcoes] = useState<BookSearchItem[]>([]);
   const [state, setState] = useState<'loading' | 'success' | 'hidden'>('loading');
+  // Se a capa não carregar, passa para o próximo livro sorteado em vez de mostrar um quadro vazio.
+  const book = opcoes[0] ?? null;
+  const pularLivro = () => {
+    const restantes = opcoes.slice(1);
+    setOpcoes(restantes);
+    if (!restantes.length) setState('hidden');
+  };
 
   useEffect(() => {
     const controller = new AbortController();
     buscarSorteado({ query, category, page }, controller.signal)
       .then((books) => {
         if (controller.signal.aborted) return;
-        setBook(books[0] ?? null);
+        setOpcoes(books);
         setState(books.length ? 'success' : 'hidden');
       })
       .catch(() => {
@@ -279,10 +298,12 @@ function Destaque({ query, category, page }: Omit<EstanteProps, 'title'>) {
         <View style={[styles.featuredCover, !book && styles.featuredPlaceholder]}>
           {book ? (
             <Image
+              key={book.id}
               source={{ uri: book.coverUrl ?? undefined }}
               style={styles.featuredCoverImage}
               contentFit="cover"
               transition={200}
+              onError={pularLivro}
             />
           ) : null}
         </View>
@@ -313,6 +334,12 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
   const [books, setBooks] = useState<BookSearchItem[]>([]);
   const [state, setState] = useState<'loading' | 'success' | 'empty' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
+  // Livro cuja capa não carregou sai da estante: a home só mostra livros com capa.
+  const tirarLivro = (id: string) => {
+    const restantes = books.filter((book) => book.id !== id);
+    setBooks(restantes);
+    if (!restantes.length) setState('empty');
+  };
   const loadingVisible = useLoadingGate(state === 'loading');
 
   useEffect(() => {
@@ -380,6 +407,7 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
                   style={styles.cover}
                   contentFit="cover"
                   transition={200}
+                  onError={() => tirarLivro(item.id)}
                 />
               </View>
               <Text style={styles.bookTitle} numberOfLines={2}>

@@ -185,6 +185,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: ScreenInset,
     paddingBottom: Space.twelve,
     alignItems: 'center',
+    // No computador os cartões e botões ficavam com a largura da tela inteira.
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
   },
 
   // Marca
