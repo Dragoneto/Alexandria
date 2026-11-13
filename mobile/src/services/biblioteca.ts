@@ -39,7 +39,8 @@ export function resumoDeLeitura(itens: BibliotecaItem[]): ResumoDeLeitura {
         lidos: resumo.lidos + (item.statusLeitura === 'LIDO' ? 1 : 0),
         lendo: resumo.lendo + (item.statusLeitura === 'LENDO' ? 1 : 0),
         paginasLidas: resumo.paginasLidas + paginas,
-        diasLeitura: resumo.diasLeitura + (progresso?.diasLeitura ?? 0),
+        // Dois livros lidos no mesmo dia são um dia só: sem o total do servidor, vale o maior.
+        diasLeitura: Math.max(resumo.diasLeitura, progresso?.diasLeitura ?? 0),
       };
     },
     { lidos: 0, lendo: 0, paginasLidas: 0, diasLeitura: 0 },
@@ -124,6 +125,14 @@ export async function atualizarItemBiblioteca(
 /** Conta o dia de hoje para os livros em "Lendo" (o backend ignora se o dia já contou). */
 export async function registrarDiaDeLeitura(): Promise<void> {
   await apiRequest('/api/biblioteca/dia-de-leitura', { method: 'POST' });
+}
+
+/** Dias distintos com algum livro em "Lendo"; null quando o servidor não informa. */
+export async function buscarDiasDeLeitura(signal?: AbortSignal): Promise<number | null> {
+  const result = await apiRequest<{ diasLeitura?: number }>('/api/biblioteca/dias-de-leitura', {
+    signal,
+  });
+  return typeof result?.diasLeitura === 'number' ? result.diasLeitura : null;
 }
 
 export async function removerDaBiblioteca(id: number): Promise<void> {

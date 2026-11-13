@@ -178,7 +178,7 @@ test('livroEstaNaBiblioteca responde true para o livro com qualquer status', asy
   assert.equal(await harness.biblioteca.livroEstaNaBiblioteca('OL1W'), false);
 });
 
-test('resumoDeLeitura soma livros lidos inteiros e o resto até a página atual', () => {
+test('resumoDeLeitura soma livros lidos inteiros e o resto até a página atual; dias não se somam', () => {
   const { biblioteca } = createServices();
   const progresso = (paginaAtual, paginasTotal, diasLeitura) => ({
     paginaAtual,
@@ -197,7 +197,7 @@ test('resumoDeLeitura soma livros lidos inteiros e o resto até a página atual'
     lidos: 2,
     lendo: 1,
     paginasLidas: 300 + 120 + 150,
-    diasLeitura: 7,
+    diasLeitura: 4,
   });
   assert.deepEqual(biblioteca.resumoDeLeitura([]), {
     lidos: 0,
@@ -205,6 +205,19 @@ test('resumoDeLeitura soma livros lidos inteiros e o resto até a página atual'
     paginasLidas: 0,
     diasLeitura: 0,
   });
+});
+
+test('buscarDiasDeLeitura lê o total do servidor e aceita servidor antigo', async () => {
+  const harness = createServices();
+  await harness.session.saveAuth(session);
+  harness.fetch = async (url) => {
+    assert.match(String(url), /\/api\/biblioteca\/dias-de-leitura$/);
+    return json({ diasLeitura: 12 });
+  };
+  assert.equal(await harness.biblioteca.buscarDiasDeLeitura(), 12);
+
+  harness.fetch = async () => json({});
+  assert.equal(await harness.biblioteca.buscarDiasDeLeitura(), null);
 });
 
 test('porcentagemLida só existe quando o livro tem número de páginas', () => {

@@ -7,6 +7,7 @@ import { ProgressoDoLivro } from '@/components/progresso-do-livro';
 import { Accent, DSFonts, Ink, Mint, Radius, Space, TextColor } from '@/constants/design-system';
 import { listarMinhasAvaliacoes } from '@/services/avaliacoes';
 import {
+  buscarDiasDeLeitura,
   listarBiblioteca,
   resumoDeLeitura,
   type BibliotecaItem,
@@ -32,14 +33,19 @@ export function ResumoLeitura() {
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
-      Promise.all([listarBiblioteca(controller.signal), listarMinhasAvaliacoes(controller.signal)])
-        .then(([itens, avaliacoes]) =>
+      Promise.all([
+        listarBiblioteca(controller.signal),
+        listarMinhasAvaliacoes(controller.signal),
+        buscarDiasDeLeitura(controller.signal).catch(() => null),
+      ])
+        .then(([itens, avaliacoes, dias]) => {
+          const resumo = resumoDeLeitura(itens);
           setDados({
-            resumo: resumoDeLeitura(itens),
+            resumo: dias === null ? resumo : { ...resumo, diasLeitura: dias },
             avaliacoes: avaliacoes.length,
             lendo: itens.filter((item) => item.statusLeitura === 'LENDO'),
-          }),
-        )
+          });
+        })
         .catch(() => {
           // Sem os números, o perfil continua com os dados da conta.
         });
