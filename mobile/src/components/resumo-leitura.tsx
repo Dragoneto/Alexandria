@@ -198,7 +198,8 @@ const styles = StyleSheet.create({
   },
   titulo: { fontFamily: DSFonts.display, fontSize: 20, lineHeight: 26, color: TextColor.primary },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.two },
-  reservado: { minHeight: 88 * 2 + Space.two + Space.four + 13 },
+  // Mesma altura do esqueleto: grade 2×2 de 96 px e um livro em "Lendo agora" (78 px)
+  reservado: { minHeight: 96 * 2 + Space.two + Space.four + 11 + Space.two + 78 },
   item: {
     flexGrow: 1,
     flexBasis: '45%',

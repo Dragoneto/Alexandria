@@ -23,7 +23,7 @@ import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { PopupProgresso } from '@/components/popup-progresso';
 import { ProgressoDoLivro } from '@/components/progresso-do-livro';
-import { SkeletonGrid } from '@/components/skeletons';
+import { SkeletonLibrary } from '@/components/skeletons';
 import { DisabledOpacity, TouchMin } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useFoco } from '@/hooks/use-foco';
@@ -340,11 +340,17 @@ export default function Biblioteca() {
                 style={styles.filtersRow}>
                 {FILTERS.map((option) => {
                   const active = filter === option.value;
+                  // Antes de a lista chegar não há contagem: um "0" ali diria que a estante está vazia.
+                  const contagem = estado === 'success' ? counters[option.value] : null;
                   return (
                     <TouchableOpacity
                       key={option.value}
                       accessibilityRole="radio"
-                      accessibilityLabel={`Filtrar por ${option.label}, ${counters[option.value]} ${counters[option.value] === 1 ? 'livro' : 'livros'}`}
+                      accessibilityLabel={
+                        contagem === null
+                          ? `Filtrar por ${option.label}`
+                          : `Filtrar por ${option.label}, ${contagem} ${contagem === 1 ? 'livro' : 'livros'}`
+                      }
                       aria-checked={active}
                       onPress={() => setFilter(option.value)}
                       style={[
@@ -362,9 +368,11 @@ export default function Biblioteca() {
                         themeColor={active ? 'accent' : 'textSecondary'}
                         style={styles.filterChipText}>
                         {option.label}
-                        <ThemedText themeColor="textSecondary" style={styles.filterChipCount}>
-                          {`  ${counters[option.value]}`}
-                        </ThemedText>
+                        {contagem !== null && (
+                          <ThemedText themeColor="textSecondary" style={styles.filterChipCount}>
+                            {`  ${contagem}`}
+                          </ThemedText>
+                        )}
                       </ThemedText>
                     </TouchableOpacity>
                   );
@@ -405,11 +413,8 @@ export default function Biblioteca() {
             {/* LOADING / ERRO / VAZIO / GRID */}
             {estado === 'loading' ? (
               showLoading ? (
-                <ThemedView
-                  accessibilityLiveRegion="polite"
-                  type="backgroundElement"
-                  style={styles.emptyCard}>
-                  <SkeletonGrid />
+                <ThemedView accessibilityLiveRegion="polite">
+                  <SkeletonLibrary />
                 </ThemedView>
               ) : null
             ) : estado === 'error' ? (
