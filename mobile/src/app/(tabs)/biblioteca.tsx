@@ -458,10 +458,12 @@ export default function Biblioteca() {
                     accessibilityRole="button"
                     accessibilityLabel={buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
                     onPress={limparBuscaEFiltros}
-                    style={[styles.clearFiltersButton, { borderColor: theme.accent }]}>
-                    <ThemedText themeColor="accent" style={styles.clearFiltersText}>
-                      {buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
-                    </ThemedText>
+                    style={styles.clearFiltersTarget}>
+                    <View style={[styles.clearFiltersButton, { borderColor: theme.accent }]}>
+                      <ThemedText themeColor="accent" style={styles.clearFiltersText}>
+                        {buscaAtiva ? 'Limpar busca e filtros' : 'Limpar filtros'}
+                      </ThemedText>
+                    </View>
                   </TouchableOpacity>
                 )}
               </ThemedView>
@@ -674,7 +676,11 @@ export default function Biblioteca() {
                     busy: savingStatus === value,
                   }}
                   disabled={savingStatus !== null}
-                  style={styles.modalOption}
+                  style={[
+                    styles.modalOption,
+                    // As outras opções ficam apagadas enquanto uma está sendo salva.
+                    savingStatus !== null && savingStatus !== value && { opacity: DisabledOpacity },
+                  ]}
                   onPress={() => {
                     if (statusModalItemId !== null) {
                       handleStatusChange(statusModalItemId, value as StatusLeitura);
@@ -776,13 +782,18 @@ const styles = StyleSheet.create({
   emptyCard: { borderRadius: 16, padding: Spacing.four, gap: 8 },
   emptyTitle: { fontSize: 18 },
   emptyText: { lineHeight: 22 },
-  clearFiltersButton: {
+  // A pílula tem 42 px; a área de toque em volta chega a 44 sem mudar o visual nem a posição.
+  clearFiltersTarget: {
     alignSelf: 'flex-start',
+    minHeight: TouchMin,
+    justifyContent: 'center',
+    marginTop: 3,
+  },
+  clearFiltersButton: {
     borderWidth: 1,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginTop: 4,
   },
   clearFiltersText: { fontSize: 13, fontWeight: '800' },
   grid: { gap: Spacing.three },

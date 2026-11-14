@@ -29,6 +29,8 @@ type Props = Omit<PressableProps, 'disabled' | 'style' | 'children'> & {
    */
   contentStyle?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  /** Algo desenhado por cima do cartão inteiro (fora do miolo), como um indicador no canto. */
+  overlay?: ReactNode;
   loading?: boolean;
   loadingColor?: string;
 };
@@ -38,6 +40,7 @@ export function FeedbackPressable({
   children,
   style,
   contentStyle,
+  overlay,
   disabled = false,
   loading = false,
   loadingColor = Mint.mint400,
@@ -82,6 +85,7 @@ export function FeedbackPressable({
         importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}>
         {children}
       </View>
+      {overlay}
       {loading && (
         <View style={styles.indicator} pointerEvents="none">
           <ActivityIndicator color={loadingColor} />
