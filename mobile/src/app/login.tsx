@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AvisoServidorAcordando } from '@/components/aviso-servidor-acordando';
@@ -9,6 +9,7 @@ import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { loginUser } from '@/services/auth';
 import { consumirDestino } from '@/services/destino-pos-login';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -71,14 +72,14 @@ export default function LoginScreen() {
           onSubmitEditing={handleSubmit}
         />
 
-        <Pressable
+        <FeedbackPressable
           accessibilityRole="button"
           onPress={() =>
             router.push({ pathname: '/esqueci-senha', params: { email: email.trim() } })
           }
-          style={({ pressed }) => [styles.forgot, pressed && styles.pressed]}>
+          style={styles.forgot}>
           <Text style={styles.forgotLabel}>Esqueci minha senha</Text>
-        </Pressable>
+        </FeedbackPressable>
       </View>
 
       <View style={styles.actions}>
@@ -93,12 +94,12 @@ export default function LoginScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Ainda não tem conta?</Text>
-        <Pressable
+        <FeedbackPressable
           accessibilityRole="button"
           onPress={() => router.replace('/cadastro')}
-          style={({ pressed }) => [styles.footerLinkArea, pressed && styles.pressed]}>
+          style={styles.footerLinkArea}>
           <Text style={styles.footerLink}>Criar conta</Text>
-        </Pressable>
+        </FeedbackPressable>
       </View>
     </AuthShell>
   );

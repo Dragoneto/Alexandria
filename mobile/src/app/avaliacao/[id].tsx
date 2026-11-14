@@ -2,14 +2,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   type TextInputInstance,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,7 +16,6 @@ import { Estrelas } from '@/components/estrelas';
 import { ThemedText } from '@/components/themed-text';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ThemedView } from '@/components/themed-view';
-import { DisabledOpacity } from '@/constants/design-system';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { SkeletonList } from '@/components/skeletons';
@@ -260,7 +257,7 @@ export default function ConversaDaAvaliacao() {
       </ThemedText>
       <View style={styles.acoes}>
         {!conversa.inexistente && (
-          <TouchableOpacity
+          <FeedbackPressable
             accessibilityRole="button"
             disabled={enviando}
             onPress={() => void usarRascunho(orfao)}
@@ -268,9 +265,9 @@ export default function ConversaDaAvaliacao() {
             <ThemedText themeColor="accent" style={styles.smallButtonText}>
               Usar como comentário
             </ThemedText>
-          </TouchableOpacity>
+          </FeedbackPressable>
         )}
-        <TouchableOpacity
+        <FeedbackPressable
           accessibilityRole="button"
           accessibilityLabel="Descartar texto não enviado"
           onPress={() => void rascunhos.descartarOrfao(orfao.paiId)}
@@ -278,7 +275,7 @@ export default function ConversaDaAvaliacao() {
           <ThemedText themeColor="danger" style={styles.smallButtonText}>
             Descartar
           </ThemedText>
-        </TouchableOpacity>
+        </FeedbackPressable>
       </View>
     </ThemedView>
   ));
@@ -360,22 +357,17 @@ export default function ConversaDaAvaliacao() {
                     <ThemedText type="subtitle" style={styles.conversaTitle}>
                       Conversa
                     </ThemedText>
-                    <TouchableOpacity
+                    <FeedbackPressable
                       accessibilityRole="button"
                       accessibilityLabel="Atualizar conversa"
-                      disabled={conversa.carregando}
+                      loading={conversa.carregando}
+                      loadingColor={theme.accent}
                       onPress={() => void conversa.recarregar()}
-                      style={[
-                        styles.smallButton,
-                        {
-                          borderColor: theme.border,
-                          opacity: conversa.carregando ? DisabledOpacity : 1,
-                        },
-                      ]}>
+                      style={[styles.smallButton, { borderColor: theme.border }]}>
                       <ThemedText themeColor="accent" style={styles.smallButtonText}>
-                        {conversa.carregando ? 'Atualizando…' : 'Atualizar'}
+                        Atualizar
                       </ThemedText>
-                    </TouchableOpacity>
+                    </FeedbackPressable>
                   </View>
 
                   {!!conversa.erro && (
@@ -411,32 +403,21 @@ export default function ConversaDaAvaliacao() {
                               styles.maisRow,
                               { marginLeft: recuoVisual(linha.nivel) * RECUO },
                             ]}>
-                            <TouchableOpacity
+                            <FeedbackPressable
                               accessibilityRole="button"
                               disabled={ocupada}
+                              loading={!!lista?.carregando}
+                              loadingColor={theme.accent}
                               onPress={() => void conversa.carregarMais(linha.paiId)}
-                              style={[
-                                styles.smallButton,
-                                {
-                                  borderColor: theme.border,
-                                  opacity: ocupada ? DisabledOpacity : 1,
-                                },
-                              ]}>
-                              {lista?.carregando ? (
-                                <ActivityIndicator
-                                  accessibilityLabel="Carregando respostas"
-                                  color={theme.accent}
-                                />
-                              ) : (
-                                <ThemedText themeColor="accent" style={styles.smallButtonText}>
-                                  {lista?.erro
-                                    ? 'Tentar de novo'
-                                    : linha.aberta
-                                      ? 'Ver mais respostas'
-                                      : `Ver ${linha.faltam === 1 ? '1 resposta' : `${linha.faltam} respostas`}`}
-                                </ThemedText>
-                              )}
-                            </TouchableOpacity>
+                              style={[styles.smallButton, { borderColor: theme.border }]}>
+                              <ThemedText themeColor="accent" style={styles.smallButtonText}>
+                                {lista?.erro
+                                  ? 'Tentar de novo'
+                                  : linha.aberta
+                                    ? 'Ver mais respostas'
+                                    : `Ver ${linha.faltam === 1 ? '1 resposta' : `${linha.faltam} respostas`}`}
+                              </ThemedText>
+                            </FeedbackPressable>
                             {!!lista?.erro && (
                               <ThemedText
                                 themeColor="danger"
@@ -493,33 +474,19 @@ export default function ConversaDaAvaliacao() {
                               {confirmando ? (
                                 <View style={styles.acoes}>
                                   <ThemedText style={styles.confirmText}>Excluir mesmo?</ThemedText>
-                                  <TouchableOpacity
+                                  <FeedbackPressable
                                     accessibilityRole="button"
                                     accessibilityLabel={`Confirmar exclusão do comentário de ${nome}`}
-                                    disabled={excluindo}
+                                    loading={excluindo}
+                                    loadingColor={theme.danger}
                                     onPress={() => void excluir(comentario)}
-                                    style={[
-                                      styles.smallButton,
-                                      {
-                                        borderColor: theme.danger,
-                                        opacity: excluindo ? DisabledOpacity : 1,
-                                      },
-                                    ]}>
-                                    {excluindo ? (
-                                      <ActivityIndicator
-                                        accessibilityLabel="Excluindo comentário"
-                                        color={theme.danger}
-                                      />
-                                    ) : (
-                                      <ThemedText
-                                        themeColor="danger"
-                                        style={styles.smallButtonText}>
-                                        Confirmar
-                                      </ThemedText>
-                                    )}
-                                  </TouchableOpacity>
+                                    style={[styles.smallButton, { borderColor: theme.danger }]}>
+                                    <ThemedText themeColor="danger" style={styles.smallButtonText}>
+                                      Confirmar
+                                    </ThemedText>
+                                  </FeedbackPressable>
                                   {/* Cancelar por último: fica mais perto de onde estava o Excluir. */}
-                                  <TouchableOpacity
+                                  <FeedbackPressable
                                     accessibilityRole="button"
                                     accessibilityLabel="Cancelar exclusão"
                                     disabled={excluindo}
@@ -530,11 +497,11 @@ export default function ConversaDaAvaliacao() {
                                       style={styles.smallButtonText}>
                                       Cancelar
                                     </ThemedText>
-                                  </TouchableOpacity>
+                                  </FeedbackPressable>
                                 </View>
                               ) : (
                                 <View style={styles.acoes}>
-                                  <TouchableOpacity
+                                  <FeedbackPressable
                                     accessibilityRole="button"
                                     accessibilityLabel={`Responder a ${nome}`}
                                     disabled={travado}
@@ -543,9 +510,9 @@ export default function ConversaDaAvaliacao() {
                                     <ThemedText themeColor="accent" style={styles.smallButtonText}>
                                       Responder
                                     </ThemedText>
-                                  </TouchableOpacity>
+                                  </FeedbackPressable>
                                   {comentario.podeEditar && (
-                                    <TouchableOpacity
+                                    <FeedbackPressable
                                       accessibilityRole="button"
                                       accessibilityLabel="Editar seu comentário"
                                       disabled={travado}
@@ -556,10 +523,10 @@ export default function ConversaDaAvaliacao() {
                                         style={styles.smallButtonText}>
                                         Editar
                                       </ThemedText>
-                                    </TouchableOpacity>
+                                    </FeedbackPressable>
                                   )}
                                   {comentario.podeExcluir && (
-                                    <TouchableOpacity
+                                    <FeedbackPressable
                                       accessibilityRole="button"
                                       accessibilityLabel="Excluir seu comentário"
                                       disabled={travado}
@@ -574,7 +541,7 @@ export default function ConversaDaAvaliacao() {
                                         style={styles.smallButtonText}>
                                         Excluir
                                       </ThemedText>
-                                    </TouchableOpacity>
+                                    </FeedbackPressable>
                                   )}
                                 </View>
                               )}
@@ -586,29 +553,17 @@ export default function ConversaDaAvaliacao() {
                   )}
 
                   {principais?.temMais && (
-                    <TouchableOpacity
+                    <FeedbackPressable
                       accessibilityRole="button"
-                      disabled={principais.carregando || conversa.carregando}
+                      disabled={conversa.carregando}
+                      loading={principais.carregando}
+                      loadingColor={theme.accent}
                       onPress={() => void conversa.carregarMais(null)}
-                      style={[
-                        styles.outlineButton,
-                        {
-                          borderColor: theme.accent,
-                          opacity:
-                            principais.carregando || conversa.carregando ? DisabledOpacity : 1,
-                        },
-                      ]}>
-                      {principais.carregando ? (
-                        <ActivityIndicator
-                          accessibilityLabel="Carregando mais comentários"
-                          color={theme.accent}
-                        />
-                      ) : (
-                        <ThemedText themeColor="accent" style={styles.buttonText}>
-                          {principais.erro ? 'Tentar de novo' : 'Carregar mais comentários'}
-                        </ThemedText>
-                      )}
-                    </TouchableOpacity>
+                      style={[styles.outlineButton, { borderColor: theme.accent }]}>
+                      <ThemedText themeColor="accent" style={styles.buttonText}>
+                        {principais.erro ? 'Tentar de novo' : 'Carregar mais comentários'}
+                      </ThemedText>
+                    </FeedbackPressable>
                   )}
                   {!!principais?.erro && (
                     <ThemedText
@@ -639,7 +594,7 @@ export default function ConversaDaAvaliacao() {
                         ? `Respondendo a ${modo.alvo.autor.nome || 'Leitor'}`
                         : 'Editando seu comentário'}
                     </ThemedText>
-                    <TouchableOpacity
+                    <FeedbackPressable
                       accessibilityRole="button"
                       accessibilityLabel={
                         modo.tipo === 'responder' ? 'Cancelar resposta' : 'Cancelar edição'
@@ -650,7 +605,7 @@ export default function ConversaDaAvaliacao() {
                       <ThemedText themeColor="textSecondary" style={styles.smallButtonText}>
                         Cancelar
                       </ThemedText>
-                    </TouchableOpacity>
+                    </FeedbackPressable>
                   </View>
                 )}
 
@@ -674,7 +629,7 @@ export default function ConversaDaAvaliacao() {
                     <ThemedText themeColor="textSecondary" style={styles.modoText}>
                       Rascunho restaurado
                     </ThemedText>
-                    <TouchableOpacity
+                    <FeedbackPressable
                       accessibilityRole="button"
                       accessibilityLabel="Descartar rascunho"
                       disabled={enviando}
@@ -683,7 +638,7 @@ export default function ConversaDaAvaliacao() {
                       <ThemedText themeColor="danger" style={styles.smallButtonText}>
                         Descartar
                       </ThemedText>
-                    </TouchableOpacity>
+                    </FeedbackPressable>
                   </View>
                 )}
 
@@ -718,27 +673,22 @@ export default function ConversaDaAvaliacao() {
                     ]}
                     {...propsDeFoco}
                   />
-                  <TouchableOpacity
+                  <FeedbackPressable
                     accessibilityRole="button"
                     accessibilityLabel={
                       modo.tipo === 'editar' ? 'Salvar comentário' : 'Enviar comentário'
                     }
-                    aria-disabled={!podeEnviar}
+                    aria-disabled={!podeEnviar || enviando}
                     aria-busy={enviando}
                     disabled={!podeEnviar}
+                    loading={enviando}
+                    loadingColor={theme.background}
                     onPress={() => void enviar()}
-                    style={[
-                      styles.sendButton,
-                      { backgroundColor: theme.accent, opacity: podeEnviar ? 1 : DisabledOpacity },
-                    ]}>
-                    {enviando ? (
-                      <ActivityIndicator accessibilityLabel="Enviando" color={theme.background} />
-                    ) : (
-                      <ThemedText style={[styles.sendText, { color: theme.background }]}>
-                        {modo.tipo === 'editar' ? 'Salvar' : 'Enviar'}
-                      </ThemedText>
-                    )}
-                  </TouchableOpacity>
+                    style={[styles.sendButton, { backgroundColor: theme.accent }]}>
+                    <ThemedText style={[styles.sendText, { color: theme.background }]}>
+                      {modo.tipo === 'editar' ? 'Salvar' : 'Enviar'}
+                    </ThemedText>
+                  </FeedbackPressable>
                 </View>
                 <ThemedText themeColor="textSecondary" style={styles.contador}>
                   {tamanho}/{TEXTO_COMENTARIO_MAXIMO}

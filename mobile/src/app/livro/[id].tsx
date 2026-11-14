@@ -21,7 +21,7 @@ import { ProgressoDoLivro } from '@/components/progresso-do-livro';
 import { StatusNaBiblioteca } from '@/components/status-na-biblioteca';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { DisabledOpacity, Mint, withAlpha } from '@/constants/design-system';
+import { DisabledOpacity, Mint, TouchMin, withAlpha } from '@/constants/design-system';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useAvaliacoesDoLivro } from '@/hooks/use-avaliacoes-do-livro';
 import { useItemDaBiblioteca } from '@/hooks/use-item-da-biblioteca';
@@ -243,7 +243,9 @@ export default function DetalheDoLivro() {
                     {longDescription && (
                       <TouchableOpacity
                         accessibilityRole="button"
-                        onPress={() => setExpanded((value) => !value)}>
+                        aria-expanded={expanded}
+                        onPress={() => setExpanded((value) => !value)}
+                        style={styles.linkAlvo}>
                         <ThemedText themeColor="accent" style={styles.link}>
                           {expanded ? 'Mostrar menos' : 'Ler sinopse completa'}
                         </ThemedText>
@@ -309,7 +311,8 @@ export default function DetalheDoLivro() {
 
                 <TouchableOpacity
                   accessibilityRole="link"
-                  onPress={() => void openInOpenLibrary(book.openLibraryUrl)}>
+                  onPress={() => void openInOpenLibrary(book.openLibraryUrl)}
+                  style={styles.linkAlvo}>
                   <ThemedText themeColor="accent" style={styles.link}>
                     Ver na Open Library
                   </ThemedText>
@@ -413,6 +416,8 @@ const styles = StyleSheet.create({
   description: { marginTop: Spacing.two, fontSize: 15, lineHeight: 23 },
   translationNote: { marginTop: Spacing.one, fontSize: 12, lineHeight: 17 },
   link: { fontSize: 13, fontWeight: '800', paddingVertical: Spacing.two },
+  // Texto de 40 px de altura: a área de toque chega a 44 sem mudar o texto de lugar.
+  linkAlvo: { minHeight: TouchMin, justifyContent: 'center' },
   linkError: { fontSize: 13, lineHeight: 20 },
   addButtonText: { fontSize: 14, fontWeight: '800' },
   rateButton: {

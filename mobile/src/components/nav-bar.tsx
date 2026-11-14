@@ -1,6 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/tabs';
 import { useEffect, type ReactNode } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -19,6 +19,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 const ALTURA_BARRA = 64;
 const TAMANHO_ICONE = 24;
@@ -99,20 +100,22 @@ function BotaoAba({ titulo, focado, icone, onPress, onLongPress }: BotaoAbaProps
   }));
 
   return (
-    <Pressable
+    <FeedbackPressable
       onPress={onPress}
       onLongPress={onLongPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: focado }}
+      // O react-native-web não repassa o accessibilityState para o leitor de tela
+      aria-selected={focado}
       accessibilityLabel={titulo}
-      style={({ pressed }) => [styles.aba, pressed && styles.abaPressed]}>
+      style={styles.aba}>
       <View style={styles.conteudoAba}>
         {icone}
         <Animated.Text numberOfLines={1} style={[styles.nome, nomeStyle]}>
           {titulo}
         </Animated.Text>
       </View>
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 

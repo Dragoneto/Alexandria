@@ -1,8 +1,9 @@
 import { type Href, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Ink, Mint, Radius } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type BotaoVoltarProps = {
   /** Para onde ir quando a tela foi aberta direto pelo link e não há tela anterior. */
@@ -13,18 +14,18 @@ type BotaoVoltarProps = {
 export function BotaoVoltar({ fallback = '/perfil', style }: BotaoVoltarProps) {
   const router = useRouter();
   return (
-    <Pressable
+    <FeedbackPressable
       onPress={() => (router.canGoBack() ? router.back() : router.replace(fallback))}
       hitSlop={10}
       accessibilityRole="button"
       accessibilityLabel="Voltar"
-      style={({ pressed }) => [styles.voltar, pressed && styles.pressionado, style]}>
+      style={[styles.voltar, style]}>
       <SymbolView
         name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
         size={20}
         tintColor={Mint.mint400}
       />
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 

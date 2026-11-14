@@ -1,15 +1,7 @@
 import { useRouter } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  LayoutAnimation,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { LayoutAnimation, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
   FadeIn,
   useAnimatedStyle,
@@ -42,6 +34,7 @@ import {
 } from '@/constants/faq';
 import { useFoco } from '@/hooks/use-foco';
 import { MaxContentWidth } from '@/constants/theme';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 const VISUAL: Record<Assunto, { cor: string; icone: SymbolViewProps['name'] }> = {
   Conta: {
@@ -144,18 +137,19 @@ export default function AjudaScreen() {
             selectionColor={Mint.mint400}
           />
           {busca.length > 0 && (
-            <Pressable
+            <FeedbackPressable
               onPress={() => setBusca('')}
               hitSlop={Space.two}
               accessibilityRole="button"
               accessibilityLabel="Limpar busca"
-              style={styles.limpar}>
+              style={styles.limpar}
+              contentStyle={styles.mioloPilula}>
               <SymbolView
                 name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }}
                 size={18}
                 tintColor={TextColor.secondary}
               />
-            </Pressable>
+            </FeedbackPressable>
           )}
         </View>
 
@@ -252,12 +246,12 @@ export default function AjudaScreen() {
             <Text style={styles.vazioTexto}>
               Tente uma palavra só, como “senha”, “capa” ou “páginas”, ou veja todas as perguntas.
             </Text>
-            <Pressable
+            <FeedbackPressable
               onPress={limparFiltros}
               accessibilityRole="button"
-              style={({ pressed }) => [styles.botaoSecundario, pressed && styles.pressionado]}>
+              style={styles.botaoSecundario}>
               <Text style={styles.botaoSecundarioTexto}>Ver todas as perguntas</Text>
-            </Pressable>
+            </FeedbackPressable>
           </View>
         )}
 
@@ -275,12 +269,12 @@ export default function AjudaScreen() {
               <Text style={styles.contatoTexto}>Fale com a equipe que criou o Alexandria.</Text>
             </View>
           </View>
-          <Pressable
+          <FeedbackPressable
             onPress={() => router.push('/equipe')}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}>
+            style={styles.botao}>
             <Text style={styles.botaoTexto}>Conhecer a equipe</Text>
-          </Pressable>
+          </FeedbackPressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -297,19 +291,19 @@ type ChipProps = {
 
 function Chip({ titulo, ativo, onPress, icone, cor = Mint.mint400 }: ChipProps) {
   return (
-    <Pressable
+    <FeedbackPressable
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ checked: ativo }}
       aria-checked={ativo}
-      style={({ pressed }) => [
+      style={[
         styles.chip,
         ativo && { backgroundColor: withAlpha(cor, 0.14), borderColor: withAlpha(cor, 0.5) },
-        pressed && styles.pressionado,
-      ]}>
+      ]}
+      contentStyle={styles.mioloPilula}>
       {icone && <SymbolView name={icone} size={14} tintColor={cor} />}
       <Text style={[styles.chipTexto, ativo && { color: cor }]}>{titulo}</Text>
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 
@@ -361,12 +355,13 @@ function ItemPergunta({
 
   return (
     <View style={[styles.item, aberta && { borderColor: withAlpha(cor, 0.4) }]}>
-      <Pressable
+      <FeedbackPressable
         onPress={onPress}
         accessibilityRole="button"
         accessibilityState={{ expanded: aberta }}
         aria-expanded={aberta}
-        style={({ pressed }) => [styles.perguntaLinha, pressed && styles.pressionado]}>
+        style={styles.perguntaLinha}
+        contentStyle={styles.mioloLinha}>
         <Destacado
           texto={pergunta}
           termo={termo}
@@ -379,23 +374,24 @@ function ItemPergunta({
             tintColor={aberta ? cor : TextColor.secondary}
           />
         </Animated.View>
-      </Pressable>
+      </FeedbackPressable>
 
       {aberta && (
         <Animated.View entering={FadeIn.duration(200)}>
           <Destacado texto={resposta} termo={termo} style={styles.resposta} />
           {acao && (
-            <Pressable
+            <FeedbackPressable
               onPress={() => onAcao(acao.rota)}
               accessibilityRole="link"
-              style={({ pressed }) => [styles.acao, pressed && styles.pressionado]}>
+              style={styles.acao}
+              contentStyle={styles.mioloPilula}>
               <Text style={[styles.acaoTexto, { color: cor }]}>{acao.rotulo}</Text>
               <SymbolView
                 name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
                 size={14}
                 tintColor={cor}
               />
-            </Pressable>
+            </FeedbackPressable>
           )}
         </Animated.View>
       )}
@@ -637,4 +633,6 @@ const styles = StyleSheet.create({
   },
   botaoPressionado: { backgroundColor: Mint.mint500 },
   botaoTexto: { fontFamily: DSFonts.ui, fontSize: 15, fontWeight: '700', color: Ink.ink900 },
+  mioloLinha: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Space.three },
+  mioloPilula: { flexDirection: 'row', alignItems: 'center', gap: Space.two },
 });

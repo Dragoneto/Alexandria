@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  type ScrollViewInstance,
   type TextInputInstance,
   TouchableOpacity,
   View,
@@ -18,6 +19,7 @@ import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { LinhaDeChips } from '@/components/linha-de-chips';
+import { PulsoDeDestaque } from '@/components/pulso-de-destaque';
 import { SkeletonGrid } from '@/components/skeletons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -88,6 +90,8 @@ export default function Explorar() {
   // Ordenação e qualidade ficam recolhidas para os resultados aparecerem logo no celular.
   const [maisFiltros, setMaisFiltros] = useState(false);
   const [books, setBooks] = useState<BookSearchItem[]>([]);
+  // Resultado da última busca concluída: vazio e sucesso não são deduzidos da lista.
+  const [resultado, setResultado] = useState<'success' | 'empty' | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -100,6 +104,10 @@ export default function Explorar() {
   const [loadMoreError, setLoadMoreError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const inputRef = useRef<TextInputInstance>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  // Altura da caixa de busca dentro da página, para os botões lá de baixo voltarem até ela
+  const caixaDeBuscaYRef = useRef(0);
+  const [pulsoDaBusca, setPulsoDaBusca] = useState(0);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const scrollMetricsRef = useRef({ offset: 0, viewport: 0, content: 0 });
   const activeSearchKey = `${submittedQuery}\u0000${category}\u0000${order}\u0000${quality}`;
@@ -161,6 +169,7 @@ export default function Explorar() {
       await Promise.resolve();
       if (controller.signal.aborted) return;
       setLoading(true);
+      setResultado(null);
       setError('');
       setSearchFailure(null);
       setLoadMoreError('');
@@ -177,6 +186,7 @@ export default function Explorar() {
         setTotal(result.total);
         setPage(1);
         setHasMore(result.hasMore);
+        setResultado(result.books.length ? 'success' : 'empty');
       } catch (failure) {
         if (!controller.signal.aborted) {
           setBooks([]);
@@ -208,6 +218,7 @@ export default function Explorar() {
     setBuscaDaCategoria(false);
     setSubmittedQuery('');
     setBooks([]);
+    setResultado(null);
     setTotal(0);
     setPage(1);
     setHasMore(false);
@@ -217,14 +228,14 @@ export default function Explorar() {
 
   const handleClearQuery = () => {
     handleQueryChange('');
-    inputRef.current?.getNativeRef()?.focus();
+    inputRef.current?.focus();
   };
 
   const handleSearch = () => {
     const normalized = query.trim();
     if (normalized.length < 2) {
       setError('Digite pelo menos dois caracteres para buscar.');
-      inputRef.current?.getNativeRef()?.focus();
+      inputRef.current?.focus();
       return;
     }
     setError('');
@@ -304,6 +315,17 @@ export default function Explorar() {
     setQuality('precise');
   };
 
+  /** Sobe até a caixa de busca, faz ela pulsar e põe o cursor no campo. */
+  const irParaBusca = () => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, caixaDeBuscaYRef.current - Spacing.three),
+      animated: true,
+    });
+    setPulsoDaBusca((valor) => valor + 1);
+    // O foco espera a rolagem: antes dela o navegador pularia direto para o campo
+    setTimeout(() => inputRef.current?.focus(), ATRASO_DO_PULSO);
+  };
+
   const openBook = (book: BookSearchItem) => {
     router.push({ pathname: '/livro/[id]', params: { id: book.id } });
   };
@@ -312,6 +334,7 @@ export default function Explorar() {
     <ThemedView style={styles.root}>
       <SafeAreaView style={styles.safe}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           scrollEventThrottle={100}
@@ -347,7 +370,16 @@ export default function Explorar() {
               </>
             )}
 
-            <View style={[styles.searchBox, { borderColor: theme.border }]}>
+            <View
+              style={[styles.searchBox, { borderColor: theme.border }]}
+              onLayout={({ nativeEvent }) => {
+                caixaDeBuscaYRef.current = nativeEvent.layout.y;
+              }}>
+              <PulsoDeDestaque
+                disparo={pulsoDaBusca}
+                borderRadius={RAIO_DA_CAIXA + 1}
+                atraso={ATRASO_DO_PULSO}
+              />
               <ThemedText themeColor="textSecondary" style={styles.searchLabel}>
                 Buscar por título, autor ou assunto
               </ThemedText>
@@ -591,7 +623,7 @@ export default function Explorar() {
                 message="Pesquise por título, autor ou assunto para encontrar livros."
                 primaryAction={{
                   label: 'Buscar livros',
-                  onPress: () => inputRef.current?.getNativeRef()?.focus(),
+                  onPress: irParaBusca,
                 }}
               />
             ) : searchFailure ? (
@@ -604,7 +636,7 @@ export default function Explorar() {
               showSearchSkeleton ? (
                 <SkeletonGrid count={4} />
               ) : null
-            ) : !loading && !error && books.length === 0 ? (
+            ) : resultado === 'empty' ? (
               <EmptyState
                 title="Nenhum livro encontrado"
                 message={
@@ -617,14 +649,14 @@ export default function Explorar() {
                   onPress: () => {
                     setQuery('');
                     limparResultados();
-                    inputRef.current?.getNativeRef()?.focus();
+                    irParaBusca();
                   },
                 }}
                 secondaryAction={
                   hasActiveFilters ? { label: 'Limpar filtros', onPress: clearFilters } : undefined
                 }
               />
-            ) : (
+            ) : resultado === 'success' ? (
               <>
                 <View style={styles.resultsHeader}>
                   <ThemedText style={styles.resultsTitle}>
@@ -663,7 +695,7 @@ export default function Explorar() {
                   </ThemedText>
                 ) : null}
               </>
-            )}
+            ) : null}
 
             <ThemedText themeColor="textSecondary" style={styles.attribution}>
               Dados bibliográficos e capas fornecidos pela Open Library.
@@ -674,6 +706,10 @@ export default function Explorar() {
     </ThemedView>
   );
 }
+
+const RAIO_DA_CAIXA = 16;
+// Tempo da rolagem até a caixa de busca antes do pulso e do foco
+const ATRASO_DO_PULSO = 350;
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
@@ -697,7 +733,7 @@ const styles = StyleSheet.create({
   searchBox: {
     marginTop: Spacing.four,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: RAIO_DA_CAIXA,
     padding: Spacing.three,
     gap: Spacing.two,
   },

@@ -1,13 +1,6 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useMemo, useRef, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type ScrollViewInstance,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -32,6 +25,7 @@ import {
   withAlpha,
 } from '@/constants/design-system';
 import { MaxContentWidth } from '@/constants/theme';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 // A lista cresce de 6 em 6 por botão, em vez de rolar sem fim.
 const POR_VEZ = 6;
@@ -145,21 +139,22 @@ export default function CuriosidadesScreen() {
           <Text style={styles.destaqueTexto} accessibilityLiveRegion="polite">
             {destaque.texto}
           </Text>
-          <Pressable
+          <FeedbackPressable
             onPress={outra}
             disabled={lista.length < 2}
             accessibilityRole="button"
             accessibilityLabel={
               filtro === 'Todas' ? 'Outra curiosidade' : `Outra curiosidade de ${filtro}`
             }
-            style={({ pressed }) => [styles.botao, pressed && styles.pressionado]}>
+            style={styles.botao}
+            contentStyle={styles.mioloPilula}>
             <SymbolView
               name={{ ios: 'shuffle', android: 'shuffle', web: 'shuffle' }}
               size={16}
               tintColor={Ink.ink900}
             />
             <Text style={styles.botaoTexto}>Outra curiosidade</Text>
-          </Pressable>
+          </FeedbackPressable>
         </Animated.View>
 
         {/* Categorias com a contagem, como os filtros da biblioteca */}
@@ -169,18 +164,18 @@ export default function CuriosidadesScreen() {
             const n = opcao === 'Todas' ? CURIOSIDADES.length : contagem[opcao];
             const cor = opcao === 'Todas' ? Mint.mint400 : VISUAL[opcao].cor;
             return (
-              <Pressable
+              <FeedbackPressable
                 key={opcao}
                 onPress={() => escolherFiltro(opcao)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: ativo }}
                 aria-checked={ativo}
                 accessibilityLabel={`${opcao}, ${plural(n)}`}
-                style={({ pressed }) => [
+                style={[
                   styles.chip,
                   ativo && { borderColor: cor, backgroundColor: withAlpha(cor, 0.12) },
-                  pressed && styles.pressionado,
-                ]}>
+                ]}
+                contentStyle={styles.mioloPilula}>
                 {opcao !== 'Todas' && (
                   <SymbolView
                     name={VISUAL[opcao].icone}
@@ -190,7 +185,7 @@ export default function CuriosidadesScreen() {
                 )}
                 <Text style={[styles.chipTexto, ativo && { color: cor }]}>{opcao}</Text>
                 <Text style={styles.chipNumero}>{n}</Text>
-              </Pressable>
+              </FeedbackPressable>
             );
           })}
         </LinhaDeChips>
@@ -207,16 +202,13 @@ export default function CuriosidadesScreen() {
                     ? undefined
                     : FadeInDown.duration(220).delay((index % POR_VEZ) * 30)
                 }>
-                <Pressable
+                <FeedbackPressable
                   onPress={() => colocarEmDestaque(item)}
                   accessibilityRole="button"
                   accessibilityState={{ selected: atual }}
                   accessibilityHint="Coloca esta curiosidade em destaque"
-                  style={({ pressed }) => [
-                    styles.cartao,
-                    atual && { borderColor: withAlpha(v.cor, 0.6) },
-                    pressed && styles.pressionado,
-                  ]}>
+                  style={[styles.cartao, atual && { borderColor: withAlpha(v.cor, 0.6) }]}
+                  contentStyle={styles.mioloLinhaTopo}>
                   <View style={[styles.iconeFundo, { backgroundColor: withAlpha(v.cor, 0.15) }]}>
                     <SymbolView name={v.icone} size={18} tintColor={v.cor} />
                   </View>
@@ -226,21 +218,21 @@ export default function CuriosidadesScreen() {
                       {item.texto}
                     </Text>
                   </View>
-                </Pressable>
+                </FeedbackPressable>
               </Animated.View>
             );
           })}
         </View>
 
         {restantes > 0 ? (
-          <Pressable
+          <FeedbackPressable
             onPress={() => setVisiveis((n) => n + POR_VEZ)}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.mais, pressed && styles.pressionado]}>
+            style={styles.mais}>
             <Text style={styles.maisTexto}>
               Mostrar mais {Math.min(POR_VEZ, restantes)} de {restantes}
             </Text>
-          </Pressable>
+          </FeedbackPressable>
         ) : (
           <Text style={styles.rodape}>
             {lista.length > POR_VEZ ? 'Você viu todas desta lista. ' : ''}
@@ -399,4 +391,6 @@ const styles = StyleSheet.create({
     color: TextColor.secondary,
     textAlign: 'center',
   },
+  mioloLinhaTopo: { flex: 1, flexDirection: 'row', gap: Space.three },
+  mioloPilula: { flexDirection: 'row', alignItems: 'center', gap: Space.two },
 });

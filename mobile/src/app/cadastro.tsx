@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AvisoServidorAcordando } from '@/components/aviso-servidor-acordando';
@@ -9,6 +9,7 @@ import { PopupCadastroConcluido } from '@/components/popup_cadastro_concluido';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { PASSWORD_HINT, registerUser } from '@/services/auth';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -117,12 +118,12 @@ export default function SignUpScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Já tem conta?</Text>
-        <Pressable
+        <FeedbackPressable
           accessibilityRole="button"
           onPress={() => router.replace('/login')}
-          style={({ pressed }) => [styles.footerLinkArea, pressed && styles.pressed]}>
+          style={styles.footerLinkArea}>
           <Text style={styles.footerLink}>Entrar</Text>
-        </Pressable>
+        </FeedbackPressable>
       </View>
 
       <PopupCadastroConcluido

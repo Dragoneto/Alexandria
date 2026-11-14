@@ -1,6 +1,6 @@
 import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
 
 import {
   Accent,
@@ -14,6 +14,7 @@ import {
   TouchMin,
   withAlpha,
 } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type TextFieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
   label: string;
@@ -72,16 +73,12 @@ export function TextField({
         />
 
         {secure && (
-          <Pressable
+          <FeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={revealed ? 'Ocultar senha' : 'Mostrar senha'}
             accessibilityState={{ selected: revealed }}
             onPress={() => setRevealed((current) => !current)}
-            style={({ pressed }) => [
-              styles.revealButton,
-              revealed && styles.revealButtonActive,
-              pressed && styles.revealButtonPressed,
-            ]}>
+            style={[styles.revealButton, revealed && styles.revealButtonActive]}>
             <SymbolView
               name={
                 revealed
@@ -91,7 +88,7 @@ export function TextField({
               size={18}
               tintColor={revealed ? Mint.mint400 : TextColor.secondary}
             />
-          </Pressable>
+          </FeedbackPressable>
         )}
       </View>
 

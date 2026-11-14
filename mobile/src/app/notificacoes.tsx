@@ -1,9 +1,10 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 import { BotaoVoltar } from '@/components/botao-voltar';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
@@ -220,7 +221,7 @@ export default function NotificacoesScreen() {
           />
         ) : null}
         {items.map((item) => (
-          <Pressable
+          <FeedbackPressable
             key={item.id}
             accessibilityRole="button"
             disabled={busy || !item.alvoDisponivel}
@@ -230,15 +231,25 @@ export default function NotificacoesScreen() {
             }}
             accessibilityLabel={`${item.tipo === 'resposta' ? 'Resposta' : 'Comentário'} de ${item.autor.nome}, ${item.lidaEm ? 'lida' : 'não lida'}`}
             onPress={() => void open(item)}
-            style={({ pressed }) => [
+            // Enquanto uma notificação abre, todas ficam desativadas e apagadas
+            style={[
               styles.card,
               {
                 borderColor: item.lidaEm ? Ink.ink500 : Mint.mint400,
                 backgroundColor: item.lidaEm ? Ink.ink700 : Mint.mint900,
               },
-              pressed && styles.pressed,
-              !item.alvoDisponivel && styles.disabled,
-            ]}>
+            ]}
+            contentStyle={styles.cardConteudo}
+            overlay={
+              openingId === item.id ? (
+                <View style={styles.cardLoading} pointerEvents="none">
+                  <ActivityIndicator
+                    color={Mint.mint400}
+                    accessibilityLabel="Abrindo notificação"
+                  />
+                </View>
+              ) : null
+            }>
             <Text style={styles.author}>
               {item.autor.nome || 'Leitor'} · {textoDaNotificacao(item)}
             </Text>
@@ -246,12 +257,7 @@ export default function NotificacoesScreen() {
               {dataCurta(item.criadoEm)} · {item.lidaEm ? 'Lida' : 'Não lida'}
             </Text>
             {!item.alvoDisponivel && <Text style={styles.meta}>Comentário não disponível</Text>}
-            {openingId === item.id && (
-              <View style={styles.cardLoading} pointerEvents="none">
-                <ActivityIndicator color={Mint.mint400} accessibilityLabel="Abrindo notificação" />
-              </View>
-            )}
-          </Pressable>
+          </FeedbackPressable>
         ))}
         {cursor && (
           <ActionButton label="Carregar mais" variant="ghost" loading={more} onPress={loadMore} />
@@ -287,8 +293,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     padding: Space.four,
     paddingRight: 56,
-    gap: Space.two,
   },
+  cardConteudo: { gap: Space.two },
   cardLoading: {
     position: 'absolute',
     right: Space.four,
@@ -300,6 +306,4 @@ const styles = StyleSheet.create({
   meta: { color: TextColor.secondary, fontSize: 13 },
   empty: { color: TextColor.secondary, textAlign: 'center', padding: Space.six },
   error: { color: Accent.coral },
-  pressed: { opacity: 0.75 },
-  disabled: { opacity: 0.6 },
 });

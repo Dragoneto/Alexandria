@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CartaoDestaque, DESTAQUES } from '@/components/destaques';
@@ -22,6 +22,7 @@ import {
 } from '@/constants/design-system';
 import { useVoltar } from '@/hooks/use-voltar';
 import { MaxContentWidth } from '@/constants/theme';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 const VERSAO = Constants.expoConfig?.version ?? '1.0.0';
 const ANO = new Date().getFullYear();
@@ -77,18 +78,18 @@ export default function SobreScreen() {
     <SafeAreaView style={styles.tela} edges={['top']}>
       <ScrollView contentContainerStyle={styles.conteudo} showsVerticalScrollIndicator={false}>
         {/* Botão de voltar (o mesmo da tela de Ajuda) */}
-        <Pressable
+        <FeedbackPressable
           onPress={voltar}
           hitSlop={Space.two}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
-          style={({ pressed }) => [styles.voltar, pressed && styles.pressionado]}>
+          style={styles.voltar}>
           <SymbolView
             name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
             size={20}
             tintColor={TextColor.primary}
           />
-        </Pressable>
+        </FeedbackPressable>
 
         {/* Cabeçalho no formato da Home: rótulo pequeno + título serifado */}
         <View style={styles.cabecalho}>
@@ -153,15 +154,12 @@ export default function SobreScreen() {
         <Text style={styles.secaoTitulo}>Saiba mais</Text>
         <View style={styles.cartao}>
           {ATALHOS.map((atalho, index) => (
-            <Pressable
+            <FeedbackPressable
               key={atalho.rota}
               onPress={() => router.push(atalho.rota)}
               accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.linha,
-                index > 0 && styles.comBorda,
-                pressed && styles.pressionado,
-              ]}>
+              style={[styles.linha, index > 0 && styles.comBorda]}
+              contentStyle={styles.mioloLinha}>
               <View style={[styles.atalhoIcone, { backgroundColor: withAlpha(atalho.cor, 0.15) }]}>
                 <SymbolView name={atalho.icone} size={18} tintColor={atalho.cor} />
               </View>
@@ -174,7 +172,7 @@ export default function SobreScreen() {
                 size={18}
                 tintColor={TextColor.secondary}
               />
-            </Pressable>
+            </FeedbackPressable>
           ))}
         </View>
 
@@ -333,4 +331,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: TextColor.secondary,
   },
+  mioloLinha: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Space.three },
 });

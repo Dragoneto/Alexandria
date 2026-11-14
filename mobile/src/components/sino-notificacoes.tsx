@@ -1,10 +1,11 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Accent, DSFonts, Ink, Radius, Space, TextColor } from '@/constants/design-system';
 import { contarNaoLidas } from '@/services/notificacoes';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 /** Sino da home com o número de notificações não lidas, atualizado sempre que a tela volta. */
 export function SinoNotificacoes() {
@@ -28,12 +29,13 @@ export function SinoNotificacoes() {
     : 'Notificações';
 
   return (
-    <Pressable
+    <FeedbackPressable
       onPress={() => router.push('/notificacoes')}
       accessibilityRole="button"
       accessibilityLabel={rotulo}
       hitSlop={Space.two}
-      style={({ pressed }) => [styles.sino, pressed && styles.pressionado]}>
+      style={styles.sino}
+      contentStyle={styles.mioloCheio}>
       <SymbolView
         name={{ ios: 'bell.fill', android: 'notifications', web: 'notifications' }}
         size={20}
@@ -44,7 +46,7 @@ export function SinoNotificacoes() {
           <Text style={styles.seloTexto}>{naoLidas > 9 ? '9+' : naoLidas}</Text>
         </View>
       )}
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 
@@ -79,4 +81,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Ink.ink900,
   },
+  mioloCheio: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
 });

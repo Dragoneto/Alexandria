@@ -1,8 +1,9 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Accent, DSFonts, Ink, Mint, Radius, Space, TextColor } from '@/constants/design-system';
 import { porcentagemLida, type Progresso } from '@/services/biblioteca';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type ProgressoDoLivroProps = {
   progresso?: Progresso;
@@ -51,18 +52,19 @@ export function ProgressoDoLivro({
         <Text style={styles.dias}>{textoDosDias(dias)}</Text>
       </View>
       {onAtualizar && (
-        <Pressable
+        <FeedbackPressable
           onPress={onAtualizar}
           accessibilityRole="button"
           accessibilityLabel="Atualizar página em que estou"
-          style={({ pressed }) => [styles.botao, pressed && styles.botaoPressionado]}>
+          style={styles.botao}
+          contentStyle={styles.mioloPilula}>
           <SymbolView
             name={{ ios: 'bookmark.fill', android: 'bookmark', web: 'bookmark' }}
             size={16}
             tintColor={Mint.mint400}
           />
           <Text style={styles.botaoTexto}>Atualizar progresso</Text>
-        </Pressable>
+        </FeedbackPressable>
       )}
     </View>
   );
@@ -97,4 +99,5 @@ const styles = StyleSheet.create({
   },
   botaoPressionado: { opacity: 0.7 },
   botaoTexto: { fontFamily: DSFonts.ui, fontSize: 14, fontWeight: '700', color: Mint.mint400 },
+  mioloPilula: { flexDirection: 'row', alignItems: 'center', gap: Space.two },
 });

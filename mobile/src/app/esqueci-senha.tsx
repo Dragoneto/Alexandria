@@ -1,12 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ActionButton } from '@/components/action-button';
 import { AuthShell } from '@/components/auth-shell';
 import { TextField } from '@/components/text-field';
 import { Accent, DSFonts, Ink, Mint, Space, TextColor } from '@/constants/design-system';
 import { ApiError, forgotPassword } from '@/services/auth';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type Status = 'idle' | 'sending' | 'sent';
 
@@ -133,12 +134,12 @@ export default function ForgotPasswordScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>Lembrou a senha?</Text>
-        <Pressable
+        <FeedbackPressable
           accessibilityRole="button"
           onPress={goToLogin}
-          style={({ pressed }) => [styles.footerLinkArea, pressed && styles.pressed]}>
+          style={styles.footerLinkArea}>
           <Text style={styles.footerLink}>Entrar</Text>
-        </Pressable>
+        </FeedbackPressable>
       </View>
     </AuthShell>
   );

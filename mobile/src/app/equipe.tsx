@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -16,6 +16,7 @@ import {
 } from '@/constants/design-system';
 import { useVoltar } from '@/hooks/use-voltar';
 import { MaxContentWidth } from '@/constants/theme';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 const EQUIPE = [
   {
@@ -62,18 +63,18 @@ export default function EquipeScreen() {
     <SafeAreaView style={styles.tela}>
       <ScrollView contentContainerStyle={styles.conteudo}>
         {/* Botão de voltar (o mesmo das outras telas) */}
-        <Pressable
+        <FeedbackPressable
           onPress={voltar}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
-          style={({ pressed }) => [styles.voltar, pressed && styles.voltarPressionado]}>
+          style={styles.voltar}>
           <SymbolView
             name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
             size={20}
             tintColor={Mint.mint400}
           />
-        </Pressable>
+        </FeedbackPressable>
 
         {/* Um cartão para cada integrante */}
         <Text style={styles.secaoTitulo}>Equipe</Text>

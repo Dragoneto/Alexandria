@@ -108,6 +108,7 @@ export function PopupDestaque({ destaque, onFechado, acao }: PopupDestaqueProps)
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => fechar()}
+            accessibilityRole="button"
             accessibilityLabel="Fechar explicação"
           />
         </Animated.View>

@@ -1,12 +1,13 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Mint, withAlpha } from '@/constants/design-system';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { BookSearchItem } from '@/services/open-library';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type BookCardProps = {
   book: BookSearchItem;
@@ -19,15 +20,12 @@ export function BookCard({ book, onPress }: BookCardProps) {
   const [coverFailed, setCoverFailed] = useState(false);
 
   return (
-    <Pressable
+    <FeedbackPressable
       accessibilityRole="button"
       accessibilityLabel={`Ver detalhes de ${book.title}`}
       onPress={() => onPress(book)}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: theme.backgroundElement },
-        pressed && styles.cardPressed,
-      ]}>
+      style={[styles.card, { backgroundColor: theme.backgroundElement }]}
+      contentStyle={styles.mioloLinhaSimples}>
       {book.coverUrl && !coverFailed ? (
         <Image
           source={{ uri: book.coverUrl }}
@@ -66,7 +64,7 @@ export function BookCard({ book, onPress }: BookCardProps) {
           {book.editionCount} {book.editionCount === 1 ? 'edição' : 'edições'}
         </ThemedText>
       </View>
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 
@@ -94,4 +92,5 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, lineHeight: 21, fontWeight: '700' },
   cardAuthor: { fontSize: 13, fontWeight: '700' },
   cardDescription: { fontSize: 12, lineHeight: 17 },
+  mioloLinhaSimples: { flex: 1, flexDirection: 'row' },
 });
