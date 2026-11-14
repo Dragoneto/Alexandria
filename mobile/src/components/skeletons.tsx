@@ -133,11 +133,10 @@ export function SkeletonFeatured() {
   );
 }
 
-/** Cartão de números do tracker de leitura: título, grade 2×2 e uma linha embaixo. */
+/** Números do tracker de leitura: grade 2×2 e uma linha embaixo (o título fica de verdade). */
 export function SkeletonStats() {
   return (
     <View style={styles.stats}>
-      <SkeletonText width="48%" height={20} />
       <View style={styles.statsGrid}>
         {[0, 1, 2, 3].map((item) => (
           <SkeletonBlock key={item} height={88} style={styles.statsItem} />
@@ -248,7 +247,7 @@ const styles = StyleSheet.create({
   reviewForm: { gap: Space.four },
   featured: { flexDirection: 'row', gap: Space.four, padding: Space.four },
   featuredText: { flex: 1, gap: Space.two, paddingTop: Space.one },
-  stats: { gap: Space.four, padding: Space.four },
+  stats: { gap: Space.four },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.two },
   statsItem: { flexGrow: 1, flexBasis: '45%' },
 });

@@ -90,6 +90,8 @@ export default function Explorar() {
   // Ordenação e qualidade ficam recolhidas para os resultados aparecerem logo no celular.
   const [maisFiltros, setMaisFiltros] = useState(false);
   const [books, setBooks] = useState<BookSearchItem[]>([]);
+  // Resultado da última busca concluída: vazio e sucesso não são deduzidos da lista.
+  const [resultado, setResultado] = useState<'success' | 'empty' | null>(null);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -167,6 +169,7 @@ export default function Explorar() {
       await Promise.resolve();
       if (controller.signal.aborted) return;
       setLoading(true);
+      setResultado(null);
       setError('');
       setSearchFailure(null);
       setLoadMoreError('');
@@ -183,6 +186,7 @@ export default function Explorar() {
         setTotal(result.total);
         setPage(1);
         setHasMore(result.hasMore);
+        setResultado(result.books.length ? 'success' : 'empty');
       } catch (failure) {
         if (!controller.signal.aborted) {
           setBooks([]);
@@ -214,6 +218,7 @@ export default function Explorar() {
     setBuscaDaCategoria(false);
     setSubmittedQuery('');
     setBooks([]);
+    setResultado(null);
     setTotal(0);
     setPage(1);
     setHasMore(false);
@@ -631,7 +636,7 @@ export default function Explorar() {
               showSearchSkeleton ? (
                 <SkeletonGrid count={4} />
               ) : null
-            ) : !loading && !error && books.length === 0 ? (
+            ) : resultado === 'empty' ? (
               <EmptyState
                 title="Nenhum livro encontrado"
                 message={
@@ -651,7 +656,7 @@ export default function Explorar() {
                   hasActiveFilters ? { label: 'Limpar filtros', onPress: clearFilters } : undefined
                 }
               />
-            ) : (
+            ) : resultado === 'success' ? (
               <>
                 <View style={styles.resultsHeader}>
                   <ThemedText style={styles.resultsTitle}>
@@ -690,7 +695,7 @@ export default function Explorar() {
                   </ThemedText>
                 ) : null}
               </>
-            )}
+            ) : null}
 
             <ThemedText themeColor="textSecondary" style={styles.attribution}>
               Dados bibliográficos e capas fornecidos pela Open Library.

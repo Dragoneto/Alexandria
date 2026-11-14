@@ -28,7 +28,7 @@ import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { LinhaDeChips, useTelaLarga } from '@/components/linha-de-chips';
 import { SinoNotificacoes } from '@/components/sino-notificacoes';
-import { SkeletonBookShelf } from '@/components/skeletons';
+import { SkeletonBookShelf, SkeletonFeatured } from '@/components/skeletons';
 import { CATEGORIAS, embaralhar, sortearDestaque, sortearEstantes } from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
@@ -246,11 +246,11 @@ async function buscarSorteado(
 
 /** Um livro sorteado em destaque no topo da home. */
 function Destaque({ query, category, page }: Omit<EstanteProps, 'title'>) {
-  const router = useRouter();
   const [opcoes, setOpcoes] = useState<BookSearchItem[]>([]);
   const [state, setState] = useState<'loading' | 'success' | 'hidden'>('loading');
   // Se a capa não carregar, passa para o próximo livro sorteado em vez de mostrar um quadro vazio.
   const book = opcoes[0] ?? null;
+  const mostrarEsqueleto = useLoadingGate(state === 'loading');
   const pularLivro = () => {
     const restantes = opcoes.slice(1);
     setOpcoes(restantes);
@@ -277,46 +277,53 @@ function Destaque({ query, category, page }: Omit<EstanteProps, 'title'>) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Sugestão para você</Text>
-      <Pressable
-        disabled={!book}
-        accessibilityRole="button"
-        accessibilityLabel={
-          book
-            ? `Livro sugerido: ${book.title}, de ${book.authors[0] ?? 'autor desconhecido'}`
-            : undefined
-        }
-        onPress={() => book && router.push({ pathname: '/livro/[id]', params: { id: book.id } })}
-        style={({ pressed }) => [styles.featured, pressed && styles.pressed]}>
-        <View style={[styles.featuredCover, !book && styles.featuredPlaceholder]}>
-          {book ? (
-            <Image
-              key={book.id}
-              source={{ uri: book.coverUrl ?? undefined }}
-              style={styles.featuredCoverImage}
-              contentFit="cover"
-              transition={200}
-              onError={pularLivro}
-            />
-          ) : null}
+      {book ? <CartaoDestaque book={book} category={category} onCapaFalhou={pularLivro} /> : null}
+      {!book && mostrarEsqueleto ? (
+        <View style={styles.featuredSkeleton}>
+          <SkeletonFeatured />
         </View>
-        <View style={styles.featuredText}>
-          {book ? (
-            <>
-              {category ? <Text style={styles.featuredTag}>{category}</Text> : null}
-              <Text style={styles.featuredTitle} numberOfLines={3}>
-                {book.title}
-              </Text>
-              <Text style={styles.featuredAuthor} numberOfLines={1}>
-                {book.authors[0]}
-              </Text>
-              <Text style={styles.featuredAction}>Ver livro</Text>
-            </>
-          ) : (
-            <Text style={styles.featuredAuthor}>Escolhendo um livro…</Text>
-          )}
-        </View>
-      </Pressable>
+      ) : null}
     </View>
+  );
+}
+
+function CartaoDestaque({
+  book,
+  category,
+  onCapaFalhou,
+}: {
+  book: BookSearchItem;
+  category?: string;
+  onCapaFalhou: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Livro sugerido: ${book.title}, de ${book.authors[0] ?? 'autor desconhecido'}`}
+      onPress={() => router.push({ pathname: '/livro/[id]', params: { id: book.id } })}
+      style={({ pressed }) => [styles.featured, pressed && styles.pressed]}>
+      <View style={styles.featuredCover}>
+        <Image
+          key={book.id}
+          source={{ uri: book.coverUrl ?? undefined }}
+          style={styles.featuredCoverImage}
+          contentFit="cover"
+          transition={200}
+          onError={onCapaFalhou}
+        />
+      </View>
+      <View style={styles.featuredText}>
+        {category ? <Text style={styles.featuredTag}>{category}</Text> : null}
+        <Text style={styles.featuredTitle} numberOfLines={3}>
+          {book.title}
+        </Text>
+        <Text style={styles.featuredAuthor} numberOfLines={1}>
+          {book.authors[0]}
+        </Text>
+        <Text style={styles.featuredAction}>Ver livro</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -533,6 +540,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     backgroundColor: Ink.ink700,
   },
+  // O esqueleto ocupa o mesmo cartão do destaque, para nada pular quando o livro chega.
+  featuredSkeleton: {
+    marginHorizontal: ScreenInset,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
+  },
   featuredCover: {
     width: 96,
     height: 144,
@@ -540,9 +553,6 @@ const styles = StyleSheet.create({
     backgroundColor: Ink.ink600,
     overflow: 'hidden',
     ...Shadow.e1,
-  },
-  featuredPlaceholder: {
-    opacity: 0.6,
   },
   featuredCoverImage: {
     width: '100%',
