@@ -2,15 +2,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { ReactNode } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -23,6 +15,7 @@ import {
   TextColor,
   TouchMin,
 } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type AuthShellProps = {
   title: string;
@@ -47,17 +40,17 @@ export function AuthShell({ title, subtitle, children }: AuthShellProps) {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
             {router.canGoBack() && (
-              <Pressable
+              <FeedbackPressable
                 accessibilityRole="button"
                 accessibilityLabel="Voltar"
                 onPress={() => router.back()}
-                style={({ pressed }) => [styles.backButton, pressed && styles.backPressed]}>
+                style={styles.backButton}>
                 <SymbolView
                   name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
                   size={20}
                   tintColor={TextColor.primary}
                 />
-              </Pressable>
+              </FeedbackPressable>
             )}
 
             <View style={styles.header}>

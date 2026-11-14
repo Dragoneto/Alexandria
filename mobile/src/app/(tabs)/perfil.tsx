@@ -3,14 +3,14 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
 import { ResumoLeitura } from '@/components/resumo-leitura';
-import { SkeletonProfileFields } from '@/components/skeletons';
+import { SkeletonText } from '@/components/skeletons';
 import {
   Accent,
   DisabledOpacity,
@@ -151,16 +151,13 @@ export default function PerfilScreen() {
     <View style={styles.root}>
       <SafeAreaView style={styles.flex}>
         <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-          <Pressable
+          <FeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={photo ? 'Alterar foto de perfil' : 'Adicionar foto de perfil'}
             disabled={photoBusy || loading}
             onPress={handleChangePhoto}
-            style={({ pressed }) => [
-              styles.avatar,
-              pressed && styles.pressed,
-              loading && styles.desabilitado,
-            ]}>
+            style={styles.avatar}
+            contentStyle={styles.mioloCheio}>
             {photo ? (
               <Image
                 source={{ uri: photo }}
@@ -176,7 +173,7 @@ export default function PerfilScreen() {
                 <ActivityIndicator color={Mint.mint400} />
               </View>
             )}
-          </Pressable>
+          </FeedbackPressable>
 
           <View style={styles.photoActions}>
             <FeedbackPressable
@@ -207,6 +204,21 @@ export default function PerfilScreen() {
 
           {!!photoError && <Text style={styles.error}>{photoError}</Text>}
 
+          {/* Nome da conta logo abaixo da foto, no lugar do antigo cartão com nome e e-mail */}
+          {loading ? (
+            showLoading ? (
+              <View style={styles.nomeCarregando}>
+                <SkeletonText width="52%" height={22} />
+              </View>
+            ) : null
+          ) : (
+            !!profile?.name?.trim() && (
+              <Text style={styles.nome} accessibilityRole="header">
+                {profile.name.trim()}
+              </Text>
+            )
+          )}
+
           <Text style={styles.title}>Meu perfil</Text>
           <Text style={styles.subtitle}>Confira os dados da sua conta.</Text>
 
@@ -232,28 +244,6 @@ export default function PerfilScreen() {
                   .finally(() => setLoading(false));
               }}
             />
-          )}
-
-          {loading ? (
-            showLoading ? (
-              <SkeletonProfileFields />
-            ) : null
-          ) : (
-            profile && (
-              <View style={styles.card}>
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Nome completo</Text>
-                  <Text style={styles.fieldValue}>{profile.name || 'Não informado'}</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Email de acesso</Text>
-                  <Text style={styles.fieldValue}>{profile.email || 'Não informado'}</Text>
-                </View>
-              </View>
-            )
           )}
 
           <View style={styles.actions}>
@@ -352,6 +342,15 @@ const styles = StyleSheet.create({
   desabilitado: {
     opacity: DisabledOpacity,
   },
+  nome: {
+    marginTop: Space.three,
+    fontFamily: DSFonts.display,
+    fontSize: 22,
+    lineHeight: 28,
+    color: TextColor.primary,
+    textAlign: 'center',
+  },
+  nomeCarregando: { marginTop: Space.three, alignItems: 'center' },
   title: {
     marginTop: Space.six,
     fontFamily: DSFonts.display,
@@ -377,38 +376,9 @@ const styles = StyleSheet.create({
     color: Accent.coral,
     textAlign: 'center',
   },
-  card: {
-    marginTop: Space.eight,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Ink.ink500,
-    backgroundColor: Ink.ink700,
-    paddingHorizontal: Space.four,
-  },
-  field: {
-    paddingVertical: Space.four,
-    gap: Space.one,
-  },
-  fieldLabel: {
-    fontFamily: DSFonts.ui,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.76,
-    textTransform: 'uppercase',
-    color: TextColor.secondary,
-  },
-  fieldValue: {
-    fontFamily: DSFonts.ui,
-    fontSize: 16,
-    lineHeight: 22,
-    color: TextColor.primary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Ink.ink500,
-  },
   actions: {
     marginTop: Space.eight,
     gap: Space.four,
   },
+  mioloCheio: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
 });

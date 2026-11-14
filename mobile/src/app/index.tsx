@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -28,6 +28,7 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 /**
  * Atalho fixo para quem já tem conta. Fica no canto e só "acena" duas vezes
@@ -62,7 +63,7 @@ function AtalhoEntrar({ onPress }: { onPress: () => void }) {
       <View pointerEvents="box-none" style={styles.topoLinha}>
         <View>
           <Animated.View pointerEvents="none" style={[styles.entrarAnel, anel]} />
-          <Pressable
+          <FeedbackPressable
             accessibilityRole="link"
             accessibilityLabel="Já tenho conta. Entrar"
             onPress={onPress}
@@ -71,10 +72,9 @@ function AtalhoEntrar({ onPress }: { onPress: () => void }) {
             onFocus={() => setRealcado(true)}
             onBlur={() => setRealcado(false)}
             hitSlop={6}
-            style={({ pressed }) => [
-              styles.entrar,
-              (realcado || pressed) && styles.entrarRealcado,
-            ]}>
+            // O realce de passar o mouse ou focar continua; o toque ganha o esmaecimento animado.
+            style={[styles.entrar, realcado && styles.entrarRealcado]}
+            contentStyle={styles.entrarMiolo}>
             <Text style={styles.entrarTexto}>Entrar</Text>
             <Animated.View style={seta}>
               <SymbolView
@@ -83,7 +83,7 @@ function AtalhoEntrar({ onPress }: { onPress: () => void }) {
                 tintColor={Mint.mint400}
               />
             </Animated.View>
-          </Pressable>
+          </FeedbackPressable>
         </View>
       </View>
     </SafeAreaView>
@@ -267,6 +267,7 @@ const styles = StyleSheet.create({
     borderColor: withAlpha(Mint.mint400, 0.35),
     backgroundColor: withAlpha(Ink.ink800, 0.9),
   },
+  entrarMiolo: { flexDirection: 'row', alignItems: 'center', gap: Space.two },
   entrarRealcado: {
     borderColor: withAlpha(Mint.mint400, 0.75),
     backgroundColor: withAlpha(Mint.mint400, 0.12),

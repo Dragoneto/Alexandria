@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,12 +22,13 @@ import {
   Shadow,
   Space,
   TextColor,
+  TouchMin,
 } from '@/constants/design-system';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { LinhaDeChips, useTelaLarga } from '@/components/linha-de-chips';
 import { SinoNotificacoes } from '@/components/sino-notificacoes';
-import { SkeletonBookShelf } from '@/components/skeletons';
+import { SkeletonBookShelf, SkeletonFeatured } from '@/components/skeletons';
 import { CATEGORIAS, embaralhar, sortearDestaque, sortearEstantes } from '@/constants/estantes';
 import { useFoco } from '@/hooks/use-foco';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
@@ -141,18 +141,19 @@ export default function HomeScreen() {
 
           <View style={styles.headerAcoes}>
             <SinoNotificacoes />
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.push('/perfil')}
               accessibilityRole="button"
               accessibilityLabel="Abrir meu perfil"
               hitSlop={Space.two}
-              style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}>
+              style={styles.avatar}
+              contentStyle={styles.mioloCheio}>
               {photo ? (
                 <Image source={{ uri: photo }} style={styles.avatarImage} contentFit="cover" />
               ) : (
                 <Text style={styles.avatarLabel}>{(firstName || '?').charAt(0).toUpperCase()}</Text>
               )}
-            </Pressable>
+            </FeedbackPressable>
           </View>
         </View>
 
@@ -187,7 +188,8 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Explorar livros de ${categoria}`}
                 onPress={() => abrirCategoria(categoria)}
-                style={styles.chip}>
+                style={styles.chipAlvo}
+                contentStyle={styles.chip}>
                 <Text style={styles.chipText}>{categoria}</Text>
               </FeedbackPressable>
             ))}
@@ -246,11 +248,11 @@ async function buscarSorteado(
 
 /** Um livro sorteado em destaque no topo da home. */
 function Destaque({ query, category, page }: Omit<EstanteProps, 'title'>) {
-  const router = useRouter();
   const [opcoes, setOpcoes] = useState<BookSearchItem[]>([]);
   const [state, setState] = useState<'loading' | 'success' | 'hidden'>('loading');
   // Se a capa não carregar, passa para o próximo livro sorteado em vez de mostrar um quadro vazio.
   const book = opcoes[0] ?? null;
+  const mostrarEsqueleto = useLoadingGate(state === 'loading');
   const pularLivro = () => {
     const restantes = opcoes.slice(1);
     setOpcoes(restantes);
@@ -277,46 +279,54 @@ function Destaque({ query, category, page }: Omit<EstanteProps, 'title'>) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Sugestão para você</Text>
-      <Pressable
-        disabled={!book}
-        accessibilityRole="button"
-        accessibilityLabel={
-          book
-            ? `Livro sugerido: ${book.title}, de ${book.authors[0] ?? 'autor desconhecido'}`
-            : undefined
-        }
-        onPress={() => book && router.push({ pathname: '/livro/[id]', params: { id: book.id } })}
-        style={({ pressed }) => [styles.featured, pressed && styles.pressed]}>
-        <View style={[styles.featuredCover, !book && styles.featuredPlaceholder]}>
-          {book ? (
-            <Image
-              key={book.id}
-              source={{ uri: book.coverUrl ?? undefined }}
-              style={styles.featuredCoverImage}
-              contentFit="cover"
-              transition={200}
-              onError={pularLivro}
-            />
-          ) : null}
+      {book ? <CartaoDestaque book={book} category={category} onCapaFalhou={pularLivro} /> : null}
+      {!book && mostrarEsqueleto ? (
+        <View style={styles.featuredSkeleton}>
+          <SkeletonFeatured />
         </View>
-        <View style={styles.featuredText}>
-          {book ? (
-            <>
-              {category ? <Text style={styles.featuredTag}>{category}</Text> : null}
-              <Text style={styles.featuredTitle} numberOfLines={3}>
-                {book.title}
-              </Text>
-              <Text style={styles.featuredAuthor} numberOfLines={1}>
-                {book.authors[0]}
-              </Text>
-              <Text style={styles.featuredAction}>Ver livro</Text>
-            </>
-          ) : (
-            <Text style={styles.featuredAuthor}>Escolhendo um livro…</Text>
-          )}
-        </View>
-      </Pressable>
+      ) : null}
     </View>
+  );
+}
+
+function CartaoDestaque({
+  book,
+  category,
+  onCapaFalhou,
+}: {
+  book: BookSearchItem;
+  category?: string;
+  onCapaFalhou: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <FeedbackPressable
+      accessibilityRole="button"
+      accessibilityLabel={`Livro sugerido: ${book.title}, de ${book.authors[0] ?? 'autor desconhecido'}`}
+      onPress={() => router.push({ pathname: '/livro/[id]', params: { id: book.id } })}
+      style={styles.featured}
+      contentStyle={styles.mioloLinhaDestaque}>
+      <View style={styles.featuredCover}>
+        <Image
+          key={book.id}
+          source={{ uri: book.coverUrl ?? undefined }}
+          style={styles.featuredCoverImage}
+          contentFit="cover"
+          transition={200}
+          onError={onCapaFalhou}
+        />
+      </View>
+      <View style={styles.featuredText}>
+        {category ? <Text style={styles.featuredTag}>{category}</Text> : null}
+        <Text style={styles.featuredTitle} numberOfLines={3}>
+          {book.title}
+        </Text>
+        <Text style={styles.featuredAuthor} numberOfLines={1}>
+          {book.authors[0]}
+        </Text>
+        <Text style={styles.featuredAction}>Ver livro</Text>
+      </View>
+    </FeedbackPressable>
   );
 }
 
@@ -394,11 +404,11 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           showsHorizontalScrollIndicator={telaLarga}
           contentContainerStyle={styles.shelfRow}
           renderItem={({ item }) => (
-            <Pressable
+            <FeedbackPressable
               accessibilityRole="button"
               accessibilityLabel={`${item.title}, de ${item.authors[0] ?? 'autor desconhecido'}`}
               onPress={() => router.push({ pathname: '/livro/[id]', params: { id: item.id } })}
-              style={({ pressed }) => [styles.book, pressed && styles.pressed]}>
+              style={styles.book}>
               <View style={styles.coverFrame}>
                 <Image
                   source={{ uri: item.coverUrl ?? undefined }}
@@ -414,7 +424,7 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
               <Text style={styles.bookAuthor} numberOfLines={1}>
                 {item.authors[0]}
               </Text>
-            </Pressable>
+            </FeedbackPressable>
           )}
         />
       )}
@@ -533,6 +543,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.card,
     backgroundColor: Ink.ink700,
   },
+  // O esqueleto ocupa o mesmo cartão do destaque, para nada pular quando o livro chega.
+  featuredSkeleton: {
+    marginHorizontal: ScreenInset,
+    borderRadius: Radius.card,
+    backgroundColor: Ink.ink700,
+  },
   featuredCover: {
     width: 96,
     height: 144,
@@ -540,9 +556,6 @@ const styles = StyleSheet.create({
     backgroundColor: Ink.ink600,
     overflow: 'hidden',
     ...Shadow.e1,
-  },
-  featuredPlaceholder: {
-    opacity: 0.6,
   },
   featuredCoverImage: {
     width: '100%',
@@ -583,6 +596,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: ScreenInset,
     gap: Space.two,
   },
+  // A pílula continua com 40 px; a área de toque transparente em volta chega a 44.
+  chipAlvo: { minHeight: TouchMin, justifyContent: 'center' },
   chip: {
     minHeight: 40,
     justifyContent: 'center',
@@ -651,4 +666,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: TextColor.secondary,
   },
+  mioloCheio: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  mioloLinhaDestaque: { flex: 1, flexDirection: 'row', gap: Space.four },
 });

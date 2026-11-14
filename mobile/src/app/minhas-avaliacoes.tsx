@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Estrelas } from '@/components/estrelas';
@@ -217,7 +217,7 @@ export default function MinhasAvaliacoes() {
                             Excluir mesmo?
                           </ThemedText>
                           {/* Cancelar fica onde estava o Excluir: um toque duplo não exclui sem querer. */}
-                          <TouchableOpacity
+                          <FeedbackPressable
                             accessibilityRole="button"
                             accessibilityLabel={`Cancelar exclusão da avaliação de ${avaliacao.livro.titulo}`}
                             disabled={ocupado}
@@ -226,31 +226,23 @@ export default function MinhasAvaliacoes() {
                             <ThemedText themeColor="textSecondary" style={styles.smallButtonText}>
                               Cancelar
                             </ThemedText>
-                          </TouchableOpacity>
-                          <TouchableOpacity
+                          </FeedbackPressable>
+                          <FeedbackPressable
                             accessibilityRole="button"
                             accessibilityLabel={`Confirmar exclusão da avaliação de ${avaliacao.livro.titulo}`}
                             disabled={ocupado}
+                            loading={excluindoId === avaliacao.id}
+                            loadingColor={theme.danger}
                             onPress={() => void excluir(avaliacao)}
-                            style={[
-                              styles.smallButton,
-                              { borderColor: theme.danger, opacity: ocupado ? 0.6 : 1 },
-                            ]}>
-                            {excluindoId === avaliacao.id ? (
-                              <ActivityIndicator
-                                accessibilityLabel="Excluindo"
-                                color={theme.danger}
-                              />
-                            ) : (
-                              <ThemedText themeColor="danger" style={styles.smallButtonText}>
-                                Confirmar
-                              </ThemedText>
-                            )}
-                          </TouchableOpacity>
+                            style={[styles.smallButton, { borderColor: theme.danger }]}>
+                            <ThemedText themeColor="danger" style={styles.smallButtonText}>
+                              Confirmar
+                            </ThemedText>
+                          </FeedbackPressable>
                         </View>
                       ) : (
                         <View style={styles.actions}>
-                          <TouchableOpacity
+                          <FeedbackPressable
                             accessibilityRole="button"
                             accessibilityLabel={`Editar avaliação de ${avaliacao.livro.titulo}`}
                             disabled={ocupado}
@@ -259,8 +251,8 @@ export default function MinhasAvaliacoes() {
                             <ThemedText themeColor="accent" style={styles.smallButtonText}>
                               Editar
                             </ThemedText>
-                          </TouchableOpacity>
-                          <TouchableOpacity
+                          </FeedbackPressable>
+                          <FeedbackPressable
                             accessibilityRole="button"
                             accessibilityLabel={`Excluir avaliação de ${avaliacao.livro.titulo}`}
                             disabled={ocupado}
@@ -272,9 +264,9 @@ export default function MinhasAvaliacoes() {
                             <ThemedText themeColor="danger" style={styles.smallButtonText}>
                               Excluir
                             </ThemedText>
-                          </TouchableOpacity>
+                          </FeedbackPressable>
                           {/* Por último, para não mudar a posição do Excluir. */}
-                          <TouchableOpacity
+                          <FeedbackPressable
                             accessibilityRole="button"
                             accessibilityLabel={`Ver a conversa da avaliação de ${avaliacao.livro.titulo}`}
                             disabled={ocupado}
@@ -288,7 +280,7 @@ export default function MinhasAvaliacoes() {
                             <ThemedText themeColor="accent" style={styles.smallButtonText}>
                               Ver conversa
                             </ThemedText>
-                          </TouchableOpacity>
+                          </FeedbackPressable>
                         </View>
                       )}
 

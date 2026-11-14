@@ -62,18 +62,19 @@ export function SkeletonText({
   return <SkeletonBlock width={width} height={height} radius={Radius.pill} />;
 }
 
-/** Placeholder rows for review, notification, and other vertical lists. */
+/**
+ * Placeholder rows for review, notification, and other vertical lists. Os cartões dessas listas
+ * são só texto (autor, data e conteúdo), então o esqueleto também não tem avatar.
+ */
 export function SkeletonList({ count = 3 }: { count?: number }) {
+  const theme = useTheme();
   return (
     <View style={styles.list}>
       {Array.from({ length: count }, (_, index) => (
-        <View key={index} style={styles.listCard}>
-          <View style={styles.row}>
-            <SkeletonBlock width={40} height={40} radius={Radius.pill} />
-            <View style={styles.flex}>
-              <SkeletonText width="58%" />
-              <SkeletonText width="35%" height={12} />
-            </View>
+        <View key={index} style={[styles.listCard, { backgroundColor: theme.backgroundElement }]}>
+          <View style={styles.flex}>
+            <SkeletonText width="58%" />
+            <SkeletonText width="35%" height={12} />
           </View>
           <SkeletonText height={14} />
           <SkeletonText width="82%" height={14} />
@@ -115,6 +116,74 @@ export function SkeletonBookShelf({ count = 4 }: { count?: number }) {
         </View>
       ))}
     </ScrollView>
+  );
+}
+
+/** Cartão "Sugestão para você" da home: capa 96×144 ao lado do título e do autor. */
+export function SkeletonFeatured() {
+  return (
+    <View style={styles.featured}>
+      <SkeletonBlock width={96} height={144} radius={Radius.cover} />
+      <View style={styles.featuredText}>
+        <SkeletonText width="40%" height={12} />
+        <SkeletonText width="90%" height={20} />
+        <SkeletonText width="70%" height={20} />
+        <SkeletonText width="50%" height={14} />
+      </View>
+    </View>
+  );
+}
+
+/**
+ * Números do tracker de leitura: grade 2×2 e um livro em "Lendo agora" (o título fica de
+ * verdade). Um livro é o meio-termo entre quem não tem nenhum e quem tem vários.
+ */
+export function SkeletonStats() {
+  return (
+    <View style={styles.stats}>
+      <View style={styles.statsGrid}>
+        {[0, 1, 2, 3].map((item) => (
+          <SkeletonBlock key={item} height={96} style={styles.statsItem} />
+        ))}
+      </View>
+      <View style={styles.statsLendo}>
+        <SkeletonText width="30%" height={11} />
+        <View style={styles.statsLivro}>
+          <SkeletonText width="62%" height={20} />
+          <SkeletonBlock height={8} radius={Radius.pill} />
+          <SkeletonText width="45%" height={16} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** Cartões da Biblioteca: capa e título em cima, botão de status e Favoritar/Remover embaixo. */
+export function SkeletonLibrary({ count = 2 }: { count?: number }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: count }, (_, index) => (
+        <View
+          key={index}
+          style={[styles.libraryCard, { backgroundColor: theme.backgroundElement }]}>
+          <View style={styles.libraryTop}>
+            <SkeletonBlock width={76} height={114} radius={0} />
+            <View style={styles.libraryHeading}>
+              <SkeletonText width="80%" height={18} />
+              <SkeletonText width="55%" height={13} />
+            </View>
+          </View>
+          <View style={styles.libraryActions}>
+            <SkeletonBlock height={44} radius={10} style={styles.libraryStatus} />
+            <View style={styles.libraryRow}>
+              <SkeletonBlock height={44} radius={10} style={styles.flexItem} />
+              <SkeletonBlock height={44} radius={10} style={styles.flexItem} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -194,11 +263,13 @@ export function SkeletonSessionShell() {
 
 const styles = StyleSheet.create({
   list: { gap: Space.three },
+  // Mesmo fundo e borda (1 px) dos cartões das listas, para o esqueleto ocupar o mesmo lugar.
   listCard: {
     gap: Space.three,
     padding: Space.four,
     borderRadius: Radius.card,
-    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
   flex: { flex: 1, gap: Space.two },
@@ -216,4 +287,19 @@ const styles = StyleSheet.create({
   sessionShelf: { gap: Space.three, marginTop: Space.two },
   sessionTabs: { flexDirection: 'row', justifyContent: 'space-around', marginTop: Space.four },
   reviewForm: { gap: Space.four },
+  featured: { flexDirection: 'row', gap: Space.four, padding: Space.four },
+  featuredText: { flex: 1, gap: Space.two, paddingTop: Space.one },
+  stats: { gap: Space.four },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.two },
+  statsItem: { flexGrow: 1, flexBasis: '45%' },
+  statsLendo: { gap: Space.two },
+  // 78 px, a altura medida de um livro em "Lendo agora"
+  statsLivro: { gap: Space.two, paddingVertical: 9 },
+  libraryCard: { borderRadius: Radius.card, overflow: 'hidden' },
+  libraryTop: { flexDirection: 'row' },
+  libraryHeading: { flex: 1, gap: Space.two, padding: Space.three },
+  libraryActions: { gap: Space.two, padding: Space.three, paddingTop: Space.two },
+  libraryStatus: { marginTop: 4 },
+  libraryRow: { flexDirection: 'row', gap: Space.two, marginTop: 4 },
+  flexItem: { flex: 1 },
 });

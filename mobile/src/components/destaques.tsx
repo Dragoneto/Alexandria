@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -19,6 +19,7 @@ import {
   TextColor,
   withAlpha,
 } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 /** Os três recursos do app: tela inicial e "Sobre o app" usam os mesmos cartões e textos. */
 export const DESTAQUES: readonly Destaque[] = [
@@ -80,7 +81,7 @@ export function CartaoDestaque({ item, onPress }: CartaoDestaqueProps) {
   }));
 
   return (
-    <Pressable
+    <FeedbackPressable
       accessibilityRole="button"
       accessibilityLabel={`${item.title}. ${item.description}`}
       accessibilityHint="Abre uma explicação sobre este recurso"
@@ -89,32 +90,30 @@ export function CartaoDestaque({ item, onPress }: CartaoDestaqueProps) {
       onHoverOut={() => animar(0)}
       onFocus={() => animar(1)}
       onBlur={() => animar(0)}>
-      {({ pressed }) => (
-        <Animated.View style={[styles.card, estilo, pressed && styles.cardPressed]}>
-          <View
-            style={[
-              styles.cardBadge,
-              {
-                backgroundColor: withAlpha(item.tint, 0.14),
-                borderColor: withAlpha(item.tint, 0.4),
-              },
-            ]}>
-            <SymbolView name={item.icon} size={30} weight="semibold" tintColor={item.tint} />
-          </View>
-          <View style={styles.cardContent}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardDescription}>{item.description}</Text>
-          </View>
-          <Animated.View style={seta}>
-            <SymbolView
-              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-              size={20}
-              tintColor={item.tint}
-            />
-          </Animated.View>
+      <Animated.View style={[styles.card, estilo]}>
+        <View
+          style={[
+            styles.cardBadge,
+            {
+              backgroundColor: withAlpha(item.tint, 0.14),
+              borderColor: withAlpha(item.tint, 0.4),
+            },
+          ]}>
+          <SymbolView name={item.icon} size={30} weight="semibold" tintColor={item.tint} />
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardDescription}>{item.description}</Text>
+        </View>
+        <Animated.View style={seta}>
+          <SymbolView
+            name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+            size={20}
+            tintColor={item.tint}
+          />
         </Animated.View>
-      )}
-    </Pressable>
+      </Animated.View>
+    </FeedbackPressable>
   );
 }
 
@@ -159,6 +158,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: TextColor.secondary,
   },
-
-  cardPressed: { opacity: 0.8 },
 });
