@@ -1,11 +1,4 @@
-import { useEffect } from 'react';
-import { ImageSourcePropType } from 'react-native';
-import Animated, {
-  interpolateColor,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import { Image, ImageSourcePropType } from 'react-native';
 
 type Props = {
   source: ImageSourcePropType;
@@ -15,24 +8,15 @@ type Props = {
   inactiveColor: string;
 };
 
+// A cor do ícone troca direto, sem animação: na web o tintColor vira um filtro SVG, e a
+// animação pelo Reanimated deixava o ícone verde depois de sair da aba (todas pareciam
+// pressionadas). O nome da aba continua com a transição de cor na nav-bar.
 export function TabIcon({ source, focused, size, activeColor, inactiveColor }: Props) {
-  // 0 = aba inativa, 1 = aba ativa
-  const progress = useSharedValue(focused ? 1 : 0);
-
-  useEffect(() => {
-    progress.value = withTiming(focused ? 1 : 0, { duration: 250 });
-  }, [focused, progress]);
-
-  // Só a cor muda (cinza → verde), sem crescer nem balançar
-  const iconStyle = useAnimatedStyle(() => ({
-    tintColor: interpolateColor(progress.value, [0, 1], [inactiveColor, activeColor]),
-  }));
-
   return (
-    <Animated.Image
+    <Image
       source={source}
       resizeMode="contain"
-      style={[{ width: size, height: size }, iconStyle]}
+      style={{ width: size, height: size, tintColor: focused ? activeColor : inactiveColor }}
     />
   );
 }

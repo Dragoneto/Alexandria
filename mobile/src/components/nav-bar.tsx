@@ -104,6 +104,8 @@ function BotaoAba({ titulo, focado, icone, onPress, onLongPress }: BotaoAbaProps
       onLongPress={onLongPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: focado }}
+      // O react-native-web não repassa o accessibilityState para o leitor de tela
+      aria-selected={focado}
       accessibilityLabel={titulo}
       style={({ pressed }) => [styles.aba, pressed && styles.abaPressed]}>
       <View style={styles.conteudoAba}>
