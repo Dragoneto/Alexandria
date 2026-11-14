@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   FlatList,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,6 +22,7 @@ import {
   Shadow,
   Space,
   TextColor,
+  TouchMin,
 } from '@/constants/design-system';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
@@ -141,18 +141,19 @@ export default function HomeScreen() {
 
           <View style={styles.headerAcoes}>
             <SinoNotificacoes />
-            <Pressable
+            <FeedbackPressable
               onPress={() => router.push('/perfil')}
               accessibilityRole="button"
               accessibilityLabel="Abrir meu perfil"
               hitSlop={Space.two}
-              style={({ pressed }) => [styles.avatar, pressed && styles.pressed]}>
+              style={styles.avatar}
+              contentStyle={styles.mioloCheio}>
               {photo ? (
                 <Image source={{ uri: photo }} style={styles.avatarImage} contentFit="cover" />
               ) : (
                 <Text style={styles.avatarLabel}>{(firstName || '?').charAt(0).toUpperCase()}</Text>
               )}
-            </Pressable>
+            </FeedbackPressable>
           </View>
         </View>
 
@@ -187,7 +188,8 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Explorar livros de ${categoria}`}
                 onPress={() => abrirCategoria(categoria)}
-                style={styles.chip}>
+                style={styles.chipAlvo}
+                contentStyle={styles.chip}>
                 <Text style={styles.chipText}>{categoria}</Text>
               </FeedbackPressable>
             ))}
@@ -298,11 +300,12 @@ function CartaoDestaque({
 }) {
   const router = useRouter();
   return (
-    <Pressable
+    <FeedbackPressable
       accessibilityRole="button"
       accessibilityLabel={`Livro sugerido: ${book.title}, de ${book.authors[0] ?? 'autor desconhecido'}`}
       onPress={() => router.push({ pathname: '/livro/[id]', params: { id: book.id } })}
-      style={({ pressed }) => [styles.featured, pressed && styles.pressed]}>
+      style={styles.featured}
+      contentStyle={styles.mioloLinhaDestaque}>
       <View style={styles.featuredCover}>
         <Image
           key={book.id}
@@ -323,7 +326,7 @@ function CartaoDestaque({
         </Text>
         <Text style={styles.featuredAction}>Ver livro</Text>
       </View>
-    </Pressable>
+    </FeedbackPressable>
   );
 }
 
@@ -401,11 +404,11 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
           showsHorizontalScrollIndicator={telaLarga}
           contentContainerStyle={styles.shelfRow}
           renderItem={({ item }) => (
-            <Pressable
+            <FeedbackPressable
               accessibilityRole="button"
               accessibilityLabel={`${item.title}, de ${item.authors[0] ?? 'autor desconhecido'}`}
               onPress={() => router.push({ pathname: '/livro/[id]', params: { id: item.id } })}
-              style={({ pressed }) => [styles.book, pressed && styles.pressed]}>
+              style={styles.book}>
               <View style={styles.coverFrame}>
                 <Image
                   source={{ uri: item.coverUrl ?? undefined }}
@@ -421,7 +424,7 @@ function Estante({ title, query, category, page = 1 }: EstanteProps) {
               <Text style={styles.bookAuthor} numberOfLines={1}>
                 {item.authors[0]}
               </Text>
-            </Pressable>
+            </FeedbackPressable>
           )}
         />
       )}
@@ -593,6 +596,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: ScreenInset,
     gap: Space.two,
   },
+  // A pílula continua com 40 px; a área de toque transparente em volta chega a 44.
+  chipAlvo: { minHeight: TouchMin, justifyContent: 'center' },
   chip: {
     minHeight: 40,
     justifyContent: 'center',
@@ -661,4 +666,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     color: TextColor.secondary,
   },
+  mioloCheio: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
+  mioloLinhaDestaque: { flex: 1, flexDirection: 'row', gap: Space.four },
 });
