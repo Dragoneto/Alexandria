@@ -22,6 +22,12 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 type Props = Omit<PressableProps, 'disabled' | 'style' | 'children'> & {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Estilo do miolo que embrulha os filhos. Use para layouts em linha (flexDirection, gap) e
+   * para aumentar a área de toque sem mudar o visual: o espaçamento fica no `style` (invisível)
+   * e a borda e o fundo ficam aqui.
+   */
+  contentStyle?: StyleProp<ViewStyle>;
   disabled?: boolean;
   loading?: boolean;
   loadingColor?: string;
@@ -31,6 +37,7 @@ type Props = Omit<PressableProps, 'disabled' | 'style' | 'children'> & {
 export function FeedbackPressable({
   children,
   style,
+  contentStyle,
   disabled = false,
   loading = false,
   loadingColor = Mint.mint400,
@@ -70,7 +77,7 @@ export function FeedbackPressable({
       style={[style, animatedStyle]}>
       <View
         // O rótulo some (sem sair do layout) para o indicador não ficar por cima do texto.
-        style={[styles.content, loading && styles.contentLoading]}
+        style={[styles.content, contentStyle, loading && styles.contentLoading]}
         accessibilityElementsHidden={loading}
         importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}>
         {children}

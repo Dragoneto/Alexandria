@@ -62,18 +62,18 @@ export function SkeletonText({
   return <SkeletonBlock width={width} height={height} radius={Radius.pill} />;
 }
 
-/** Placeholder rows for review, notification, and other vertical lists. */
+/**
+ * Placeholder rows for review, notification, and other vertical lists. Os cartões dessas listas
+ * são só texto (autor, data e conteúdo), então o esqueleto também não tem avatar.
+ */
 export function SkeletonList({ count = 3 }: { count?: number }) {
   return (
     <View style={styles.list}>
       {Array.from({ length: count }, (_, index) => (
         <View key={index} style={styles.listCard}>
-          <View style={styles.row}>
-            <SkeletonBlock width={40} height={40} radius={Radius.pill} />
-            <View style={styles.flex}>
-              <SkeletonText width="58%" />
-              <SkeletonText width="35%" height={12} />
-            </View>
+          <View style={styles.flex}>
+            <SkeletonText width="58%" />
+            <SkeletonText width="35%" height={12} />
           </View>
           <SkeletonText height={14} />
           <SkeletonText width="82%" height={14} />
@@ -115,6 +115,36 @@ export function SkeletonBookShelf({ count = 4 }: { count?: number }) {
         </View>
       ))}
     </ScrollView>
+  );
+}
+
+/** Cartão "Sugestão para você" da home: capa 96×144 ao lado do título e do autor. */
+export function SkeletonFeatured() {
+  return (
+    <View style={styles.featured}>
+      <SkeletonBlock width={96} height={144} radius={Radius.cover} />
+      <View style={styles.featuredText}>
+        <SkeletonText width="40%" height={12} />
+        <SkeletonText width="90%" height={20} />
+        <SkeletonText width="70%" height={20} />
+        <SkeletonText width="50%" height={14} />
+      </View>
+    </View>
+  );
+}
+
+/** Cartão de números do tracker de leitura: título, grade 2×2 e uma linha embaixo. */
+export function SkeletonStats() {
+  return (
+    <View style={styles.stats}>
+      <SkeletonText width="48%" height={20} />
+      <View style={styles.statsGrid}>
+        {[0, 1, 2, 3].map((item) => (
+          <SkeletonBlock key={item} height={88} style={styles.statsItem} />
+        ))}
+      </View>
+      <SkeletonText width="80%" height={13} />
+    </View>
   );
 }
 
@@ -216,4 +246,9 @@ const styles = StyleSheet.create({
   sessionShelf: { gap: Space.three, marginTop: Space.two },
   sessionTabs: { flexDirection: 'row', justifyContent: 'space-around', marginTop: Space.four },
   reviewForm: { gap: Space.four },
+  featured: { flexDirection: 'row', gap: Space.four, padding: Space.four },
+  featuredText: { flex: 1, gap: Space.two, paddingTop: Space.one },
+  stats: { gap: Space.four, padding: Space.four },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.two },
+  statsItem: { flexGrow: 1, flexBasis: '45%' },
 });
