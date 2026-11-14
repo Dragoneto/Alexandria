@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  type ScrollViewInstance,
   type TextInputInstance,
   TouchableOpacity,
   View,
@@ -18,6 +19,7 @@ import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { LinhaDeChips } from '@/components/linha-de-chips';
+import { PulsoDeDestaque } from '@/components/pulso-de-destaque';
 import { SkeletonGrid } from '@/components/skeletons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -100,6 +102,10 @@ export default function Explorar() {
   const [loadMoreError, setLoadMoreError] = useState('');
   const [refresh, setRefresh] = useState(0);
   const inputRef = useRef<TextInputInstance>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  // Altura da caixa de busca dentro da página, para os botões lá de baixo voltarem até ela
+  const caixaDeBuscaYRef = useRef(0);
+  const [pulsoDaBusca, setPulsoDaBusca] = useState(0);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const scrollMetricsRef = useRef({ offset: 0, viewport: 0, content: 0 });
   const activeSearchKey = `${submittedQuery}\u0000${category}\u0000${order}\u0000${quality}`;
@@ -304,6 +310,17 @@ export default function Explorar() {
     setQuality('precise');
   };
 
+  /** Sobe até a caixa de busca, faz ela pulsar e põe o cursor no campo. */
+  const irParaBusca = () => {
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, caixaDeBuscaYRef.current - Spacing.three),
+      animated: true,
+    });
+    setPulsoDaBusca((valor) => valor + 1);
+    // O foco espera a rolagem: antes dela o navegador pularia direto para o campo
+    setTimeout(() => inputRef.current?.focus(), ATRASO_DO_PULSO);
+  };
+
   const openBook = (book: BookSearchItem) => {
     router.push({ pathname: '/livro/[id]', params: { id: book.id } });
   };
@@ -312,6 +329,7 @@ export default function Explorar() {
     <ThemedView style={styles.root}>
       <SafeAreaView style={styles.safe}>
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           scrollEventThrottle={100}
@@ -347,7 +365,16 @@ export default function Explorar() {
               </>
             )}
 
-            <View style={[styles.searchBox, { borderColor: theme.border }]}>
+            <View
+              style={[styles.searchBox, { borderColor: theme.border }]}
+              onLayout={({ nativeEvent }) => {
+                caixaDeBuscaYRef.current = nativeEvent.layout.y;
+              }}>
+              <PulsoDeDestaque
+                disparo={pulsoDaBusca}
+                borderRadius={RAIO_DA_CAIXA + 1}
+                atraso={ATRASO_DO_PULSO}
+              />
               <ThemedText themeColor="textSecondary" style={styles.searchLabel}>
                 Buscar por título, autor ou assunto
               </ThemedText>
@@ -591,7 +618,7 @@ export default function Explorar() {
                 message="Pesquise por título, autor ou assunto para encontrar livros."
                 primaryAction={{
                   label: 'Buscar livros',
-                  onPress: () => inputRef.current?.focus(),
+                  onPress: irParaBusca,
                 }}
               />
             ) : searchFailure ? (
@@ -617,7 +644,7 @@ export default function Explorar() {
                   onPress: () => {
                     setQuery('');
                     limparResultados();
-                    inputRef.current?.focus();
+                    irParaBusca();
                   },
                 }}
                 secondaryAction={
@@ -675,6 +702,10 @@ export default function Explorar() {
   );
 }
 
+const RAIO_DA_CAIXA = 16;
+// Tempo da rolagem até a caixa de busca antes do pulso e do foco
+const ATRASO_DO_PULSO = 350;
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   safe: { flex: 1 },
@@ -697,7 +728,7 @@ const styles = StyleSheet.create({
   searchBox: {
     marginTop: Spacing.four,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: RAIO_DA_CAIXA,
     padding: Spacing.three,
     gap: Spacing.two,
   },
