@@ -3,6 +3,7 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { ProgressoDoLivro } from '@/components/progresso-do-livro';
 import { SkeletonStats } from '@/components/skeletons';
@@ -19,7 +20,7 @@ import {
 import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type Dados = { resumo: ResumoDeLeitura; avaliacoes: number; lendo: BibliotecaItem[] };
-type Estado = 'loading' | 'success' | 'error';
+type Estado = 'loading' | 'success' | 'empty' | 'error';
 
 type Numero = {
   rotulo: string;
@@ -59,7 +60,8 @@ export function ResumoLeitura() {
           avaliacoes: avaliacoes.length,
           lendo: itens.filter((item) => item.statusLeitura === 'LENDO'),
         });
-        setEstado('success');
+        // Conta nova: nada na biblioteca e nenhuma avaliação. Os quatro zeros não diriam nada.
+        setEstado(itens.length || avaliacoes.length ? 'success' : 'empty');
       })
       .catch(() => {
         if (!controller.signal.aborted)
@@ -73,6 +75,20 @@ export function ResumoLeitura() {
       Tracker de leitura
     </Text>
   );
+
+  if (estado === 'empty') {
+    return (
+      <View style={styles.raiz}>
+        {titulo}
+        <EmptyState
+          compact
+          title="Seu tracker começa no primeiro livro"
+          message="Salve um livro e marque como Lendo para contar páginas e dias de leitura aqui."
+          primaryAction={{ label: 'Explorar livros', onPress: () => router.push('/explore') }}
+        />
+      </View>
+    );
+  }
 
   if (estado === 'loading' || !dados) {
     return (
