@@ -10,7 +10,7 @@ import { ActionButton } from '@/components/action-button';
 import { FeedbackPressable } from '@/components/feedback-pressable';
 import { ErrorState } from '@/components/error-state';
 import { ResumoLeitura } from '@/components/resumo-leitura';
-import { SkeletonProfileFields } from '@/components/skeletons';
+import { SkeletonText } from '@/components/skeletons';
 import {
   Accent,
   DisabledOpacity,
@@ -207,6 +207,21 @@ export default function PerfilScreen() {
 
           {!!photoError && <Text style={styles.error}>{photoError}</Text>}
 
+          {/* Nome da conta logo abaixo da foto, no lugar do antigo cartão com nome e e-mail */}
+          {loading ? (
+            showLoading ? (
+              <View style={styles.nomeCarregando}>
+                <SkeletonText width="52%" height={22} />
+              </View>
+            ) : null
+          ) : (
+            !!profile?.name?.trim() && (
+              <Text style={styles.nome} accessibilityRole="header">
+                {profile.name.trim()}
+              </Text>
+            )
+          )}
+
           <Text style={styles.title}>Meu perfil</Text>
           <Text style={styles.subtitle}>Confira os dados da sua conta.</Text>
 
@@ -232,28 +247,6 @@ export default function PerfilScreen() {
                   .finally(() => setLoading(false));
               }}
             />
-          )}
-
-          {loading ? (
-            showLoading ? (
-              <SkeletonProfileFields />
-            ) : null
-          ) : (
-            profile && (
-              <View style={styles.card}>
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Nome completo</Text>
-                  <Text style={styles.fieldValue}>{profile.name || 'Não informado'}</Text>
-                </View>
-
-                <View style={styles.divider} />
-
-                <View style={styles.field}>
-                  <Text style={styles.fieldLabel}>Email de acesso</Text>
-                  <Text style={styles.fieldValue}>{profile.email || 'Não informado'}</Text>
-                </View>
-              </View>
-            )
           )}
 
           <View style={styles.actions}>
@@ -352,6 +345,15 @@ const styles = StyleSheet.create({
   desabilitado: {
     opacity: DisabledOpacity,
   },
+  nome: {
+    marginTop: Space.three,
+    fontFamily: DSFonts.display,
+    fontSize: 22,
+    lineHeight: 28,
+    color: TextColor.primary,
+    textAlign: 'center',
+  },
+  nomeCarregando: { marginTop: Space.three, alignItems: 'center' },
   title: {
     marginTop: Space.six,
     fontFamily: DSFonts.display,
@@ -376,36 +378,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Accent.coral,
     textAlign: 'center',
-  },
-  card: {
-    marginTop: Space.eight,
-    borderRadius: Radius.card,
-    borderWidth: 1,
-    borderColor: Ink.ink500,
-    backgroundColor: Ink.ink700,
-    paddingHorizontal: Space.four,
-  },
-  field: {
-    paddingVertical: Space.four,
-    gap: Space.one,
-  },
-  fieldLabel: {
-    fontFamily: DSFonts.ui,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.76,
-    textTransform: 'uppercase',
-    color: TextColor.secondary,
-  },
-  fieldValue: {
-    fontFamily: DSFonts.ui,
-    fontSize: 16,
-    lineHeight: 22,
-    color: TextColor.primary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Ink.ink500,
   },
   actions: {
     marginTop: Space.eight,
