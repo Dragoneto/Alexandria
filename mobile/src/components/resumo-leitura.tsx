@@ -6,13 +6,15 @@ import { StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
 import { ProgressoDoLivro } from '@/components/progresso-do-livro';
-import { SkeletonStats } from '@/components/skeletons';
+import { alturaDoTrackerCarregando, SkeletonStats } from '@/components/skeletons';
 import { Accent, DSFonts, Ink, Mint, Radius, Space, TextColor } from '@/constants/design-system';
 import { useLoadingGate } from '@/hooks/use-loading-gate';
 import { listarMinhasAvaliacoes } from '@/services/avaliacoes';
 import {
   buscarDiasDeLeitura,
+  lembrarLivrosLendo,
   listarBiblioteca,
+  livrosLendoLembrados,
   resumoDeLeitura,
   type BibliotecaItem,
   type ResumoDeLeitura,
@@ -38,6 +40,20 @@ export function ResumoLeitura() {
   const [estado, setEstado] = useState<Estado>('loading');
   const [tentativa, setTentativa] = useState(0);
   const mostrarEsqueleto = useLoadingGate(estado === 'loading');
+  // O esqueleto mostra quantos livros estavam em "Lendo" da última vez, para o perfil não pular.
+  const [livrosNoEsqueleto, setLivrosNoEsqueleto] = useState(1);
+
+  useEffect(() => {
+    let ativo = true;
+    livrosLendoLembrados()
+      .then((n) => {
+        if (ativo && n !== null) setLivrosNoEsqueleto(n);
+      })
+      .catch(() => {});
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   // Cada vez que o perfil volta para a tela os números são buscados de novo.
   const [foco, setFoco] = useState(0);
@@ -55,11 +71,13 @@ export function ResumoLeitura() {
     ])
       .then(([itens, avaliacoes, dias]) => {
         const resumo = resumoDeLeitura(itens);
+        const lendo = itens.filter((item) => item.statusLeitura === 'LENDO');
         setDados({
           resumo: dias === null ? resumo : { ...resumo, diasLeitura: dias },
           avaliacoes: avaliacoes.length,
-          lendo: itens.filter((item) => item.statusLeitura === 'LENDO'),
+          lendo,
         });
+        lembrarLivrosLendo(lendo.length).catch(() => {});
         // Conta nova: nada na biblioteca e nenhuma avaliação. Os quatro zeros não diriam nada.
         setEstado(itens.length || avaliacoes.length ? 'success' : 'empty');
       })
@@ -104,10 +122,10 @@ export function ResumoLeitura() {
             }}
           />
         ) : mostrarEsqueleto ? (
-          <SkeletonStats />
+          <SkeletonStats livros={livrosNoEsqueleto} />
         ) : (
           // Mesma altura do esqueleto, para o perfil não pular quando os números chegam.
-          <View style={styles.reservado} />
+          <View style={{ minHeight: alturaDoTrackerCarregando(livrosNoEsqueleto) }} />
         )}
       </View>
     );
@@ -198,8 +216,6 @@ const styles = StyleSheet.create({
   },
   titulo: { fontFamily: DSFonts.display, fontSize: 20, lineHeight: 26, color: TextColor.primary },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.two },
-  // Mesma altura do esqueleto: grade 2×2 de 96 px e um livro em "Lendo agora" (78 px)
-  reservado: { minHeight: 96 * 2 + Space.two + Space.four + 11 + Space.two + 78 },
   item: {
     flexGrow: 1,
     flexBasis: '45%',

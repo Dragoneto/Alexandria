@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { apiRequest } from '@/services/api';
 
 export type StatusLeitura = 'QUERO_LER' | 'LENDO' | 'LIDO' | 'ABANDONADO';
@@ -133,6 +135,26 @@ export async function buscarDiasDeLeitura(signal?: AbortSignal): Promise<number 
     signal,
   });
   return typeof result?.diasLeitura === 'number' ? result.diasLeitura : null;
+}
+
+const CHAVE_LENDO = 'alexandria_tracker_lendo';
+const MAX_LENDO_NO_ESQUELETO = 6;
+
+/** Guarda quantos livros estavam em "Lendo" para o esqueleto do tracker ter a altura certa. */
+export async function lembrarLivrosLendo(quantidade: number): Promise<void> {
+  await AsyncStorage.setItem(CHAVE_LENDO, String(Math.max(0, Math.floor(quantidade))));
+}
+
+/** Quantos livros o esqueleto do tracker mostra; null quando o aparelho ainda não sabe. */
+export async function livrosLendoLembrados(): Promise<number | null> {
+  const bruto = await AsyncStorage.getItem(CHAVE_LENDO);
+  const valor = Number(bruto);
+  if (bruto === null || !Number.isInteger(valor) || valor < 0) return null;
+  return Math.min(valor, MAX_LENDO_NO_ESQUELETO);
+}
+
+export async function esquecerLivrosLendo(): Promise<void> {
+  await AsyncStorage.removeItem(CHAVE_LENDO);
 }
 
 export async function removerDaBiblioteca(id: number): Promise<void> {

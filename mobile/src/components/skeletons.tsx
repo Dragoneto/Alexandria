@@ -160,10 +160,10 @@ export function SkeletonFeatured() {
 }
 
 /**
- * Números do tracker de leitura: grade 2×2 e um livro em "Lendo agora" (o título fica de
- * verdade). Um livro é o meio-termo entre quem não tem nenhum e quem tem vários.
+ * Números do tracker de leitura: grade 2×2 e os livros em "Lendo agora". Sem livros, ocupa o
+ * lugar das duas linhas que convidam a marcar um livro como "Lendo".
  */
-export function SkeletonStats() {
+export function SkeletonStats({ livros = 1 }: { livros?: number }) {
   return (
     <View style={styles.stats}>
       <View style={styles.statsGrid}>
@@ -171,16 +171,37 @@ export function SkeletonStats() {
           <SkeletonBlock key={item} height={96} style={styles.statsItem} />
         ))}
       </View>
-      <View style={styles.statsLendo}>
-        <SkeletonText width="30%" height={11} />
-        <View style={styles.statsLivro}>
-          <SkeletonText width="62%" height={20} />
-          <SkeletonBlock height={8} radius={Radius.pill} />
-          <SkeletonText width="45%" height={16} />
+      {livros > 0 ? (
+        <View style={styles.statsLendo}>
+          <SkeletonBlock
+            width="30%"
+            height={11}
+            radius={Radius.pill}
+            style={styles.statsSubtitulo}
+          />
+          {Array.from({ length: livros }, (_, index) => (
+            <View key={index} style={styles.statsLivro}>
+              <SkeletonText width="62%" height={20} />
+              <SkeletonBlock height={8} radius={Radius.pill} />
+              <SkeletonText width="45%" height={16} />
+            </View>
+          ))}
         </View>
-      </View>
+      ) : (
+        <View style={styles.statsVazio}>
+          <SkeletonText width="92%" height={13} />
+          <SkeletonText width="60%" height={13} />
+        </View>
+      )}
     </View>
   );
+}
+
+/** Altura do tracker carregando, igual à do esqueleto com a mesma quantidade de livros. */
+export function alturaDoTrackerCarregando(livros: number) {
+  const grade = 96 * 2 + Space.two;
+  const lendo = livros > 0 ? 15 + livros * (78 + Space.two) : 38;
+  return grade + Space.four + lendo;
 }
 
 /** Cartões da Biblioteca: capa e título em cima, botão de status e Favoritar/Remover embaixo. */
@@ -329,8 +350,12 @@ const styles = StyleSheet.create({
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Space.two },
   statsItem: { flexGrow: 1, flexBasis: '45%' },
   statsLendo: { gap: Space.two },
+  // O subtítulo "Lendo agora" ocupa 15 px
+  statsSubtitulo: { marginVertical: 2 },
   // 78 px, a altura medida de um livro em "Lendo agora"
   statsLivro: { gap: Space.two, paddingVertical: 9 },
+  // Duas linhas de 19 px do texto "Marque um livro como Lendo…"
+  statsVazio: { gap: 6, paddingVertical: 3 },
   libraryCard: { borderRadius: Radius.card, overflow: 'hidden' },
   libraryTop: { flexDirection: 'row' },
   libraryHeading: { flex: 1, gap: Space.two, padding: Space.three },
