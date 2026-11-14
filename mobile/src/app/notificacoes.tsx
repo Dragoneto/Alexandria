@@ -8,7 +8,7 @@ import { FeedbackPressable } from '@/components/feedback-pressable';
 import { BotaoVoltar } from '@/components/botao-voltar';
 import { EmptyState } from '@/components/empty_state';
 import { ErrorState } from '@/components/error-state';
-import { SkeletonList } from '@/components/skeletons';
+import { SkeletonNotificacoes } from '@/components/skeletons';
 import {
   Accent,
   Ink,
@@ -211,7 +211,7 @@ export default function NotificacoesScreen() {
         {feedState === 'error' && !items.length && !loading && (
           <ErrorState message={error} onRetry={() => void load()} />
         )}
-        {feedState === 'loading' && showLoading ? <SkeletonList count={3} /> : null}
+        {feedState === 'loading' && showLoading ? <SkeletonNotificacoes count={3} /> : null}
         {feedState === 'empty' ? (
           <EmptyState
             compact

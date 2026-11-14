@@ -84,6 +84,31 @@ export function SkeletonList({ count = 3 }: { count?: number }) {
   );
 }
 
+/** Cartões das notificações: autor e texto em duas linhas e a data embaixo. */
+export function SkeletonNotificacoes({ count = 3 }: { count?: number }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.list}>
+      {Array.from({ length: count }, (_, index) => (
+        <View
+          key={index}
+          style={[styles.notificacao, { backgroundColor: theme.backgroundElement }]}>
+          <View style={styles.notificacaoAutor}>
+            <SkeletonText width="92%" height={14} />
+            <SkeletonText width="55%" height={14} />
+          </View>
+          <SkeletonBlock
+            width="35%"
+            height={12}
+            radius={Radius.pill}
+            style={styles.notificacaoData}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 /** Placeholder cards for the Explore and Library grids. */
 export function SkeletonGrid({ count = 4 }: { count?: number }) {
   return (
@@ -175,10 +200,10 @@ export function SkeletonLibrary({ count = 2 }: { count?: number }) {
             </View>
           </View>
           <View style={styles.libraryActions}>
-            <SkeletonBlock height={44} radius={10} style={styles.libraryStatus} />
+            <SkeletonBlock height={46} radius={10} style={styles.libraryStatus} />
             <View style={styles.libraryRow}>
-              <SkeletonBlock height={44} radius={10} style={styles.flexItem} />
-              <SkeletonBlock height={44} radius={10} style={styles.flexItem} />
+              <SkeletonBlock height={46} radius={10} style={styles.flexItem} />
+              <SkeletonBlock height={46} radius={10} style={styles.flexItem} />
             </View>
           </View>
         </View>
@@ -271,6 +296,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
+  // Medido no cartão real: 1 px de borda, autor em duas linhas de 20 px e data de 17 px.
+  notificacao: {
+    gap: Space.two,
+    padding: Space.four,
+    paddingRight: 56,
+    borderRadius: Radius.card,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  notificacaoAutor: { gap: 6, paddingVertical: 3 },
+  notificacaoData: { marginVertical: 2.5 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Space.three },
   flex: { flex: 1, gap: Space.two },
   grid: { gap: Space.three },
@@ -298,7 +334,13 @@ const styles = StyleSheet.create({
   libraryCard: { borderRadius: Radius.card, overflow: 'hidden' },
   libraryTop: { flexDirection: 'row' },
   libraryHeading: { flex: 1, gap: Space.two, padding: Space.three },
-  libraryActions: { gap: Space.two, padding: Space.three, paddingTop: Space.two },
+  // Botões reais com 44 px mais a borda de 1 px, e 16 px de respiro embaixo.
+  libraryActions: {
+    gap: Space.two,
+    paddingHorizontal: Space.three,
+    paddingTop: Space.two,
+    paddingBottom: Space.four,
+  },
   libraryStatus: { marginTop: 4 },
   libraryRow: { flexDirection: 'row', gap: Space.two, marginTop: 4 },
   flexItem: { flex: 1 },
