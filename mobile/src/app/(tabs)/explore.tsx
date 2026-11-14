@@ -217,14 +217,14 @@ export default function Explorar() {
 
   const handleClearQuery = () => {
     handleQueryChange('');
-    inputRef.current?.getNativeRef()?.focus();
+    inputRef.current?.focus();
   };
 
   const handleSearch = () => {
     const normalized = query.trim();
     if (normalized.length < 2) {
       setError('Digite pelo menos dois caracteres para buscar.');
-      inputRef.current?.getNativeRef()?.focus();
+      inputRef.current?.focus();
       return;
     }
     setError('');
@@ -591,7 +591,7 @@ export default function Explorar() {
                 message="Pesquise por título, autor ou assunto para encontrar livros."
                 primaryAction={{
                   label: 'Buscar livros',
-                  onPress: () => inputRef.current?.getNativeRef()?.focus(),
+                  onPress: () => inputRef.current?.focus(),
                 }}
               />
             ) : searchFailure ? (
@@ -617,7 +617,7 @@ export default function Explorar() {
                   onPress: () => {
                     setQuery('');
                     limparResultados();
-                    inputRef.current?.getNativeRef()?.focus();
+                    inputRef.current?.focus();
                   },
                 }}
                 secondaryAction={
