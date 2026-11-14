@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ActionButton } from '@/components/action-button';
 import { logoutUser } from '@/services/auth';
@@ -19,6 +19,7 @@ import {
 } from '@/constants/design-system';
 import { useVoltar } from '@/hooks/use-voltar';
 import { MaxContentWidth } from '@/constants/theme';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 const OPCOES = [
   {
     titulo: 'Alterar senha',
@@ -79,18 +80,18 @@ export default function ConfiguracoesScreen() {
   return (
     <SafeAreaView style={styles.tela}>
       <ScrollView contentContainerStyle={styles.conteudo}>
-        <Pressable
+        <FeedbackPressable
           onPress={voltar}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel="Voltar"
-          style={({ pressed }) => [styles.voltar, pressed && styles.voltarPressionado]}>
+          style={styles.voltar}>
           <SymbolView
             name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
             size={20}
             tintColor={Mint.mint400}
           />
-        </Pressable>
+        </FeedbackPressable>
 
         <Text style={styles.titulo}>Configurações</Text>
         <Text style={styles.subtitulo}>Conta, informações e ajuda sobre o app.</Text>
@@ -98,16 +99,13 @@ export default function ConfiguracoesScreen() {
         {/* Cartão com todas as opções */}
         <View style={styles.cartao}>
           {OPCOES.map((opcao, index) => (
-            <Pressable
+            <FeedbackPressable
               key={opcao.titulo}
               accessibilityRole="button"
               accessibilityLabel={`${opcao.titulo}. ${opcao.descricao}`}
               onPress={() => router.push(opcao.rota)}
-              style={({ pressed }) => [
-                styles.linha,
-                index > 0 && styles.linhaComBorda,
-                pressed && styles.linhaPressionada,
-              ]}>
+              style={[styles.linha, index > 0 && styles.linhaComBorda]}
+              contentStyle={styles.mioloLinha}>
               {/* Ícone dentro de um quadradinho colorido */}
               <View style={[styles.iconeFundo, { backgroundColor: withAlpha(opcao.cor, 0.15) }]}>
                 <SymbolView name={opcao.icone} size={20} tintColor={opcao.cor} />
@@ -125,7 +123,7 @@ export default function ConfiguracoesScreen() {
                 size={14}
                 tintColor={TextColor.muted}
               />
-            </Pressable>
+            </FeedbackPressable>
           ))}
         </View>
 
@@ -238,4 +236,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: TextColor.secondary,
   },
+  mioloLinha: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Space.three },
 });

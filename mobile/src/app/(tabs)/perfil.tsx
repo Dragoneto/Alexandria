@@ -3,7 +3,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionButton } from '@/components/action-button';
@@ -151,16 +151,13 @@ export default function PerfilScreen() {
     <View style={styles.root}>
       <SafeAreaView style={styles.flex}>
         <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-          <Pressable
+          <FeedbackPressable
             accessibilityRole="button"
             accessibilityLabel={photo ? 'Alterar foto de perfil' : 'Adicionar foto de perfil'}
             disabled={photoBusy || loading}
             onPress={handleChangePhoto}
-            style={({ pressed }) => [
-              styles.avatar,
-              pressed && styles.pressed,
-              loading && styles.desabilitado,
-            ]}>
+            style={styles.avatar}
+            contentStyle={styles.mioloCheio}>
             {photo ? (
               <Image
                 source={{ uri: photo }}
@@ -176,7 +173,7 @@ export default function PerfilScreen() {
                 <ActivityIndicator color={Mint.mint400} />
               </View>
             )}
-          </Pressable>
+          </FeedbackPressable>
 
           <View style={styles.photoActions}>
             <FeedbackPressable
@@ -383,4 +380,5 @@ const styles = StyleSheet.create({
     marginTop: Space.eight,
     gap: Space.four,
   },
+  mioloCheio: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
 });

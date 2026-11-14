@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { ErrorState } from '@/components/error-state';
 import { ProgressoDoLivro } from '@/components/progresso-do-livro';
@@ -16,6 +16,7 @@ import {
   type BibliotecaItem,
   type ResumoDeLeitura,
 } from '@/services/biblioteca';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 type Dados = { resumo: ResumoDeLeitura; avaliacoes: number; lendo: BibliotecaItem[] };
 type Estado = 'loading' | 'success' | 'error';
@@ -145,19 +146,19 @@ export function ResumoLeitura() {
         <View style={styles.lendo}>
           <Text style={styles.subtitulo}>Lendo agora</Text>
           {lendo.map((item) => (
-            <Pressable
+            <FeedbackPressable
               key={item.id}
               onPress={() =>
                 router.push({ pathname: '/livro/[id]', params: { id: item.livro.id } })
               }
               accessibilityRole="button"
               accessibilityLabel={`Abrir ${item.livro.titulo}`}
-              style={({ pressed }) => [styles.livro, pressed && styles.pressionado]}>
+              style={styles.livro}>
               <Text style={styles.livroTitulo} numberOfLines={1}>
                 {item.livro.titulo}
               </Text>
               <ProgressoDoLivro progresso={item.progresso} compacto />
-            </Pressable>
+            </FeedbackPressable>
           ))}
         </View>
       ) : (

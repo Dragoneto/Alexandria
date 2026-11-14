@@ -1,7 +1,7 @@
 import type { ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -15,6 +15,7 @@ import {
   Space,
   TextColor,
 } from '@/constants/design-system';
+import { FeedbackPressable } from '@/components/feedback-pressable';
 
 /**
  * Tela de erro do app.
@@ -51,12 +52,9 @@ export function AppErrorBoundary({ error, retry }: ErrorBoundaryProps) {
           )}
         </ScrollView>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={retry}
-          style={({ pressed }) => [styles.retryButton, pressed && styles.retryButtonPressed]}>
+        <FeedbackPressable accessibilityRole="button" onPress={retry} style={styles.retryButton}>
           <Text style={styles.retryLabel}>Tentar de novo</Text>
-        </Pressable>
+        </FeedbackPressable>
       </SafeAreaView>
     </View>
   );
