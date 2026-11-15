@@ -1,6 +1,7 @@
 import { ApiError, apiRequest } from '@/services/api';
 import { getApiConfig } from '@/constants/env';
 import { clearAuth, getAuth, saveAuth, type StoredUser } from '@/services/auth-storage';
+import { esquecerLivrosLendo } from '@/services/biblioteca';
 import { limparRascunhos } from '@/services/rascunhos';
 
 export { ApiError } from '@/services/api';
@@ -76,6 +77,7 @@ export async function loginUser(email: string, password: string): Promise<Stored
   const session = { ...profileFrom(response), token: response.token };
   await saveAuth(session);
   await limparRascunhos(session.id).catch(() => {});
+  await esquecerLivrosLendo().catch(() => {});
   return session;
 }
 
@@ -170,6 +172,7 @@ export async function logoutUser(): Promise<void> {
   // O backend usa JWT sem endpoint de revogação; o logout remove a sessão deste dispositivo.
   await clearAuth();
   await limparRascunhos().catch(() => {});
+  await esquecerLivrosLendo().catch(() => {});
 }
 
 export async function forgotPassword(email: string): Promise<void> {
