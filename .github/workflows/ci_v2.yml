@@ -123,6 +123,15 @@ jobs:
         if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
         run: npm run lint
 
+      # Só o bundle JavaScript, sem EAS nem conta Expo: o APK nativo não é gerado aqui
+      - name: Bundle Android
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/bundle-android"
+
+      - name: Bundle web
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npx expo export --platform web --output-dir "$RUNNER_TEMP/bundle-web"
+
   process-pr:
     # Só aprovações de quem é dono ou colaborador do repositório disparam o merge.
     # Como o repositório é público, qualquer conta do GitHub consegue aprovar uma PR.
