@@ -74,6 +74,55 @@ jobs:
       - name: Testes (JSON local e PostgreSQL)
         run: npm test
 
+  mobile:
+    name: App
+    if: >-
+      github.event_name != 'pull_request_review' ||
+      (github.event.review.state == 'approved' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Instalar pelo lockfile
+        id: instalar
+        run: npm ci
+
+      # Cada checagem roda mesmo se a anterior falhar, para a PR mostrar todos os problemas de uma vez
+      - name: Testes
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npm test
+
+      - name: TypeScript
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        working-directory: .
+        run: |
+          # Gera os tipos das rotas, como o expo start faz em cada máquina; sem eles o tsc aceita rota que não existe
+          (cd mobile && npx expo customize tsconfig.json)
+          # Roda da raiz para o erro apontar o arquivo certo na PR
+          mobile/node_modules/.bin/tsc -p mobile --noEmit
+
+      # Escopo do expo lint: a pasta src. Aviso aparece, mas só erro reprova.
+      - name: Lint
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npm run lint
+
   process-pr:
     # Só aprovações de quem é dono ou colaborador do repositório disparam o merge.
     # Como o repositório é público, qualquer conta do GitHub consegue aprovar uma PR.
