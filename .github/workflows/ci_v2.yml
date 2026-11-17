@@ -1,26 +1,155 @@
 name: GitHub CI
 
+# Roda as checagens de regressão em cada PR e em cada push na dev (detalhes em
+# .github/workflows/README.md).
 # Faz o merge automático de PRs aprovadas, de acordo com o nome da branch:
 #   feature/<nome> e bugfix/<nome> -> dev  (a branch é apagada depois do merge)
 #   release/X.Y.Z e hotfix/X.Y.Z   -> main (cria tag e release, sincroniza a dev e apaga a branch)
 #   qualquer outra branch          -> base da PR (a branch é apagada, exceto main e dev)
 
 on:
+  pull_request:
+  # Merges feitos à mão e pushes direto na dev não passam pela aprovação: as checagens rodam depois
+  push:
+    branches: [dev]
   pull_request_review:
     types: [submitted]
 
+# As checagens só leem o repositório. Só o job do merge pode escrever.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
+  backend:
+    # Na aprovação, as checagens rodam de novo sobre o código que vai entrar.
+    # Qualquer outra revisão (comentário, pedido de mudança, aprovação de fora do time) cria uma
+    # rodada com o job pulado, e o GitHub conta job pulado como sucesso. Por isso a rodada da
+    # revisão tem outro nome: "Backend" e "App" só vêm de PR e de push, e podem virar checks obrigatórios.
+    name: ${{ github.event_name == 'pull_request_review' && 'Backend (aprovação)' || 'Backend' }}
+    if: >-
+      github.event_name != 'pull_request_review' ||
+      (github.event.review.state == 'approved' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # PostgreSQL descartável, que só existe durante o job: nunca um segredo nem o banco publicado
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: senhadeteste
+          POSTGRES_DB: alexandria_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres -d alexandria_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:senhadeteste@127.0.0.1:5432/alexandria_test
+      # Sem TEST_DATABASE_URL, a suíte falha em vez de ficar verde com o PostgreSQL pulado
+      EXIGIR_POSTGRES_DE_TESTE: 'true'
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar pelo lockfile
+        run: npm ci
+
+      - name: Testes (JSON local e PostgreSQL)
+        run: npm test
+
+  mobile:
+    name: ${{ github.event_name == 'pull_request_review' && 'App (aprovação)' || 'App' }}
+    if: >-
+      github.event_name != 'pull_request_review' ||
+      (github.event.review.state == 'approved' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Instalar pelo lockfile
+        id: instalar
+        run: npm ci
+
+      # Cada checagem roda mesmo se a anterior falhar, para a PR mostrar todos os problemas de uma vez
+      - name: Testes
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npm test
+
+      - name: TypeScript
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        working-directory: .
+        run: |
+          # Gera os tipos das rotas, como o expo start faz em cada máquina; sem eles o tsc aceita rota que não existe
+          (cd mobile && npx expo customize tsconfig.json)
+          # O expo customize sai com 0 mesmo quando não gera nada; sem os tipos, o tsc ficaria verde à toa
+          test -f mobile/.expo/types/router.d.ts || { echo "::error::Os tipos das rotas não foram gerados"; exit 1; }
+          # Roda da raiz para o erro apontar o arquivo certo na PR
+          mobile/node_modules/.bin/tsc -p mobile --noEmit
+
+      # Escopo do expo lint: a pasta src. Aviso aparece, mas só erro reprova.
+      - name: Lint
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npm run lint
+
+      # Só o bundle JavaScript, sem EAS nem conta Expo: o APK nativo não é gerado aqui
+      - name: Bundle Android
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/bundle-android"
+
+      - name: Bundle web
+        if: ${{ !cancelled() && steps.instalar.outcome == 'success' }}
+        run: npx expo export --platform web --output-dir "$RUNNER_TEMP/bundle-web"
+
   process-pr:
+    # O merge só acontece se as checagens passarem nesta mesma rodada
+    needs: [backend, mobile]
     # Só aprovações de quem é dono ou colaborador do repositório disparam o merge.
     # Como o repositório é público, qualquer conta do GitHub consegue aprovar uma PR.
     if: >-
       github.event.review.state == 'approved' &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,6 +159,9 @@ jobs:
       # como variável de ambiente, e não interpolado direto no código
       HEAD_REF: ${{ github.event.pull_request.head.ref }}
       BASE_REF: ${{ github.event.pull_request.base.ref }}
+      # O commit que as checagens testaram. Se alguém der push enquanto elas rodam,
+      # o gh pr merge recusa, em vez de levar código que não foi testado.
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
     steps:
       - name: Verificar tipo da branch
@@ -134,6 +266,7 @@ jobs:
           # Fazer merge da PR para dev e apagar a branch
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --delete-branch \
             --subject "feat: merge $feature_name into dev" \
             --body "Merge automático da feature $feature_name para dev"
@@ -145,6 +278,7 @@ jobs:
           # Fazer merge da PR para dev e apagar a branch
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --delete-branch \
             --subject "fix: merge $bugfix_name into dev" \
             --body "Merge automático do bugfix $bugfix_name para dev"
@@ -155,10 +289,10 @@ jobs:
           echo "Processando branch: $HEAD_REF"
           if [[ "$HEAD_REF" == "main" || "$HEAD_REF" == "dev" ]]; then
             # main e dev são permanentes: só faz o merge, sem apagar
-            gh pr merge "$PR_NUMBER" --merge
+            gh pr merge "$PR_NUMBER" --merge --match-head-commit "$HEAD_SHA"
           else
             # Fazer merge da PR na base e apagar a branch
-            gh pr merge "$PR_NUMBER" --merge --delete-branch
+            gh pr merge "$PR_NUMBER" --merge --match-head-commit "$HEAD_SHA" --delete-branch
           fi
 
       - name: Processar release
@@ -169,6 +303,7 @@ jobs:
           # Fazer merge da PR para main
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --subject "release: v$version" \
             --body "Release v$version"
 
@@ -200,6 +335,7 @@ jobs:
           # Fazer merge da PR para main
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --subject "hotfix: v$version" \
             --body "Hotfix v$version"
 
