@@ -199,9 +199,9 @@ qualquer nível da conversa, numa janela deslizante. No backend, `COMENTARIOS_LI
 pelo login, inclusive as que dão erro e os reenvios com a mesma `Idempotency-Key`; as
 recusadas com 429 não contam nem aumentam a espera. Passou do limite, o backend responde 429
 com o header `Retry-After` (em segundos, exposto também para o app web) e uma mensagem
-dizendo em quanto tempo tentar de novo. O app deve manter o rascunho, mostrar esse tempo e não
-reenviar sozinho; hoje a tela mantém o rascunho e não reenvia, mas ainda mostra a mensagem
-genérica de falha. Criar e editar recusam com 413 o corpo acima de 32 KB, medido pelo
+dizendo em quanto tempo tentar de novo. O app mantém o rascunho, mostra essa mensagem
+(`classificarFalhaComentario` devolve `'limite'`) e não reenvia sozinho.
+Criar e editar recusam com 413 o corpo acima de 32 KB, medido pelo
 `Content-Length` ou, sem ele, pelo conteúdo lido; o servidor lê no máximo 1 MB por requisição.
 Campo fora do contrato dá 400: criar aceita `texto` e `paiId`; editar aceita `texto` e
 `versao`. A contagem fica na memória de cada instância do

@@ -136,6 +136,21 @@ test('distingue validação, sessão, permissão, removido, conflito, rede e ser
   assert.equal(h.comentarios.classificarFalhaComentario(invalida), 'validacao');
 });
 
+test('passou do limite de envios: mostra em quanto tempo tentar de novo e mantém a sessão', async () => {
+  const h = await logado();
+  h.fetch = async () =>
+    json(
+      { error: 'Você enviou muitos comentários em pouco tempo. Tente de novo em 42 segundos.' },
+      429,
+    );
+
+  const falha = await h.comentarios.responder(3, 7, 'Oi').catch((erro) => erro);
+
+  assert.equal(h.comentarios.classificarFalhaComentario(falha), 'limite');
+  assert.match(h.comentarios.mensagemDeFalhaComentario(falha), /Tente de novo em 42 segundos\.$/);
+  assert.equal(await h.session.getAuth().then((atual) => atual?.token), session.token);
+});
+
 test('sessão expirada derruba a sessão salva, como nas outras rotas', async () => {
   const h = await logado();
   h.fetch = async () => json({ error: 'Token inválido ou expirado' }, 401);
