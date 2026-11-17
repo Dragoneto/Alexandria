@@ -133,12 +133,15 @@ jobs:
         run: npx expo export --platform web --output-dir "$RUNNER_TEMP/bundle-web"
 
   process-pr:
+    # O merge só acontece se as checagens passarem nesta mesma rodada
+    needs: [backend, mobile]
     # Só aprovações de quem é dono ou colaborador do repositório disparam o merge.
     # Como o repositório é público, qualquer conta do GitHub consegue aprovar uma PR.
     if: >-
       github.event.review.state == 'approved' &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
       pull-requests: write
@@ -151,6 +154,9 @@ jobs:
       # como variável de ambiente, e não interpolado direto no código
       HEAD_REF: ${{ github.event.pull_request.head.ref }}
       BASE_REF: ${{ github.event.pull_request.base.ref }}
+      # O commit que as checagens testaram. Se alguém der push enquanto elas rodam,
+      # o gh pr merge recusa, em vez de levar código que não foi testado.
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
     steps:
       - name: Verificar tipo da branch
@@ -255,6 +261,7 @@ jobs:
           # Fazer merge da PR para dev e apagar a branch
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --delete-branch \
             --subject "feat: merge $feature_name into dev" \
             --body "Merge automático da feature $feature_name para dev"
@@ -266,6 +273,7 @@ jobs:
           # Fazer merge da PR para dev e apagar a branch
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --delete-branch \
             --subject "fix: merge $bugfix_name into dev" \
             --body "Merge automático do bugfix $bugfix_name para dev"
@@ -276,10 +284,10 @@ jobs:
           echo "Processando branch: $HEAD_REF"
           if [[ "$HEAD_REF" == "main" || "$HEAD_REF" == "dev" ]]; then
             # main e dev são permanentes: só faz o merge, sem apagar
-            gh pr merge "$PR_NUMBER" --merge
+            gh pr merge "$PR_NUMBER" --merge --match-head-commit "$HEAD_SHA"
           else
             # Fazer merge da PR na base e apagar a branch
-            gh pr merge "$PR_NUMBER" --merge --delete-branch
+            gh pr merge "$PR_NUMBER" --merge --match-head-commit "$HEAD_SHA" --delete-branch
           fi
 
       - name: Processar release
@@ -290,6 +298,7 @@ jobs:
           # Fazer merge da PR para main
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --subject "release: v$version" \
             --body "Release v$version"
 
@@ -321,6 +330,7 @@ jobs:
           # Fazer merge da PR para main
           gh pr merge "$PR_NUMBER" \
             --merge \
+            --match-head-commit "$HEAD_SHA" \
             --subject "hotfix: v$version" \
             --body "Hotfix v$version"
 
