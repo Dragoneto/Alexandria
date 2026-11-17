@@ -18,13 +18,13 @@ As regras do merge automático por nome de branch (`feature/`, `bugfix/`, `relea
 
 ## O que cada job confere
 
-**Backend** (cerca de 1 minuto):
+**Backend** (menos de 1 minuto):
 
 - `npm ci`, que instala exatamente o que está no `package-lock.json`;
 - `npm test` com um PostgreSQL 18 descartável, que só existe durante o job, no banco `alexandria_test`. Os testes rodam no JSON local e no PostgreSQL.
 - `EXIGIR_POSTGRES_DE_TESTE=true`: se alguém apagar ou renomear o `TEST_DATABASE_URL`, a suíte reprova (o `conversas-postgres` falha), em vez de ficar verde com o PostgreSQL pulado. Se o banco não subir, o job já falha antes dos testes.
 
-**App** (cerca de 3 minutos):
+**App** (cerca de 2 minutos):
 
 1. `npm ci`;
 2. testes (`npm test`);
@@ -99,7 +99,7 @@ Situação registrada em 15/11/2026, na dev `a7efb06`:
   - desmarcar "Require branches to be up to date before merging". Ligado, toda PR atrás da dev fica BEHIND, e o merge automático falha;
   - liberar o GitHub Actions na lista de bypass da regra. Sem isso, o push que sincroniza a dev depois de uma release ou de um hotfix é recusado, porque esse commit não tem checks.
 - **PR com conflito não roda checagens:** o GitHub não dispara o workflow nesse caso. Se uma PR ficou sem checks, veja primeiro se há conflito com a base: a dev, ou a main numa PR de release. Numa PR da dev para a main, se aparecer "Approve workflows to run", alguém com permissão de escrita aprova a rodada.
-- **A aprovação demora uns 3 a 4 minutos para virar merge**, enquanto as checagens rodam de novo.
+- **A aprovação demora uns 2 minutos para virar merge**, enquanto as checagens rodam de novo.
   - Se elas falharem, não há merge: corrija, dê push e peça uma nova aprovação.
   - Nesse caso, as mensagens de base errada e de conflito do job de merge não aparecem.
 - **Push depois da aprovação:** o merge é recusado, porque o commit não é o que foi testado. Peça uma nova aprovação.
