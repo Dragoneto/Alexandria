@@ -118,6 +118,8 @@ jobs:
         run: |
           # Gera os tipos das rotas, como o expo start faz em cada máquina; sem eles o tsc aceita rota que não existe
           (cd mobile && npx expo customize tsconfig.json)
+          # O expo customize sai com 0 mesmo quando não gera nada; sem os tipos, o tsc ficaria verde à toa
+          test -f mobile/.expo/types/router.d.ts || { echo "::error::Os tipos das rotas não foram gerados"; exit 1; }
           # Roda da raiz para o erro apontar o arquivo certo na PR
           mobile/node_modules/.bin/tsc -p mobile --noEmit
 
