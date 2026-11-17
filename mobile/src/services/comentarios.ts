@@ -27,7 +27,7 @@ export const LIMITE_COMENTARIOS = 20;
 export const LIMITE_RESPOSTAS = 5;
 
 export type FalhaComentario =
-  'validacao' | 'sessao' | 'permissao' | 'removido' | 'conflito' | 'rede' | 'servidor';
+  'validacao' | 'sessao' | 'permissao' | 'removido' | 'conflito' | 'limite' | 'rede' | 'servidor';
 
 export function comentarioFrom(valor: unknown): Comentario {
   const dados = (valor ?? {}) as Partial<Comentario>;
@@ -171,6 +171,8 @@ export function classificarFalhaComentario(falha: unknown): FalhaComentario {
   // O 409 de versão antiga vem com errors.versao; os outros 409 são de comentário removido
   if (falha.status === 409 && falha.fieldErrors?.versao) return 'conflito';
   if (falha.status === 404 || falha.status === 409) return 'removido';
+  // A conta passou do limite de envios; a mensagem do backend diz em quanto tempo tentar de novo
+  if (falha.status === 429) return 'limite';
   if (falha.kind === 'validation') return 'validacao';
   if (falha.kind === 'network' || falha.kind === 'timeout') return 'rede';
   return 'servidor';
@@ -279,6 +281,10 @@ export function mensagemDeFalhaComentario(falha: unknown): string {
       return 'Esse comentário foi removido. A conversa foi atualizada.';
     case 'conflito':
       return 'Esse comentário mudou em outra sessão. A conversa mostra a versão atual e o seu texto continua aqui: salve de novo para substituí-la.';
+    case 'limite':
+      return falha instanceof ApiError
+        ? falha.message
+        : 'Você enviou muitos comentários em pouco tempo. Espere um pouco e tente de novo.';
     case 'rede':
       return 'Sem conexão com o servidor. Seu texto continua aqui; tente de novo.';
     default:
