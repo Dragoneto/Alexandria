@@ -24,6 +24,9 @@ editar código:
 O link do backend publicado fica em `.env.production`, sem `/api` no final. Enquanto ele
 estiver vazio, `npm run start:prod` avisa e não sobe o app.
 
+Para gerar uma versão e saber qual versão é cada build, veja o
+[guia de build e publicação](docs/build-e-publicacao.md).
+
 Precisa de um endereço só seu, como o IP do computador para abrir no celular?
 Copie `.env.example` para `.env.local` e ajuste a URL. Esse arquivo vence os
 versionados, não entra no git e não interfere no `npm run start:prod`.
