@@ -1,19 +1,79 @@
 name: GitHub CI
 
+# Roda as checagens de regressão em cada PR e em cada push na dev.
 # Faz o merge automático de PRs aprovadas, de acordo com o nome da branch:
 #   feature/<nome> e bugfix/<nome> -> dev  (a branch é apagada depois do merge)
 #   release/X.Y.Z e hotfix/X.Y.Z   -> main (cria tag e release, sincroniza a dev e apaga a branch)
 #   qualquer outra branch          -> base da PR (a branch é apagada, exceto main e dev)
 
 on:
+  pull_request:
+  # Merges feitos à mão e pushes direto na dev não passam pela aprovação: as checagens rodam depois
+  push:
+    branches: [dev]
   pull_request_review:
     types: [submitted]
 
+# As checagens só leem o repositório. Só o job do merge pode escrever.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
+  backend:
+    name: Backend
+    # Na aprovação, as checagens rodam de novo sobre o código que vai entrar.
+    # Aprovação de quem não é do time não dispara nada.
+    if: >-
+      github.event_name != 'pull_request_review' ||
+      (github.event.review.state == 'approved' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # PostgreSQL descartável, que só existe durante o job: nunca um segredo nem o banco publicado
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: senhadeteste
+          POSTGRES_DB: alexandria_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U postgres -d alexandria_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:senhadeteste@127.0.0.1:5432/alexandria_test
+      # Sem o banco, os testes de PostgreSQL falham em vez de aparecer como skipped
+      EXIGIR_POSTGRES_DE_TESTE: 'true'
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Configurar Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Instalar pelo lockfile
+        run: npm ci
+
+      - name: Testes (JSON local e PostgreSQL)
+        run: npm test
+
   process-pr:
     # Só aprovações de quem é dono ou colaborador do repositório disparam o merge.
     # Como o repositório é público, qualquer conta do GitHub consegue aprovar uma PR.
@@ -21,6 +81,9 @@ jobs:
       github.event.review.state == 'approved' &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
