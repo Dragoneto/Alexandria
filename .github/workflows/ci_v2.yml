@@ -21,9 +21,11 @@ permissions:
 
 jobs:
   backend:
-    name: Backend
     # Na aprovação, as checagens rodam de novo sobre o código que vai entrar.
-    # Aprovação de quem não é do time não dispara nada.
+    # Qualquer outra revisão (comentário, pedido de mudança, aprovação de fora do time) cria uma
+    # rodada com o job pulado, e o GitHub conta job pulado como sucesso. Por isso a rodada da
+    # revisão tem outro nome: "Backend" e "App" só vêm de PR e de push, e podem virar checks obrigatórios.
+    name: ${{ github.event_name == 'pull_request_review' && 'Backend (aprovação)' || 'Backend' }}
     if: >-
       github.event_name != 'pull_request_review' ||
       (github.event.review.state == 'approved' &&
@@ -76,7 +78,7 @@ jobs:
         run: npm test
 
   mobile:
-    name: App
+    name: ${{ github.event_name == 'pull_request_review' && 'App (aprovação)' || 'App' }}
     if: >-
       github.event_name != 'pull_request_review' ||
       (github.event.review.state == 'approved' &&
