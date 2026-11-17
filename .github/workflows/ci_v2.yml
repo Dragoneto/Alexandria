@@ -1,6 +1,7 @@
 name: GitHub CI
 
-# Roda as checagens de regressão em cada PR e em cada push na dev.
+# Roda as checagens de regressão em cada PR e em cada push na dev (detalhes em
+# .github/workflows/README.md).
 # Faz o merge automático de PRs aprovadas, de acordo com o nome da branch:
 #   feature/<nome> e bugfix/<nome> -> dev  (a branch é apagada depois do merge)
 #   release/X.Y.Z e hotfix/X.Y.Z   -> main (cria tag e release, sincroniza a dev e apaga a branch)
