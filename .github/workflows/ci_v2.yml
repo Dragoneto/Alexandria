@@ -51,7 +51,7 @@ jobs:
 
     env:
       TEST_DATABASE_URL: postgresql://postgres:senhadeteste@127.0.0.1:5432/alexandria_test
-      # Sem o banco, os testes de PostgreSQL falham em vez de aparecer como skipped
+      # Sem TEST_DATABASE_URL, a suíte falha em vez de ficar verde com o PostgreSQL pulado
       EXIGIR_POSTGRES_DE_TESTE: 'true'
 
     defaults:
