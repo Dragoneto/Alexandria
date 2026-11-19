@@ -2,15 +2,13 @@
 
 Versão mobile do Alexandria — uma biblioteca pessoal para descobrir, organizar e lembrar livros.
 
-Construído com Expo (SDK 57) e React Native.
+Construído com Expo (SDK 58) e React Native.
 
 ## Preparar o ambiente
 
-Execute os comandos dentro de `mobile/`:
-
-```sh
-npm ci
-```
+Para instalar, configurar o endereço da API e rodar o app com o backend local, siga o
+[guia de configuração e execução local](../README.md). Lá também estão os problemas
+comuns, como API fora do ar, URL errada e o erro em `expo/tsconfig.base`.
 
 O app lê `EXPO_PUBLIC_API_URL` em um só lugar, `src/constants/env.ts`, e o
 endereço vem de arquivos de ambiente versionados. Trocar de backend não exige
@@ -27,19 +25,8 @@ estiver vazio, `npm run start:prod` avisa e não sobe o app.
 Para gerar uma versão e saber qual versão é cada build, veja o
 [guia de build e publicação](docs/build-e-publicacao.md).
 
-Precisa de um endereço só seu, como o IP do computador para abrir no celular?
-Copie `.env.example` para `.env.local` e ajuste a URL. Esse arquivo vence os
-versionados, não entra no git e não interfere no `npm run start:prod`.
-
-| Ambiente | Backend local |
-| --- | --- |
-| Navegador ou simulador iOS | `http://localhost:3000` |
-| Emulador Android | `http://10.0.2.2:3000` |
-| Celular físico | `http://IP-DO-COMPUTADOR:3000` |
-
-`EXPO_PUBLIC_API_TIMEOUT` configura o limite de espera, em milissegundos; o padrão
-é 15000. Depois de mudar qualquer variável basta reiniciar o Expo: o cache do
-Metro não guarda esses valores.
+Para usar outro endereço, como o IP do computador no celular, crie um `.env.local`;
+os endereços de cada ambiente estão no [guia](../README.md#o-endereço-da-api).
 
 Não há fallback de URL nem sessão de demonstração. A busca de livros usa o
 backend Alexandria, que consulta a API pública da Open Library.
@@ -86,9 +73,8 @@ com sufixo `:fx` usam `https://api-free.deepl.com`; outras chaves usam
 
 ## Backend e contratos
 
-Em `backend/`, instale as dependências com `npm ci`, copie `.env.example` para
-`.env` e configure um PostgreSQL local e um `JWT_SECRET` próprio. Execute o SQL
-de `src/database/init.sql` no banco de desenvolvimento antes de `npm start`.
+Para subir o backend local, com arquivos JSON ou com PostgreSQL, veja o
+[guia de configuração e execução local](../README.md#subir-o-backend).
 
 Rotas, corpos, respostas e erros da API estão na
 [documentação da API](../backend/docs/api.md). Mudança de contrato é feita lá, no
@@ -99,13 +85,12 @@ não abre sessão no app: mesmo com o token na resposta, o usuário confirma o p
 faz login. Todos os detalhes HTTP ficam em `src/services/api.ts`, incluindo timeout,
 JSON, autenticação e a leitura dos [erros](../backend/docs/api.md#erros).
 
-A recuperação de senha responde sempre a mesma mensagem, para não revelar quem
-tem conta. Como ainda não há envio de e-mail, fora de produção o backend devolve
-`resetToken` e `resetUrl` na resposta e registra o link no próprio log. Esse link
-abre `alexandriamobile://redefinir-senha?token=...` no aparelho e
-`/redefinir-senha?token=...` no navegador. O token vale 30 minutos, serve uma vez
-só e é guardado com hash. O `mock-api/` reproduz as duas rotas para mexer no app
-sem subir o backend (`npm run mock-api`).
+A recuperação de senha é por código de 6 dígitos enviado por e-mail. Em Esqueci a
+senha, a pessoa informa o e-mail; na tela seguinte, digita o código e a nova senha.
+O backend responde sempre a mesma mensagem, para não revelar quem tem conta. No
+desenvolvimento, sem e-mail configurado, `RESET_CODE_DEBUG=true` no `backend/.env`
+mostra o código no terminal do backend. O `mock-api/` reproduz as duas rotas para
+mexer no app sem subir o backend (`npm run mock-api`).
 
 Comentários nas avaliações ficam em `src/services/comentarios.ts`; rotas, campos e
 erros estão em [Comentários](../backend/docs/api.md#comentários), na documentação da
@@ -207,8 +192,9 @@ QR code para baixar o APK, que também ficam em expo.dev, na aba Builds do proje
   O backend atual não oferece revogação de JWT no servidor.
 - Alterar a senha não encerra nenhuma sessão, nem neste aparelho nem em outros
   (ver [Alterar senha](#alterar-senha)).
-- Edição de perfil ainda não existe no backend. O acesso à antiga rota vazia foi
-  removido; a tela de perfil nesta etapa apenas consulta dados e permite sair.
+- O Perfil mostra os dados da conta e a foto, que pode ser trocada ou removida ali
+  mesmo. Editar perfil abre `src/app/editar_perfil.tsx`, que muda nome e e-mail;
+  alterar a senha e sair da conta ficam em Configurações.
 
 ## Tema
 
@@ -257,21 +243,6 @@ Para validar de ponta a ponta em um ambiente de desenvolvimento:
    não permite acessar as abas sem nova autenticação.
 6. Verificar indisponibilidade de rede e token expirado; tentar novamente após
    restaurar a conexão.
-7. Pedir o link em Esqueci a senha, copiar o token do log do backend, abrir
-   `/redefinir-senha?token=...`, criar a nova senha e entrar com ela. Conferir
-   que o mesmo link não funciona uma segunda vez. Só considerar o fluxo completo
-   quando houver entrega real de e-mail.
-
-## Erro em `expo/tsconfig.base`
-
-Esse arquivo vem do pacote `expo` instalado em `mobile/node_modules`. Instale
-as dependências em `mobile/` antes de executar o TypeScript. Para diagnóstico:
-
-```sh
-node -p "require.resolve('expo/tsconfig.base')"
-npm run typecheck
-```
-
-Se a linha de comando passar e o editor continuar indicando erro, confira qual
-pasta está aberta e qual instalação de TypeScript o editor está usando. Não
-copie o arquivo-base para o repositório nem remova o `extends` para ocultar o aviso.
+7. Pedir o código em Esqueci a senha, pegar o código de 6 dígitos no e-mail (ou,
+   com `RESET_CODE_DEBUG=true`, no terminal do backend), criar a nova senha e entrar
+   com ela. Conferir que o mesmo código não funciona uma segunda vez.
