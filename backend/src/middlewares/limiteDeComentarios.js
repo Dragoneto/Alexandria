@@ -6,7 +6,11 @@ function inteiroPositivo(valor, padrao) {
   return Number.isInteger(numero) && numero > 0 ? numero : padrao;
 }
 
-function criarLimite({ maximo, janelaMs }) {
+function mensagemDeComentarios(segundos) {
+  return `Você enviou muitos comentários em pouco tempo. Tente de novo em ${segundos} ${segundos === 1 ? 'segundo' : 'segundos'}.`;
+}
+
+function criarLimite({ maximo, janelaMs, chave = (req) => req.user.id, mensagem = mensagemDeComentarios }) {
   const envios = new Map(); // id da conta -> horários dos envios aceitos dentro da janela
   let proximaLimpeza = 0;
 
@@ -19,18 +23,18 @@ function criarLimite({ maximo, janelaMs }) {
     }
 
     // Conferir e contar sem await no meio: envios simultâneos da mesma conta não passam juntos do limite
-    const recentes = (envios.get(req.user.id) ?? []).filter((horario) => horario > agora - janelaMs);
+    const conta = chave(req);
+    if (!conta) return next();
+    const recentes = (envios.get(conta) ?? []).filter((horario) => horario > agora - janelaMs);
     if (recentes.length >= maximo) {
-      envios.set(req.user.id, recentes);
+      envios.set(conta, recentes);
       const segundos = Math.ceil((recentes[0] + janelaMs - agora) / 1000);
       res.set('Retry-After', String(segundos));
       res.set('Access-Control-Expose-Headers', 'Retry-After'); // sem isso o app web não consegue ler o header
-      return res.status(429).json({
-        error: `Você enviou muitos comentários em pouco tempo. Tente de novo em ${segundos} ${segundos === 1 ? 'segundo' : 'segundos'}.`,
-      });
+      return res.status(429).json({ error: mensagem(segundos) });
     }
     recentes.push(agora);
-    envios.set(req.user.id, recentes);
+    envios.set(conta, recentes);
     return next();
   };
 }
