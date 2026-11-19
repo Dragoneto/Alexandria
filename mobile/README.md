@@ -90,19 +90,14 @@ Em `backend/`, instale as dependências com `npm ci`, copie `.env.example` para
 `.env` e configure um PostgreSQL local e um `JWT_SECRET` próprio. Execute o SQL
 de `src/database/init.sql` no banco de desenvolvimento antes de `npm start`.
 
-| Serviço | Endpoint | Contrato |
-| --- | --- | --- |
-| `registerUser()` | `POST /api/auth/register` | Envia `nome`, `email`, `senha`; recebe `{ user }`. |
-| `loginUser()` | `POST /api/auth/login` | Envia `email`, `senha`; recebe `{ token, user }`. |
-| `getProfile()` | `GET /api/auth/profile` | Envia Bearer token; recebe `{ user }`. |
-| `forgotPassword()` | `POST /api/auth/forgot-password` | Envia `email`; espera `{ message }`. |
-| `resetPassword()` | `POST /api/auth/reset-password` | Envia `token`, `senha`; espera `{ message }`. |
-| `changePassword()` | `PUT /api/auth/password` | Envia Bearer token, `senhaAtual`, `novaSenha`; espera `{ message }`. |
+Rotas, corpos, respostas e erros da API estão na
+[documentação da API](../backend/docs/api.md). Mudança de contrato é feita lá, no
+mesmo PR da mudança.
 
-O serviço converte `user.nome` em `name` para as telas. Cadastro não autentica:
-o usuário confirma o popup e faz login. Todos os detalhes HTTP ficam em
-`src/services/api.ts`, incluindo timeout, JSON, autenticação e erros nos formatos
-`{ error }` ou `{ message, errors }`.
+O serviço de autenticação converte `user.nome` em `name` para as telas. O cadastro
+não abre sessão no app: mesmo com o token na resposta, o usuário confirma o popup e
+faz login. Todos os detalhes HTTP ficam em `src/services/api.ts`, incluindo timeout,
+JSON, autenticação e a leitura dos [erros](../backend/docs/api.md#erros).
 
 A recuperação de senha responde sempre a mesma mensagem, para não revelar quem
 tem conta. Como ainda não há envio de e-mail, fora de produção o backend devolve
@@ -112,35 +107,11 @@ abre `alexandriamobile://redefinir-senha?token=...` no aparelho e
 só e é guardado com hash. O `mock-api/` reproduz as duas rotas para mexer no app
 sem subir o backend (`npm run mock-api`).
 
-Comentários nas avaliações (`src/services/comentarios.ts`), todos com Bearer token:
-
-| Serviço | Endpoint | Contrato |
-| --- | --- | --- |
-| `listarComentarios()` | `GET /api/avaliacoes/:id/comentarios` | Recebe `{ comentarios }` em ordem de criação, removidos incluídos. |
-| `listarPaginaComentarios()` | `GET /api/avaliacoes/:id/comentarios?limite&cursor&paiId` | Sem `paiId` traz comentários principais; com `paiId`, as respostas diretas dele. Limite padrão 20 e máximo 50. Recebe `{ comentarios, pai, proximoCursor, temMais }`, e cada comentário traz o total de `respostas`. |
-| `comentar()`, `responder()` | `POST /api/avaliacoes/:id/comentarios` | Envia `texto` e, na resposta, `paiId`; recebe 201 `{ comentario }`. O último parâmetro, opcional, vira o header `Idempotency-Key`. |
-| `editarComentario()` | `PUT /api/comentarios/:id` | Envia `texto` e a `versao` que a pessoa estava vendo; recebe `{ comentario }` com a versão nova. Só o autor edita, e o pai e a avaliação não mudam. |
-| `excluirComentario()` | `DELETE /api/comentarios/:id` | Soft delete: recebe `{ comentario }` com `removido: true` e `texto: null`; as respostas continuam. |
-
-Cada comentário vem como `{ id, avaliacaoId, paiId, autor: { id, nome }, texto,
-removido, criadoEm, atualizadoEm, versao, podeEditar, podeExcluir }`. O autor sai do
-token (o corpo não escolhe autor nem avaliação) e nunca leva e-mail nem foto.
-O texto é obrigatório, com até 2.000 caracteres, e o `paiId` precisa ser de um
-comentário da mesma avaliação. Erros: 400 validação (`{ error, errors: { texto } }`),
-401 sessão, 403 comentário de outra pessoa, 404 avaliação ou comentário inexistente
-e 409 comentário removido (editar, excluir de novo ou responder).
-
-Para o reenvio não duplicar a mensagem, o envio de comentário ou resposta aceita o
-header `Idempotency-Key`: uma key nova para cada mensagem (16 a 100 caracteres entre
-letras sem acento, números, `-` e `_`; um UUID serve), repetida a cada nova tentativa
-da mesma mensagem. Se a avaliação, o `paiId` ou o texto mudar antes de tentar de novo,
-é outra mensagem e leva outra key. A mesma key com a mesma mensagem devolve 201 com o
-comentário já gravado, como ele está agora, mesmo que o pai tenha sido removido depois.
-Com outra mensagem, devolve 409, o que só acontece se o app reaproveitar a key. Key
-fora do formato dá 400. A key vale só para quem enviou e é esquecida depois de 24 horas.
-Sem o header, cada envio grava um comentário novo. `comentar()` e `responder()`
-recebem a key como último parâmetro; `novaChaveDeEnvio()` gera uma no formato aceito.
-Para isso `apiRequest` aceita `headers` extras, que não substituem os de
+Comentários nas avaliações ficam em `src/services/comentarios.ts`; rotas, campos e
+erros estão em [Comentários](../backend/docs/api.md#comentários), na documentação da
+API. Para o reenvio não duplicar a mensagem, `comentar()` e `responder()` recebem a
+`Idempotency-Key` como último parâmetro, e `novaChaveDeEnvio()` gera uma no formato
+aceito. Para isso `apiRequest` aceita `headers` extras, que não substituem os de
 autenticação.
 
 ### Conversa da avaliação
@@ -158,26 +129,10 @@ da conta, porque a rota está entre as protegidas.
 
 ### Avaliações e biblioteca
 
-Avaliações (`src/services/avaliacoes.ts`), todas com Bearer token:
-
-| Serviço | Endpoint | Contrato |
-| --- | --- | --- |
-| `criarAvaliacao()` | `POST /api/avaliacoes` | Envia `livroId`, `nota` (1 a 5) e `resenha` (10 a 5.000 caracteres); recebe 201 `{ avaliacao }`. 409 se a pessoa já avaliou o livro, com o `avaliacaoId` existente. |
-| `listarAvaliacoesDoLivro()` | `GET /api/avaliacoes/livro/:livroId?page=` | Recebe `{ avaliacoes, total, media, page, hasMore }`, dez por página; cada item traz `usuarioNome` e `minha`. |
-| `buscarAvaliacao()` | `GET /api/avaliacoes/:id` | Recebe `{ avaliacao }`; qualquer pessoa logada lê. |
-| `atualizarAvaliacao()` | `PUT /api/avaliacoes/:id` | Envia `nota` e `resenha`; recebe `{ avaliacao }`. Só o autor altera (403). |
-| `listarMinhasAvaliacoes()` | `GET /api/avaliacoes/minhas` | Recebe `{ avaliacoes }` da pessoa logada. |
-| `excluirAvaliacao()` | `DELETE /api/avaliacoes/:id` | Só o autor exclui; 404 se já não existe. |
-
-Biblioteca (`src/services/biblioteca.ts`), todas com Bearer token. Os status são
-`QUERO_LER`, `LENDO`, `LIDO` e `ABANDONADO`:
-
-| Serviço | Endpoint | Contrato |
-| --- | --- | --- |
-| `listarBiblioteca()` | `GET /api/biblioteca?status=` | Recebe `{ itens }`; o filtro por status é opcional. |
-| `adicionarNaBiblioteca()` | `POST /api/biblioteca` | Envia `livroId` e `status` (padrão `QUERO_LER`); recebe 201 `{ item }`. 409 se o livro já está na biblioteca. |
-| `atualizarItemBiblioteca()` | `PATCH /api/biblioteca/:id` | Envia `status` e/ou `favorito`; recebe `{ item }`. 400 sem nenhum dos dois. |
-| `removerDaBiblioteca()` | `DELETE /api/biblioteca/:id` | Remove o item; 404 se já tinha saído. |
+Avaliações ficam em `src/services/avaliacoes.ts` e a biblioteca em
+`src/services/biblioteca.ts`. Rotas, campos, limites e erros estão em
+[Avaliações](../backend/docs/api.md#avaliações) e
+[Biblioteca](../backend/docs/api.md#biblioteca), na documentação da API.
 
 Na aba Biblioteca, a busca por título ou autor (sem diferenciar acento e
 maiúscula), os filtros de status e o de favoritos são feitos no app, sobre a lista
@@ -185,47 +140,24 @@ já carregada (`filtrarBiblioteca()`). Tocar no livro abre o detalhe, onde o sta
 também pode ser consultado e trocado. Trocas de status atualizam a tela na hora e
 voltam ao valor anterior se o servidor recusar.
 
-Para uma edição antiga não sobrescrever a mais nova, cada comentário tem uma `versao`,
-que começa em 1 e sobe a cada edição. `editarComentario()` manda a versão que a pessoa
-estava vendo. Se o comentário mudou depois, por exemplo em outra sessão do mesmo autor,
-o backend não grava e devolve 409 com `errors.versao` e o `comentario` atual no corpo, e
+`editarComentario()` manda a `versao` que a pessoa estava vendo. Quando o comentário
+mudou depois (o [409 de versão](../backend/docs/api.md#409-de-versão-do-comentário)),
 `classificarFalhaComentario()` devolve `'conflito'`. Na conversa da avaliação, o texto
 digitado fica no campo, a conversa recarrega com a versão atual para a pessoa revisar,
 e o próximo Salvar parte dessa versão; uma atualização da conversa sem conflito não troca
-a versão da edição. Versão faltando ou inválida dá 400. Se o comentário foi removido
-durante a edição, vem o 409 de comentário removido, e a tela volta para comentário novo
-com o rascunho de antes da edição, sem recriar o comentário.
+a versão da edição. Se o comentário foi removido durante a edição, vem o 409 de comentário
+removido, e a tela volta para comentário novo com o rascunho de antes da edição, sem
+recriar o comentário.
 
-Limites contra spam: cada conta cria até 30 comentários ou respostas por minuto, em
-qualquer nível da conversa, numa janela deslizante. No backend, `COMENTARIOS_LIMITE` e
-`COMENTARIOS_JANELA_SEGUNDOS` mudam esses números. Conta toda tentativa de criação que passa
-pelo login, inclusive as que dão erro e os reenvios com a mesma `Idempotency-Key`; as
-recusadas com 429 não contam nem aumentam a espera. Passou do limite, o backend responde 429
-com o header `Retry-After` (em segundos, exposto também para o app web) e uma mensagem
-dizendo em quanto tempo tentar de novo. O app mantém o rascunho, mostra essa mensagem
+No [limite de comentários](../backend/docs/api.md#429-com-retry-after), o 429 com
+`Retry-After`, o app mantém o rascunho, mostra a mensagem do backend
 (`classificarFalhaComentario` devolve `'limite'`) e não reenvia sozinho.
-Criar e editar recusam com 413 o corpo acima de 32 KB, medido pelo
-`Content-Length` ou, sem ele, pelo conteúdo lido; o servidor lê no máximo 1 MB por requisição.
-Campo fora do contrato dá 400: criar aceita `texto` e `paiId`; editar aceita `texto` e
-`versao`. A contagem fica na memória de cada instância do
-backend: com mais de uma instância, cada uma conta separado, e o limite real pode chegar a
-N vezes o configurado. Proteção entre instâncias pediria um armazenamento compartilhado. Os
-erros de comentário vão para o log só com o contexto e a mensagem do erro, nunca com o
-texto, o token ou a senha.
 
 ### Alterar senha
 
-`PUT /api/auth/password` troca a senha de quem está logado, informando a atual. A
-conta vem só da sessão: `id` ou `email` enviados no corpo são ignorados. A nova
-senha segue a mesma regra do cadastro, e só o hash é gravado. `PUT /api/auth/profile`
-nunca altera a senha, mesmo que receba campos com esse nome.
-
-| Status | Quando | Corpo |
-| --- | --- | --- |
-| 200 | Senha trocada | `{ message }` |
-| 400 | Campo ausente, tipo inválido, nova senha fora da regra ou senha atual incorreta | `{ error, errors }`, com `errors.senhaAtual` e/ou `errors.novaSenha` |
-| 401 | Token ausente, inválido ou expirado, ou conta que não existe mais | `{ error }` |
-| 404 | Conta apagada durante a troca | `{ error }` |
+`changePassword()` chama `PUT /api/auth/password`, que troca a senha de quem está
+logado informando a atual. Corpo, respostas e erros estão na
+[documentação da API](../backend/docs/api.md#put-apiauthpassword).
 
 Senha atual incorreta é 400 de propósito: no app, todo 401 apaga a sessão do
 aparelho, e errar a senha não pode deslogar ninguém.
