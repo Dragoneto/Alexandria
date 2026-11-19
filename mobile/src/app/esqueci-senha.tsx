@@ -23,6 +23,7 @@ function messageFor(error: unknown): string {
     }
 
     if (error.kind === 'timeout') return error.message;
+    if (error.status === 429) return error.message;
     if (error.status === 404 || error.status === 501) {
       return 'A recuperação de senha ainda não está disponível. Tente novamente mais tarde.';
     }

@@ -13,12 +13,13 @@ const {
   deletePhoto,
 } = require('../controllers/authController');
 const authMiddleware = require('../middlewares/authMiddleware');
+const limites = require('../middlewares/limitesDeAutenticacao');
 
 // Rotas públicas (não precisa de login)
 router.post('/register', register);  // POST /api/auth/register
-router.post('/login', login);        // POST /api/auth/login
-router.post('/forgot-password', forgotPassword);  // POST /api/auth/forgot-password
-router.post('/reset-password', resetPassword);    // POST /api/auth/reset-password
+router.post('/login', limites.login, login);        // POST /api/auth/login
+router.post('/forgot-password', limites.pedidoDeCodigo, forgotPassword);  // POST /api/auth/forgot-password
+router.post('/reset-password', limites.redefinicao, resetPassword);    // POST /api/auth/reset-password
 router.put('/profile', authMiddleware, updateProfile);  // PUT /api/auth/profile
 
 // Rotas protegidas (precisa de token JWT)
