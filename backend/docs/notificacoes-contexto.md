@@ -1,23 +1,12 @@
 # Notificações e contexto — #174 e #176
 
 Implementação baseada na dev 8ef1e72, incluindo os PRs #185, #187 e #189 de comentários.
-Os contratos abaixo precisam ser revisados pela equipe antes da integração, conforme #160.
+O contrato das rotas fica na [documentação da API](api.md); aqui ficam as decisões de implementação.
 
 ## Notificações (#174)
 
-Todas as rotas exigem Bearer token. O destinatário é sempre o usuário autenticado.
-
-| Método e caminho | Resposta |
-| --- | --- |
-| GET `/api/notificacoes?limit=20&cursor=...` | `{ notificacoes, proximoCursor }` |
-| GET `/api/notificacoes/nao-lidas` | `{ total }` |
-| PATCH `/api/notificacoes/:id/lida` | `{ atualizadas }` |
-| PATCH `/api/notificacoes/lidas` | `{ atualizadas }` |
-
-O limite é de 1 a 50. Cursor ordena por data e UUID, ambos decrescentes.
-Item: `id`, `tipo`, `autor: { id, nome }`, `avaliacaoId`, `comentarioId`, `eventoId`,
-`criadoEm`, `lidaEm` e `alvoDisponivel`. Não contém e-mail, senha ou texto da mensagem.
-Marcar uma como lida é idempotente; item alheio/inexistente retorna 404. Entrada inválida retorna 400.
+Rotas, parâmetros, respostas e erros estão em [Notificações](api.md#notificações), na
+documentação da API.
 
 Comentário avisa o autor da avaliação. Resposta avisa também o autor do pai;
 se forem a mesma pessoa, recebe apenas uma notificação do tipo resposta. Não há autonotificação.
@@ -39,10 +28,9 @@ Sem push, e-mail, WebSocket ou consulta periódica em segundo plano.
 
 ## Contexto (#176)
 
-GET autenticado `/api/avaliacoes/:id/comentarios/:comentarioId/contexto` aceita
-`eventoId` (identidade da notificação) e `apos` (cursor numérico da página seguinte).
-Retorna `avaliacaoId`, `livroId`, `comentarioId`, `alvo`, `ancestrais`, `comentarios`,
-`proximoCursor` e `ancestralAnteriorId`. Usa o formato público de comentário do #167.
+O contrato da rota de contexto está em
+[GET /api/avaliacoes/:id/comentarios/:comentarioId/contexto](api.md#get-apiavaliacoesidcomentarioscomentarioidcontexto),
+na documentação da API.
 
 A primeira página começa no alvo e contém até 20 comentários da avaliação por ID crescente.
 São retornados até 50 ancestrais; se houver mais, `ancestralAnteriorId` permite abrir o contexto anterior.
