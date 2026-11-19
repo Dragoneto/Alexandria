@@ -70,9 +70,10 @@ export function CartaoDestaque({ item, onPress }: CartaoDestaqueProps) {
   const animar = (valor: number) =>
     realce.set(reduzirMovimento ? valor : withTiming(valor, { duration: 160 }));
 
+  const bordaRealcada = withAlpha(item.tint, 0.55);
   const estilo = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(realce.value, [0, 1], [Ink.ink700, Ink.ink600]),
-    borderColor: interpolateColor(realce.value, [0, 1], [Ink.ink500, withAlpha(item.tint, 0.55)]),
+    borderColor: interpolateColor(realce.value, [0, 1], [Ink.ink500, bordaRealcada]),
     transform: [{ translateY: realce.value * -2 }],
   }));
   const seta = useAnimatedStyle(() => ({
